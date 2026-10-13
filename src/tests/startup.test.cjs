@@ -8,7 +8,7 @@ function inlineScripts(html) {
   return [...html.matchAll(/<script(?![^>]*\bsrc=)(?:\s[^>]*)?>([\s\S]*?)<\/script>/gi)].map(match => match[1]);
 }
 function checkStartup(label, scripts) {
-  assert.equal(scripts.length, 7, `${label}: deve carregar catálogos, núcleo, configuração, integrações e aplicação`);
+  assert.equal(scripts.length, 9, `${label}: deve carregar catálogos, núcleo, configuração, integrações e aplicação`);
   const context = vm.createContext({ Uint8Array, ArrayBuffer, DataView, TextEncoder, TextDecoder, Set, Object, Number, URL, URLSearchParams });
   context.globalThis = context;
   context.window = context;
@@ -17,13 +17,17 @@ function checkStartup(label, scripts) {
   vm.runInContext(scripts[2], context, { filename: `${label}/core.js` });
   vm.runInContext(scripts[3], context, { filename: `${label}/tone3000-select.js` });
   vm.runInContext(scripts[4], context, { filename: `${label}/audio-separation.js` });
+  vm.runInContext(scripts[5], context, { filename: `${label}/local-audio.js` });
+  vm.runInContext(scripts[6], context, { filename: `${label}/learning-store.js` });
   assert.ok(context.MK300V73, `${label}: catálogo disponível antes da aplicação`);
   assert.ok(context.MK300V73Parameters, `${label}: parâmetros v73 disponíveis antes da aplicação`);
   assert.ok(context.MK300Core, `${label}: núcleo disponível antes da aplicação`);
   assert.ok(context.AutoPresetAudio, `${label}: integração de áudio disponível antes da aplicação`);
-  vm.runInContext(scripts[5], context, { filename: `${label}/config.js` });
+  assert.ok(context.AutoPresetLocalAudio, `${label}: separação local disponível antes da aplicação`);
+  assert.ok(context.AutoPresetLearning, `${label}: armazenamento de exemplos disponível antes da aplicação`);
+  vm.runInContext(scripts[7], context, { filename: `${label}/config.js` });
   let startupError;
-  try { vm.runInContext(scripts[6], context, { filename: `${label}/app.js` }); } catch (error) { startupError = error; }
+  try { vm.runInContext(scripts[8], context, { filename: `${label}/app.js` }); } catch (error) { startupError = error; }
   assert.ok(startupError, `${label}: aplicação deve avançar até precisar de DOM real`);
   assert.notEqual(startupError.name, 'SyntaxError', `${label}: scripts não podem falhar por declaração global duplicada`);
   assert.doesNotMatch(startupError.message, /already been declared/, `${label}: catálogo não pode colidir com constantes da interface`);
@@ -36,6 +40,8 @@ const modularScripts = [
   fs.readFileSync(path.join(projectRoot, 'core/mk300-preset-handler.js'), 'utf8'),
   fs.readFileSync(path.join(projectRoot, 'integrations/tone3000-select.js'), 'utf8'),
   fs.readFileSync(path.join(projectRoot, 'integrations/audio-separation.js'), 'utf8'),
+  fs.readFileSync(path.join(projectRoot, 'integrations/local-audio.js'), 'utf8'),
+  fs.readFileSync(path.join(projectRoot, 'integrations/learning-store.js'), 'utf8'),
   fs.readFileSync(path.join(projectRoot, 'config.js'), 'utf8'),
   ...inlineScripts(modularHtml)
 ];
