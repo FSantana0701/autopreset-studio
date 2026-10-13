@@ -1,5 +1,5 @@
 ---
-title: AutoPreset Guitar Separation API
+title: AutoPreset Audio and Preset API
 emoji: 🎸
 colorFrom: yellow
 colorTo: gray
@@ -7,9 +7,9 @@ sdk: docker
 app_port: 7860
 ---
 
-# Serviço experimental de separação de guitarra
+# Serviço de áudio e sugestões do AutoPreset
 
-Este serviço recebe um MP3/WAV e um intervalo de até 45 segundos, recorta apenas esse trecho, separa as fontes localmente e devolve `guitar.wav`. O arquivo enviado e os stems temporários são apagados ao final da requisição. O áudio não é encaminhado a um provedor de IA.
+O serviço recebe um MP3/WAV e um intervalo de até 45 segundos, recorta o trecho, separa a guitarra com Demucs e calcula métricas acústicas com librosa. O navegador envia essas métricas e o contexto ao endpoint Claude do próprio serviço. O provedor recebe texto/métricas, não o arquivo de áudio. Os arquivos temporários são removidos no fim da requisição.
 
 ## Execução local
 
@@ -20,36 +20,30 @@ python -m venv .venv
 . .venv/bin/activate
 pip install --extra-index-url https://download.pytorch.org/whl/cpu torch==2.11.0+cpu torchaudio==2.11.0+cpu
 pip install -r requirements.txt
-AUTOPRESET_API_KEY='gere-um-segredo-forte' uvicorn app:app --host 0.0.0.0 --port 8000
+ANTHROPIC_API_KEY='chave-configurada-somente-no-servidor' AUTOPRESET_ALLOWED_ORIGINS='https://fsantana0701.github.io,http://localhost:8000' uvicorn app:app --host 0.0.0.0 --port 8000
 ```
 
-Ou construa a imagem Docker. O primeiro processamento baixa os pesos do modelo.
+O primeiro processamento baixa pesos do modelo. `ANTHROPIC_MODEL`, `DEMUCS_MODEL`, `DEMUCS_DEVICE` e `PORT` podem ser ajustados no ambiente.
 
-```sh
-docker build -t autopreset-audio .
-docker run --rm -p 8000:7860 -e PORT=7860 -e AUTOPRESET_API_KEY='gere-um-segredo-forte' -e AUTOPRESET_ALLOWED_ORIGINS=https://SEU-SITE autopreset-audio
-```
+## API
 
-Endpoint `POST /v1/separate`: multipart com `file`, `start_seconds` e `end_seconds`, além do cabeçalho `Authorization: Bearer ...`; retorna WAV estéreo. `GET /health` informa o serviço. Configure uma `AUTOPRESET_API_KEY` forte antes de iniciar. `DEMUCS_MODEL`, `DEMUCS_DEVICE` e `PORT` podem ser ajustados no ambiente.
+- `GET /health` informa se IA e separador estão ativos.
+- `POST /v1/suggest` recebe `{prompt, system_prompt, schema}` e chama Claude no servidor.
+- `POST /v1/separate` recebe multipart (`file`, `start_seconds`, `end_seconds`) e retorna WAV estéreo. A resposta inclui `X-Audio-Features` codificado em Base64 e `X-Audio-Separator`.
 
-## Estado e limites
-
-É um protótipo de processamento. A variante Demucs `htdemucs_6s` marca guitarra como fonte experimental e pode deixar vazamento de voz, violão ou outros instrumentos. Separar a guitarra não identifica por si só AMP, CAB, pedais nem valores de knobs. A API exige chave de acesso, limita arquivos a 25 MiB e trechos a 45 segundos. Configure HTTPS e monitore o uso.
-
-O serviço é separado do HTML estático do GitHub Pages e não altera o compilador de 448 bytes.
+Não há chave de acesso no navegador. Proteja o `ANTHROPIC_API_KEY` com Secrets do host, configure limites de gasto na conta Anthropic e HTTPS. O serviço impõe limite de 8 requisições por minuto por IP em cada processo. O host também deve ter controles contra abuso e custos inesperados.
 
 ## Publicação no Hugging Face Spaces
 
-Este diretório está preparado como Docker Space. Crie um Space com SDK Docker no seu perfil e configure no painel:
+Crie um Docker Space e configure:
 
-- Secret `AUTOPRESET_API_KEY`: segredo aleatório forte. O servidor exige esse valor no cabeçalho Bearer.
+- Secret `ANTHROPIC_API_KEY`: chave privada da API Anthropic.
 - Variable `AUTOPRESET_ALLOWED_ORIGINS`: `https://fsantana0701.github.io`.
 
-No repositório GitHub `FSantana0701/autopreset-studio`, adicione:
+No GitHub, configure o Secret `HF_TOKEN` com acesso de escrita ao Space e a variável `HF_SPACE_REPO` (`usuario/nome-do-space`). O workflow `.github/workflows/deploy-audio-space.yml` sincroniza esta pasta.
 
-- Secret `HF_TOKEN`: token Hugging Face com permissão de escrita no Space.
-- Variable `HF_SPACE_REPO`: `seu-usuario/seu-space`.
+No arquivo `src/config.js`, informe `window.AUTO_PRESET_API = 'https://SEU-SUBDOMINIO.hf.space';` e gere/publice o HTML autônomo. Esta URL é pública; não inclua nela segredo algum.
 
-Após mesclar a V27 à branch `main`, a ação `.github/workflows/deploy-audio-space.yml` sincronizará `audio-service/` com o Space. O endpoint será `https://SEU-SUBDOMINIO.hf.space`; informe esse endereço e a mesma chave `AUTOPRESET_API_KEY` na página V27. A chave digitada no site não é salva.
+O Space precisa de compute compatível com Docker e Demucs. Pode dormir quando ocioso e demorar para iniciar. A chave Claude não é incluída no plano Claude.ai; o administrador precisa contratar e pagar o uso da API.
 
-Confira a disponibilidade de Docker Spaces, hardware, custos e suspensão por inatividade no painel do Hugging Face antes de ativar o serviço. O primeiro processamento baixa os pesos do modelo. A publicação do site estático não depende desse serviço.
+Confira disponibilidade de Docker Spaces, hardware, custos e suspensão por inatividade no painel do Hugging Face antes de ativar o serviço. O primeiro processamento baixa os pesos do modelo.

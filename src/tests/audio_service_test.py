@@ -3,6 +3,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import patch
 
 from fastapi import HTTPException
@@ -15,9 +16,10 @@ import app as audio_app  # noqa: E402
 
 class AudioServiceTests(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
-        api_key = patch.object(audio_app, "API_KEY", "test-key")
+        api_key = patch.object(audio_app, "ANTHROPIC_API_KEY", "test-key")
         api_key.start()
         self.addCleanup(api_key.stop)
+        audio_app._requests.clear()
 
     def upload(self, filename, data=b"audio"):
         file = tempfile.SpooledTemporaryFile()
@@ -26,11 +28,15 @@ class AudioServiceTests(unittest.IsolatedAsyncioTestCase):
         self.addCleanup(file.close)
         return UploadFile(filename=filename, file=file)
 
-    async def separate(self, file, start, end, authorization="Bearer test-key"):
-        return await audio_app.separate_guitar(file, start, end, authorization)
+    def request(self, origin="http://localhost:8000", ip="127.0.0.1"):
+        return SimpleNamespace(headers={"origin": origin}, client=SimpleNamespace(host=ip))
+
+    async def separate(self, file, start, end):
+        return await audio_app.separate_guitar(self.request(), file, start, end)
 
     async def test_health_reports_local_separator(self):
         self.assertEqual(audio_app.health()["separator"], "htdemucs_6s")
+        self.assertEqual(audio_app.health()["ai_enabled"], "true")
 
     async def test_separates_requested_clip_and_returns_wav(self):
         calls = []
@@ -48,13 +54,16 @@ class AudioServiceTests(unittest.IsolatedAsyncioTestCase):
             stem.write_bytes(b"RIFF" + b"g" * 96)
             return ""
 
-        with patch.object(audio_app, "command_output", side_effect=fake_command):
+        with patch.object(audio_app, "command_output", side_effect=fake_command), patch.object(
+            audio_app, "extract_audio_features", return_value={"median_pitch_hz": 220.0}
+        ):
             response = await self.separate(
                 self.upload("song.mp3", b"mp3-content"), 208, 238
             )
 
         self.assertEqual(response.media_type, "audio/wav")
         self.assertEqual(response.headers["X-Audio-Separator"], "htdemucs_6s")
+        self.assertIn("X-Audio-Features", response.headers)
         self.assertEqual(response.body, b"RIFF" + b"g" * 96)
         self.assertEqual(calls[1][0][calls[1][0].index("-ss") + 1], "208")
         self.assertEqual(calls[2][1], 240)
@@ -86,11 +95,18 @@ class AudioServiceTests(unittest.IsolatedAsyncioTestCase):
             )
         self.assertEqual(raised.exception.status_code, 415)
 
-    async def test_rejects_missing_or_wrong_access_key(self):
-        for authorization in (None, "Bearer wrong"):
-            with self.subTest(authorization=authorization), self.assertRaises(HTTPException) as raised:
-                await self.separate(self.upload("song.wav"), 0, 5, authorization)
-            self.assertEqual(raised.exception.status_code, 401)
+    async def test_rejects_disallowed_origin(self):
+        with self.assertRaises(HTTPException) as raised:
+            audio_app.enforce_public_request(self.request(origin="https://other.example"))
+        self.assertEqual(raised.exception.status_code, 403)
+
+    async def test_applies_per_ip_rate_limit(self):
+        request = self.request()
+        for _ in range(audio_app._RATE_LIMIT):
+            audio_app.enforce_public_request(request)
+        with self.assertRaises(HTTPException) as raised:
+            audio_app.enforce_public_request(request)
+        self.assertEqual(raised.exception.status_code, 429)
 
 
 if __name__ == "__main__":
