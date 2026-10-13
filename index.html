@@ -1474,6 +1474,8 @@ function compilePreset() {
       let value=alias?validInt(alias,spec.min,spec.max,BLOCK_NAMES[block]+' · '+name):(Number.isInteger(parameterValues[key])?parameterValues[key]:sourceParameterValue(block,modelIndex,knob,model));
       if(block===BLOCK.DLY&&knob===0&&preserveSyncedTime)return;
       if(block===BLOCK.DLY&&knob===syncKnobIndex&&clearDelaySync)value=0;
+      const rawSourceValue=source[0x36+block]===modelIndex?new DataView(source.buffer,source.byteOffset,source.byteLength).getInt16(knobOffset(block,knob),true):null;
+      if(rawSourceValue===value&&(value<spec.min||value>spec.max))return;
       if(!Number.isInteger(value)||value<spec.min||value>spec.max)throw new Error(BLOCK_NAMES[block]+' · '+name+' deve ser um inteiro entre '+spec.min+' e '+spec.max+'.');
       handler.setKnobValue(block,knob,value);
     });
