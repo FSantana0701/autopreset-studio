@@ -1,5 +1,11 @@
 # AutoPreset Studio · MK-300 v73
 
+## V28 · Pack de referência John Petrucci
+
+A biblioteca interna inclui quatro arquivos `.dzh` originais anexados pelo usuário: JP CLEAN, JP OVERDRIVE, JP HEAVY RHYTHM e JP EPIC SOLO. Cada arquivo é validado por SHA-256 no teste e pode ser baixado sem regravação. Também pode ser aberto como novo rascunho, mantendo o arquivo original como base para que os knobs e bytes desconhecidos continuem preservados.
+
+O manual lista seis posições, mas só quatro presets foram fornecidos; JP LIGHT RHYTHM e JP SOLO ficam documentados como ausentes. O pacote anuncia capturas AM3, mas os `.nam` não foram anexados. O manual também requer que o usuário carregue as capturas na ordem indicada e use firmware atualizado. O AutoPreset não instala essas capturas nem grava configurações CTL A/B.
+
 O site agora também pode ser instalado no Android como PWA. O editor, o compilador `.dzh` de 448 bytes e os projetos continuam no navegador; a separação experimental de guitarra roda no próprio aparelho.
 
 ## Privacidade e custos
@@ -30,6 +36,7 @@ O projeto não inclui APK nem publicação na Play Store nesta etapa. A PWA inst
 ## Estrutura
 
 - `src/data/`: catálogo v73.
+- `src/data/john-petrucci-pack.js`: arquivos binários originais codificados e seus dados de referência.
 - `src/core/`: compilador preservado do formato binário de 448 bytes.
 - `src/integrations/local-audio.js`: inferência ONNX local, saída guitar do `htdemucs_6s`, medições e WAV.
 - `src/integrations/learning-store.js`: exemplos de correção em IndexedDB, com fallback local.
@@ -38,7 +45,7 @@ O projeto não inclui APK nem publicação na Play Store nesta etapa. A PWA inst
 
 ## Gerar o HTML autônomo
 
-Edite `src/` e gere a página da raiz:
+Edite `src/` e gere as páginas autônomas `index.html` e `index (1).html` (o endereço legado):
 
 ```sh
 node src/build-standalone.cjs
@@ -52,6 +59,7 @@ O runtime ONNX é importado sob demanda de jsDelivr e o modelo é obtido do Hugg
 node src/tests/core.test.cjs
 node src/tests/differential.test.cjs
 node src/tests/startup.test.cjs
+node src/tests/john-petrucci-pack.test.cjs
 node src/tests/claude-adapter.test.cjs
 node src/tests/tone3000-select.test.cjs
 node src/tests/audio-separation.test.cjs
