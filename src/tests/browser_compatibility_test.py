@@ -1,5 +1,6 @@
 """Regressões de formatos v1 no HTML real. Requer Playwright e Chromium."""
 import json
+import hashlib
 import os
 import unittest
 from pathlib import Path
@@ -99,6 +100,25 @@ class BrowserCompatibilityTests(unittest.TestCase):
             self.page.goto('http://autopreset.test/' + path)
             self.assertEqual(self.page.evaluate('compilePreset().length'), 448)
 
+    def test_john_petrucci_pack_is_downloadable_and_opens_as_new_draft(self):
+        self.page.locator('#enterStudio').click()
+        self.page.locator('#referencePackPanel > summary').click()
+        self.assertEqual(self.page.locator('#johnPetrucciPresets .referencePreset').count(), 4)
+        original = self.page.evaluate('''() => {
+            const preset=AutoPresetReferencePacks.johnPetrucci.presets[0];
+            return {bytes:Array.from(Uint8Array.from(atob(preset.base64),c=>c.charCodeAt(0))),name:preset.file};
+        }''')
+        with self.page.expect_download() as download_info:
+            self.page.locator('#johnPetrucciPresets .referencePreset').nth(0).get_by_role('button', name='Baixar .dzh original').click()
+        download = download_info.value
+        path = download.path()
+        self.assertEqual(Path(path).read_bytes(), bytes(original['bytes']))
+        self.assertEqual(hashlib.sha256(Path(path).read_bytes()).hexdigest(), '4d68da4928466e84ce362bb58e3a40d1557c2dfc62a55d6e6994481d24d5717e')
+        self.page.locator('#johnPetrucciPresets .referencePreset').nth(0).get_by_role('button', name='Abrir como rascunho').click()
+        self.assertEqual(self.page.locator('#presetTabs .presetTab').count(), 1)
+        self.assertEqual(self.page.evaluate('Array.from(compilePreset())'), original['bytes'])
+
 
 if __name__ == '__main__':
     unittest.main()
+
