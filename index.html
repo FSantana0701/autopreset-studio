@@ -1456,7 +1456,10 @@ function compilePreset() {
   handler.setKnobValue(BLOCK.AMP, 3, values.middle);
   handler.setKnobValue(BLOCK.AMP, 4, values.treble);
   handler.setKnobValue(BLOCK.DS, 0, values.driveGain);
-  handler.setKnobValue(BLOCK.DLY, 0, values.time);
+  const sourceDelaySyncIndex=DLY_SYNC[source[0x36+BLOCK.DLY]];
+  const sourceDelaySyncValue=Number.isInteger(sourceDelaySyncIndex)?new DataView(source.buffer,source.byteOffset,source.byteLength).getInt16(knobOffset(BLOCK.DLY,sourceDelaySyncIndex),true):0;
+  const preserveSyncedTime=models.delay===source[0x36+BLOCK.DLY]&&sourceDelaySyncValue===1&&values.time===450;
+  if(!preserveSyncedTime)handler.setKnobValue(BLOCK.DLY, 0, values.time);
   handler.setKnobValue(BLOCK.DLY, 1, values.fb);
   handler.setKnobValue(BLOCK.DLY, 2, values.mix);
   const clearDelaySync=shouldClearDelaySync(source,models.delay,values,DLY_SYNC);
@@ -1469,6 +1472,7 @@ function compilePreset() {
     model.knobs.forEach((name,knob)=>{
       const spec=parameterRange(block,name,modelIndex),key=parameterKey(block,modelIndex,knob),alias=PARAMETER_ALIASES[block]?.[knob];
       let value=alias?validInt(alias,spec.min,spec.max,BLOCK_NAMES[block]+' · '+name):(Number.isInteger(parameterValues[key])?parameterValues[key]:sourceParameterValue(block,modelIndex,knob,model));
+      if(block===BLOCK.DLY&&knob===0&&preserveSyncedTime)return;
       if(block===BLOCK.DLY&&knob===syncKnobIndex&&clearDelaySync)value=0;
       if(!Number.isInteger(value)||value<spec.min||value>spec.max)throw new Error(BLOCK_NAMES[block]+' · '+name+' deve ser um inteiro entre '+spec.min+' e '+spec.max+'.');
       handler.setKnobValue(block,knob,value);
@@ -1597,7 +1601,9 @@ function renderModelParameters(blockId,mount){
   const spec=parameterRange(blockId,name,modelIndex),alias=PARAMETER_ALIASES[blockId]?.[index],key=parameterKey(blockId,modelIndex,index);
   let value=sourceParameterValue(blockId,modelIndex,index,model);
   if(!Number.isInteger(value)){if(model.defaults&&Number.isInteger(model.defaults[index]))value=model.defaults[index];else value=spec.min;}
-  parameterValues[key]=value;if(alias)$(alias).value=String(value);
+  const delaySyncIndex=blockId===BLOCK.DLY?DLY_SYNC[modelIndex]:null;
+  const isSyncedDelayTime=blockId===BLOCK.DLY&&index===0&&Number.isInteger(delaySyncIndex)&&(parameterValues[parameterKey(BLOCK.DLY,modelIndex,delaySyncIndex)]??sourceParameterValue(BLOCK.DLY,modelIndex,delaySyncIndex,model))===1;
+  if(isSyncedDelayTime)value=450;else parameterValues[key]=value;if(alias)$(alias).value=String(value);
   const field=document.createElement('div');field.className='parameterField';field.dataset.block=String(blockId);field.dataset.knob=String(index);field.hidden=!$('advancedMode').checked&&!parameterIsEssential(blockId,index,name);
   const head=document.createElement('div');head.className='parameterHead';const label=document.createElement('label');label.htmlFor=`parameter-${blockId}-${index}`;label.textContent=name;head.appendChild(label);
   const raw=document.createElement('input');raw.type='number';raw.id=`parameter-${blockId}-${index}`;raw.className='parameterRaw';raw.min=String(spec.min);raw.max=String(spec.max);raw.step=String(spec.step);raw.value=String(value);raw.inputMode='numeric';raw.setAttribute('aria-label',name+' · valor gravado');head.appendChild(raw);field.appendChild(head);
@@ -1678,7 +1684,7 @@ function refreshUI(){
  renderInspector();
 }
 const extraFields=[['cabLevel',5,0,0,100],['cabLow',5,1,0,32767],['cabHigh',5,2,0,32767],['revP0',9,0,0,100],['revP1',9,1,0,100],['revP2',9,2,0,100],['revP3',9,3,0,100],['revP4',9,4,0,100],['dsLevel',3,1,0,100],['ampLevel',4,1,0,100],['bass',4,2,0,100],['middle',4,3,0,100],['treble',4,4,0,100],['volLevel',10,0,0,100]];
-function loadExtras(bytes){parameterValues={};$('cabSlot').value=String(bytes[59]+1);$('revModel').value=String(bytes[63]);for(const[key,{block}]of Object.entries(BLOCK_MODEL_SELECTS))selectModel(key,bytes[0x36+block],BLOCK_NAMES[block]);$("presetVolume").value=String(new DataView(bytes.buffer,bytes.byteOffset,bytes.byteLength).getUint16(24,true));cabBeforeNam=null;$('namQuery').value='';$('namSuggested').checked=false;$('namKind').value='unknown';$("namMode").checked=false;$("namInstalled").checked=false;currentChainOrder=Array.from(bytes.slice(32,43));additionalStates={};const v=new DataView(bytes.buffer,bytes.byteOffset,bytes.byteLength);for(const [key,block,knob]of extraFields)$(key).value=String(v.getInt16(knobOffset(block,knob),true));for(const [key,id]of [['cabOn',5],['revOn',9],['volOn',10]])$(key).checked=bytes[43+id]!==0;refreshUI()}
+function loadExtras(bytes){parameterValues={};$('cabSlot').value=String(bytes[59]+1);$('revModel').value=String(bytes[63]);for(const[key,{block}]of Object.entries(BLOCK_MODEL_SELECTS))selectModel(key,bytes[0x36+block],BLOCK_NAMES[block]);$("presetVolume").value=String(new DataView(bytes.buffer,bytes.byteOffset,bytes.byteLength).getUint16(24,true));cabBeforeNam=null;$('namQuery').value='';$('namSuggested').checked=false;$('namKind').value='unknown';$("namMode").checked=false;$("namInstalled").checked=false;currentChainOrder=Array.from(bytes.slice(32,43));additionalStates={};const v=new DataView(bytes.buffer,bytes.byteOffset,bytes.byteLength);for(const block of PARAMETER_BLOCKS){const modelIndex=bytes[0x36+block.id],model=block.models[modelIndex];if(model)model.knobs.forEach((_,knob)=>{parameterValues[parameterKey(block.id,modelIndex,knob)]=v.getInt16(knobOffset(block.id,knob),true)});}for(const [key,block,knob]of extraFields)$(key).value=String(v.getInt16(knobOffset(block,knob),true));for(const [key,id]of [['cabOn',5],['revOn',9],['volOn',10]])$(key).checked=bytes[43+id]!==0;refreshUI()}
 function crc32(bytes){let crc=0xffffffff;for(const byte of bytes){crc^=byte;for(let i=0;i<8;i++)crc=(crc>>>1)^((crc&1)?0xedb88320:0)}return ((crc^0xffffffff)>>>0).toString(16).padStart(8,'0')}
 function encodeShare(bytes){return new URLSearchParams({v:'1',p:btoa(String.fromCharCode(...bytes)).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,''),c:crc32(bytes)}).toString()}
 function decodeShare(text){
@@ -1960,7 +1966,7 @@ const DRAFT_FIELDS=['wahModel','fxModel','gateModel','eqModel','modModel','cabSl
 const DRAFT_STATES=['namMode','namInstalled','namSuggested','dsOn','ampOn','cabOn','dlyOn','revOn','volOn'];
 function snapshotDraft(label){return {label,origin:currentOrigin,cabBeforeNam,fields:Object.fromEntries(DRAFT_FIELDS.map(key=>[key,$(key).value])),states:Object.fromEntries(DRAFT_STATES.map(key=>[key,$(key).checked])),order:[...currentChainOrder],additional:{...additionalStates},parameters:{...parameterValues},base:baseBytes?new Uint8Array(baseBytes):null,description:$('aiDescription').textContent};}
 function saveDraft(){if(activeDraftIndex>=0&&presetDrafts[activeDraftIndex])presetDrafts[activeDraftIndex]=snapshotDraft(presetDrafts[activeDraftIndex].label);}
-function restoreDraft(draft){currentOrigin=typeof draft.origin==='string'?draft.origin:'Projeto importado · origem anterior não registrada';cabBeforeNam=draft.cabBeforeNam??null;for(const[key,value]of Object.entries(draft.fields))$(key).value=value;for(const[key,value]of Object.entries(draft.states))$(key).checked=value;currentChainOrder=[...draft.order];additionalStates={...draft.additional};parameterValues={...(draft.parameters||{})};baseBytes=draft.base?new Uint8Array(draft.base):null;$('base').value='';setStatus($('baseStatus'),baseBytes?'Base própria de 448 bytes restaurada para este preset.':'Base de referência USER PRESET 134 ativa para este preset.','good');$('aiDescription').textContent=draft.description;$('ampGainValue').value=$('ampGain').value;$('driveGainValue').value=$('driveGain').value;refreshUI();}
+function restoreDraft(draft){currentOrigin=typeof draft.origin==='string'?draft.origin:'Projeto importado · origem anterior não registrada';cabBeforeNam=draft.cabBeforeNam??null;for(const[key,value]of Object.entries(draft.fields))$(key).value=value;for(const[key,value]of Object.entries(draft.states))$(key).checked=value;currentChainOrder=[...draft.order];additionalStates={...draft.additional};parameterValues={...(draft.parameters||{})};baseBytes=draft.base?new Uint8Array(draft.base):null;if(!Object.keys(parameterValues).length)syncCurrentParameterAliases();$('base').value='';setStatus($('baseStatus'),baseBytes?'Base própria de 448 bytes restaurada para este preset.':'Base de referência USER PRESET 134 ativa para este preset.','good');$('aiDescription').textContent=draft.description;$('ampGainValue').value=$('ampGain').value;$('driveGainValue').value=$('driveGain').value;refreshUI();}
 function hydrateLearningDraft(draft){const checked=checkProjectDraft(draft);if(checked.base&&typeof checked.base==='string')checked.base=Uint8Array.from(atob(checked.base),c=>c.charCodeAt(0));return checked;}
 function updateLearningCount(){window.AutoPresetLearning.list().then(records=>{const text=records.length+' exemplo(s) de preset corrigido(s) salvos somente neste aparelho.';if(!$('learningPanel').hidden)$('learningSummary').textContent=text;}).catch(()=>{});}
 $('applyLearningExample').addEventListener('click',()=>{try{if(!lastLearningMatch)throw new Error('Nenhum exemplo semelhante disponível.');const draft=hydrateLearningDraft(lastLearningMatch.record.draft);restoreDraft(draft);commitSingleDraft('Exemplo local · '+lastLearningMatch.record.reference.slice(0,30));setStatus($('learningStatus'),'Exemplo aplicado como ponto de partida. Ajuste e compare de novo na pedaleira.','good');}catch(error){setStatus($('learningStatus'),'Não foi possível abrir o exemplo: '+error.message,'bad');}});
