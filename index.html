@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>AutoPreset Studio V27</title>
+<title>AutoPreset Studio V28</title>
 <meta name="theme-color" content="#101114">
 <link rel="manifest" href="./manifest.webmanifest">
 <style>
@@ -106,6 +106,12 @@ button.secondary, .pedalNav button { border: 1px solid var(--line); background: 
 .presetTabs { display: flex; gap: 8px; overflow: auto; margin: 16px 0; }
 .presetTab { border: 1px solid var(--line); background: var(--panel-raised); color: var(--muted); white-space: nowrap; }
 .presetTab.selected { border-color: var(--accent); color: var(--accent); }
+.referencePresetGrid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; margin-top:14px; }
+.referencePreset { min-width:0; padding:14px; border:1px solid var(--line); border-radius:12px; background:var(--input); }
+.referencePreset h3 { margin:0 0 5px; color:var(--accent); font:700 14px ui-monospace,SFMono-Regular,Consolas,monospace; }
+.referencePreset .hint { min-height:38px; }
+.referencePreset .actions { margin-top:10px; }
+.referencePreset .actions button { flex:1 1 140px; }
 .searchCapture, .downloadFallback { display: inline-block; width: fit-content; max-width: 100%; padding: 10px 12px; border: 1px solid #2c6650; border-radius: 8px; background: #18382d; color: var(--accent); font-weight: 700; text-decoration: none; overflow-wrap: anywhere; }
 .downloadFallback { margin-top: 8px; background: transparent; }
 .namDownloads { background: #0c1817; }
@@ -132,7 +138,7 @@ button.secondary, .pedalNav button { border: 1px solid var(--line); background: 
   #addSnippet { width: 100%; margin-bottom: 12px; }
 }
 
-/* AutoPreset Studio V27: graphite and amber workspace, built on the v73 engine. */
+/* AutoPreset Studio V28: graphite and amber workspace, built on the v73 engine. */
 :root { --bg:#101114; --panel:#191a1f; --panel-raised:#22242a; --input:#121318; --line:#383a42; --text:#f1f0eb; --muted:#a9a8a1; --accent:#ffb84d; --warn:#f1c36d; --bad:#ff927d; }
 body { background:radial-gradient(ellipse at 8% 0%, #42301c 0, transparent 34%), var(--bg); }
 .card { background:linear-gradient(145deg,#202126ee,#17181dee); border-radius:14px; }
@@ -168,6 +174,7 @@ body { background:radial-gradient(ellipse at 8% 0%, #42301c 0, transparent 34%),
   :root { --wrap-padding:18px 12px 32px; --card-padding:14px; }
   #inspectorControls, #modelParameterControls { grid-template-columns:repeat(2,minmax(0,1fr)); }
   .pedalUnit { flex-basis:82px; }
+  .referencePresetGrid { grid-template-columns:1fr; }
 }
 @media(max-width:420px){ #inspectorControls, #modelParameterControls { grid-template-columns:1fr; } }
 </style>
@@ -175,7 +182,7 @@ body { background:radial-gradient(ellipse at 8% 0%, #42301c 0, transparent 34%),
 <body>
 <main class="wrap">
   <div class="brand">Automatizador de Presets · MK‑300 v73</div>
-  <header class="hero"><h1>AutoPreset Studio V27</h1><p>Crie, revise e exporte presets MK‑300 v73 com uma cadeia visual de sinal, controles por bloco e compilação local de 448 bytes.</p></header>
+  <header class="hero"><h1>AutoPreset Studio V28</h1><p>Crie, revise e exporte presets MK‑300 v73 com uma cadeia visual de sinal, controles por bloco, referências de presets e compilação local de 448 bytes.</p></header>
   <nav class="workflow" aria-label="Etapas"><span>1 · Escolher áudio</span><span>2 · Analisar trechos</span><span>3 · Revisar preset</span><span>4 · Exportar para MK‑300</span></nav>
   <p class="stepHelp"><b>Privacidade:</b> a separação de guitarra e as medições são feitas no aparelho. O áudio não é enviado para um servidor. Seus exemplos de correção ficam salvos localmente neste dispositivo.</p>
 
@@ -205,6 +212,14 @@ body { background:radial-gradient(ellipse at 8% 0%, #42301c 0, transparent 34%),
     <section class="card" style="border-color:var(--accent)"><h2>Referência por texto ou preset parecido</h2><p class="hint">Sem exemplos anteriores, a sugestão por texto usa perfis offline e é apenas um ponto de partida. Ao testar e corrigir o preset, salve o resultado para o AutoPreset usar como exemplo local nas próximas análises.</p><div class="field"><label for="ytUrl">Artista, música ou estilo</label><input id="ytUrl" type="text" maxlength="2000" placeholder="Ex.: Gravity · John Mayer" autocomplete="off"></div><div class="actions"><button id="analyzeAI" type="button">Aplicar perfil local</button></div><div id="aiStatus" class="status" aria-live="polite"></div><p id="aiDescription" class="hint"></p></section>
   </details>
   <p id="originBadge" class="originBadge" role="status">Edição manual</p>
+  <details id="referencePackPanel" class="advancedPanel referencePackPanel"><summary>Biblioteca de referência · Pack John Petrucci</summary><section class="card">
+    <h2>Presets de referência v73</h2>
+    <p class="hint">Arquivos originais fornecidos pelo usuário, preservados byte a byte. Baixe o .dzh original ou abra uma cópia como novo rascunho para editar. Atribuição do manual: Junior Oliveira Guitar.</p>
+    <div id="johnPetrucciPresets" class="referencePresetGrid"></div>
+    <p class="notice">O manual lista seis posições, mas só quatro arquivos foram anexados: Clean, Overdrive, Heavy Rhythm e Epic Solo. Light Rhythm e Solo não foram inventados. O pacote anuncia capturas AM3, mas os arquivos NAM não vieram anexados; será preciso instalar as capturas na ordem indicada no manual. Este editor não grava o mapeamento CTL A/B nem instala capturas na pedaleira.</p>
+    <p class="hint">As instruções CTL A/B exibidas são transcritas do manual. Confirme a versão do firmware e teste no M‑EFCS/MK‑300 antes de tocar.</p>
+    <div id="referencePackStatus" class="status" aria-live="polite"></div>
+  </section></details>
   <div id="presetTabs" class="presetTabs" aria-label="Presets por trecho"></div>
   <fieldset id="mainAppWorkspace" style="border:0;padding:0;margin:0;min-width:0">
   <details id="localProfiles" class="advancedPanel localProfiles"><summary>Perfis rápidos offline (heurísticos; não são análise de IA)</summary><section class="card">
@@ -1170,6 +1185,21 @@ class MK300PresetHandler {
 
 </script>
 <script>
+// Presets de referência fornecidos pelo usuário. Bytes originais, 448 cada; não normalizar.
+(function(root){
+  const presets = [{"name":"JP CLEAN","file":"JP CLEAN.dzh","role":"Preset 1 · Clean","ctl":"CTL A: clique Chorus / segure Wah · CTL B: clique Delay / segure Compressor","sha256":"4d68da4928466e84ce362bb58e3a40d1557c2dfc62a55d6e6994481d24d5717e","base64":"SlAgQ0xFQU4AAAAAAAAAAAAAAAAA/wD/VQBQAAAAAAACAAMBBAoGBQcJCAAAAQABAAEAAAEBAwgACQUBAhERCwAAMgAyACcAAAAAAAAAAAAAAAAAAAAAAAAANQBGADIAZAAyAAAAAAAAAAAAAAAAAAAAFQAZAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABGADIAMgAyAAAAMgAyAAAAAAAAAAAAXQBkACwAHQBBAAAAFABVAAAAAAAAAAAAWgBQADwAAAAAAAAAAAAAAAAAAAAAAAAA6P/y//v/+f/7//r/AAAAAAMAAAAAAAAADAA6AAAAKgAAAFAAAAAAAAAAAAAAAAAA1gEbABQAAABQAAAAAABQAAAAAAAAAAAAGwAQAGQAAAAAAAAAAAAAAAAAAAAAAAAAWwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACQsAAAAACAoAAAAAABKAAAAAAAAAAQIACgAAAAAAZAALAAAAAAAAAAADAAAAAGQACwAAAAAAAAAEAAEAAABkAAQAAAAAAGQABAADAAAAZAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAPg=="},{"name":"JP OVERDRIVE","file":"JP OVERDRIVE.dzh","role":"Preset 2 · Overdrive","ctl":"CTL A: clique Chorus / segure Wah · CTL B: clique Delay / segure Compressor","sha256":"f614982f80673c0e8fb51bd103e014363b8e6d62a07fcea007a22153f5eeec93","base64":"SlAgT1ZFUkRSSVZFAAAAAAAAAAAAiP//PgBQAAAAAAACAAMBBAoGBQcJCAAAAQABAAAAAAEBAwgACQYBAhERCwAAMgAyACcAAAAAAAAAAAAAAAAAAAAAAAAANQBGADIAZAAyAAAAAAAAAAAAAAAAAAAAFQAZAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABGADIAMgAyAAAAMgAyAAAAAAAAAAAAVgA2ACwAHQA4AAAAFABVAAAAAAAAAAAAWgBQADwAAAAAAAAAAAAAAAAAAAAAAAAA6P/y//v/+f/7//r/AAAAAAMAAAAAAAAADAA6AAAAKgAAAFAAAAAAAAAAAAAAAAAA1gEbABQAAABQAAAAAABQAAAAAAAAAAAAGwAQAGQAAAAAAAAAAAAAAAAAAAAAAAAAWwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACQsAAAAACAoAAAAAABKAAAAAAAAAAQIACgAAAAAAZAALAAAAAAAAAAADAAAAAGQACwAAAAAAAAAEAAEAAABkAAQAAAAAAGQABAADAAAAZAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAPg=="},{"name":"JP HEAVY RHYTHM","file":"JP HEAVY RHYTHM.dzh","role":"Preset 4 · Heavy Rhythm","ctl":"CTL A: clique Flanger / segure Wah · CTL B: clique Delay / segure Reverb","sha256":"a6a498fbc058786314e03c98872e3bfd6ced92d57d2c351d5e287554ed06d4ea","base64":"SlAgSEVBVlkgUkhZVEhNAAAAAAD/AKH/PgBQAAAAAAACAAMBBAoGBQcJCAAAAQABAAEAAAABAw4ACQgBAg8RCQAAKgAyACcAAAAAAAAAAAAAAAAAAAAAAAAAAAAyAAAAMgAyAAAAAAAAAAAAAAAAAAAAFQAZAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABGADIAMgAyAAAAMgAyAAAAAAAAAAAASAAlADAAGgA+AA0AEgBTAAAAAAAAAAAAWgBQADwAAAAAAAAAAAAAAAAAAAAAAAAA6P/3//7/8//8//7/AQD8/wMAAAAAAAAABABHACMAZAATAAAAAABQAAAAAAAAAAAAyQAKAA0AAABQAAAAAABQAAAAAAAAAAAACwAHAF4ADAAAAAAAAAAAAAAAAAAAAAAAYAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACQsAAAAACAoAAAAAABKAAAAAAAAAAQACCgAAAAAAZAALAAAAAAAAAAADAAAAAGQACwAAAAAAAAAEAAEAAABkAAQAAAAAAGQABAADAAAAZAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAPg=="},{"name":"JP EPIC SOLO","file":"JP EPIC SOLO.dzh","role":"Preset 6 · Epic Solo","ctl":"CTL A: clique Chorus / segure Wah · CTL B: clique Boost / segure Delay","sha256":"fbc78a1da37fcda331e624b4159f4e799a91bf4d83f78a398df45e93e1d80d7f","base64":"SlAgRVBJQyBTT0xPAEhNAAAAAAAAAP//PgBQAAAAAAACAAMECgYBBQcJCAAAAQABAAEAAQEBAwMACQkBAhETCgAAKgAyACcAAAAAAAAAAAAAAAAAAAAAAAAAAABEADIAMgAyAAAAAAAAAAAAAAAAAAAAFQAZAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABGADIAMgAyAAAAMgAyAAAAAAAAAAAAUQAsADUAKwAiAA0AHgBiAAAAAAAAAAAAWgBQADwAAAAAAAAAAAAAAAAAAAAAAAAA6P/v//7/AAD//wAAAgD//wAAAAAAAAAAEwA2AAAAGwAAAFAAAABQAAAAAAAAAAAA9AEkACsAHgATAA8AAABQAAAAAAAAAAAAGQAUAGQAAAAjAAAAAAAAAAAAAAAAAAAAWwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACQsAAAAACAoAAAAAABKAAAAAAAACAAABCgAAAAAAZAALAAAAAAAAAAADAAAAAGQACwAAAAAAAAAEAAEAAABkAAQAAAAAAGQABAADAAAAZAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAPg=="}];
+  root.AutoPresetReferencePacks = Object.freeze({
+    johnPetrucci: Object.freeze({
+      title: 'Pack John Petrucci',
+      attribution: 'Junior Oliveira Guitar',
+      firmwareNote: 'O manual recomenda firmware atualizado e instalar as capturas na ordem indicada.',
+      presets: Object.freeze(presets.map(preset => Object.freeze(preset)))
+    })
+  });
+})(globalThis);
+
+</script>
+<script>
 // Endpoint público do serviço. Nunca coloque credenciais neste arquivo.
 // Exemplo após publicar a API: https://seu-space.hf.space
 window.AUTO_PRESET_API = '';
@@ -1987,6 +2017,28 @@ updateLearningCount();
 function renderDraftTabs(){const area=$('presetTabs');area.replaceChildren();presetDrafts.forEach((draft,index)=>{const button=document.createElement('button');button.type='button';button.textContent=draft.label;button.className='presetTab'+(index===activeDraftIndex?' selected':'');button.setAttribute('aria-pressed',String(index===activeDraftIndex));button.addEventListener('click',()=>switchDraft(index));area.appendChild(button);});}
 function switchDraft(index){requireSupportedHardware();if(!Number.isInteger(index)||index<0||index>=presetDrafts.length)throw new Error('Aba inválida.');saveDraft();activeDraftIndex=index;restoreDraft(presetDrafts[index]);renderDraftTabs();scheduleAutosave();}
 function commitSingleDraft(label){presetDrafts=[snapshotDraft(label)];activeDraftIndex=0;renderDraftTabs();scheduleAutosave();}
+function bytesFromReferencePreset(preset){if(!preset||typeof preset.base64!=='string')throw new Error('Preset de referência indisponível.');const bytes=Uint8Array.from(atob(preset.base64),character=>character.charCodeAt(0));if(bytes.length!==448)throw new Error('Preset de referência não tem 448 bytes.');return bytes;}
+function renderReferencePack(){
+ const mount=$('johnPetrucciPresets'),pack=window.AutoPresetReferencePacks?.johnPetrucci;if(!mount||!pack)return;mount.replaceChildren();
+ for(const preset of pack.presets){
+  const card=document.createElement('article');card.className='referencePreset';
+  const title=document.createElement('h3');title.textContent=preset.name;card.appendChild(title);
+  const role=document.createElement('p');role.className='hint';role.textContent=preset.role+' · '+preset.ctl;card.appendChild(role);
+  const actions=document.createElement('div');actions.className='actions';
+  const apply=document.createElement('button');apply.type='button';apply.className='secondary';apply.textContent='Abrir como rascunho';apply.addEventListener('click',()=>{
+   try{
+    requireSupportedHardware();if(activeAIRequest)throw new Error('Aguarde a análise atual terminar.');saveDraft();if(presetDrafts.length>=12)throw new Error('Máximo de 12 presets por projeto.');
+    const bytes=bytesFromReferencePreset(preset);validateBaseBytes(bytes);baseBytes=bytes;populateFromBytes(bytes);loadExtras(bytes);currentOrigin='Pack John Petrucci · '+preset.name+' · original fornecido';$('base').value='';
+    setStatus($('baseStatus'),preset.file+' carregado como base (448 bytes). Ajustes posteriores serão editáveis; capturas e CTL A/B exigem configuração no M-EFCS.','good');
+    presetDrafts.push(snapshotDraft('JP · '+preset.name));activeDraftIndex=presetDrafts.length-1;renderDraftTabs();scheduleAutosave();
+    setStatus($('referencePackStatus'),preset.name+' aberto em nova aba de rascunho. A referência original continua disponível para download.','good');$('referencePackPanel').open=true;
+   }catch(error){setStatus($('referencePackStatus'),'Não foi possível abrir a referência: '+error.message,'bad');}
+  });actions.appendChild(apply);
+  const download=document.createElement('button');download.type='button';download.textContent='Baixar .dzh original';download.addEventListener('click',()=>{try{const bytes=bytesFromReferencePreset(preset);downloadBytes(bytes,preset.file,'application/octet-stream','referencePackStatus',preset.file+' preparado sem alterar os 448 bytes.');}catch(error){setStatus($('referencePackStatus'),error.message,'bad');}});actions.appendChild(download);
+  card.appendChild(actions);mount.appendChild(card);
+ }
+}
+renderReferencePack();
 let snippets=[{id:1,label:'Base',start:'0:10',end:'0:40'}],nextSnippetId=2;
 function renderSnippets(){const area=$('snippets');area.replaceChildren();for(const snippet of snippets){const row=document.createElement('div');row.className='snippetRow';for(const[key,label]of [['label','Nome'],['start','Início'],['end','Fim']]){const field=document.createElement('label');field.textContent=label;const input=document.createElement('input');input.type='text';input.value=snippet[key];input.maxLength=key==='label'?40:14;input.setAttribute('aria-label',label+' do trecho '+snippet.id);input.addEventListener('input',()=>{snippet[key]=input.value});field.appendChild(input);row.appendChild(field);}const remove=document.createElement('button');remove.type='button';remove.textContent='Remover';remove.addEventListener('click',()=>{if(activeAIRequest)return;snippets=snippets.filter(s=>s.id!==snippet.id);renderSnippets()});row.appendChild(remove);const play=document.createElement('button');play.type='button';play.textContent='Ouvir';play.addEventListener('click',()=>previewSnippet(snippet.id));row.appendChild(play);const separate=document.createElement('button');separate.type='button';separate.textContent='Separar e analisar guitarra';separate.addEventListener('click',()=>separateGuitarSnippet(snippet.id,separate));row.appendChild(separate);area.appendChild(row)}}
 $('addSnippet').addEventListener('click',()=>{if(activeAIRequest)return;if(snippets.length>=6){setStatus($('audioStatus'),'Máximo de 6 trechos por análise.','bad');return;}snippets.push({id:nextSnippetId++,label:'Trecho '+(snippets.length+1),start:'',end:''});renderSnippets();});
