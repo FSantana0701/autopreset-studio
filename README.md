@@ -41,7 +41,7 @@ O projeto não inclui APK nem publicação na Play Store nesta etapa. A PWA inst
 Edite `src/` e gere a página da raiz:
 
 ```sh
-node src/build-standalone.cjs ../index.html
+node src/build-standalone.cjs
 ```
 
 O runtime ONNX é importado sob demanda de jsDelivr e o modelo é obtido do Hugging Face quando a primeira análise é iniciada. A inferência recebe os dados no navegador; nenhuma requisição envia o áudio.
