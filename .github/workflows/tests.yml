@@ -1,0 +1,38 @@
+name: AutoPreset tests
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify generated standalone pages
+        run: |
+          node src/build-standalone.cjs
+          git diff --exit-code -- index.html 'index (1).html'
+      - name: JavaScript and binary compatibility tests
+        run: |
+          node mk300-binary.test.cjs
+          node 'mk300-binary.test (1).cjs'
+          for test in src/tests/*.test.cjs; do node "$test"; done
+      - name: Install test dependencies
+        run: |
+          python -m pip install -r src/tests/requirements.txt
+          python -m playwright install --with-deps chromium
+      - name: Audio API unit tests
+        run: python -m unittest discover -s src/tests -p audio_service_test.py -v
+      - name: Browser compatibility tests
+        run: python -m unittest discover -s src/tests -p browser_compatibility_test.py -v
