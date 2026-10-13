@@ -9,28 +9,21 @@ const vm = require("node:vm");
 const cases = [];
 const test = (...args) => cases.push(args);
 
-const htmlPath = path.join(__dirname, "..", "AutoPreset_MK300_V27_Claude.html");
+const htmlPath = process.env.HTML_PATH
+  ? path.resolve(process.env.HTML_PATH)
+  : path.join(__dirname, "index.html");
 const html = fs.readFileSync(htmlPath, "utf8");
-
-function extractBetween(startMarker, endMarker) {
-  const start = html.indexOf(startMarker);
-  if (start < 0) throw new Error(`Não encontrei no HTML: ${startMarker}`);
-  const end = html.indexOf(endMarker, start);
-  if (end < 0) throw new Error(`Não encontrei no HTML: ${endMarker}`);
-  return html.slice(start, end);
-}
-
-const helpers = [
-  extractBetween("function knobOffset(", "\nclass MK300PresetHandler"),
-  extractBetween("function validateChain(", "\nfunction moveBlock")
-].join("\n");
-const classSource = extractBetween(
-  "class MK300PresetHandler {",
-  "\n\n// Disponível na consola para uma verificação rápida do núcleo binário."
-);
-const sandbox = { ArrayBuffer, DataView, Error, TextEncoder, Uint8Array, KNOBS_START: 0x42, BLOCK_STRIDE: 24 };
-vm.runInNewContext(`${helpers}\n${classSource}\nglobalThis.MK300PresetHandler = MK300PresetHandler;`, sandbox);
-const MK300PresetHandler = sandbox.MK300PresetHandler;
+const scripts = [...html.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/gi)].map(match => match[1]);
+const core = scripts.find(source => source.includes('// Núcleo binário extraído'));
+assert.ok(core, "Núcleo binário deve estar incorporado no HTML publicado");
+const sandbox = { ArrayBuffer, DataView, Error, TextEncoder, Uint8Array, Array, Set, Object, Number };
+vm.runInNewContext(core, sandbox);
+const MK300PresetHandler = sandbox.MK300Core.MK300PresetHandler;
+sandbox.__consts = Object.fromEntries(['KNOBS_START', 'BLOCK_STRIDE'].map(name => {
+  const match = core.match(new RegExp(`const ${name}\\s*=\\s*(0x[0-9a-f]+|[0-9]+)`, 'i'));
+  assert.ok(match, `${name} deve existir no núcleo publicado`);
+  return [name, Number(match[1])];
+}));
 
 const BLOCK = { WAH: 0, FX: 1, GATE: 2, DS: 3, AMP: 4, CAB: 5, EQ: 6, MOD: 7, DLY: 8, REV: 9, VOL: 10 };
 const KNOBS_START = 0x42;
