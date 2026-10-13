@@ -6,10 +6,11 @@
   const OVERLAP = Math.floor(SEGMENT / 4);
   const STRIDE = SEGMENT - OVERLAP;
   const STEM_GUITAR = 4;
-  const MODEL_URL = 'https://huggingface.co/StemSplitio/htdemucs-6s-onnx/resolve/main/htdemucs_6s_fp16weights.onnx';
+  // Fixar o commit evita que o mesmo cache URL passe a entregar outro modelo.
+  const MODEL_URL = 'https://huggingface.co/StemSplitio/htdemucs-6s-onnx/resolve/49df9b6989cf2150840ea65b0bef77a2e471b678/htdemucs_6s_fp16weights.onnx';
   const ORT_URL = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.22.0/dist/ort.min.mjs';
   const MAX_AUDIO_BYTES = 25 * 1024 * 1024;
-  const MODEL_CACHE = 'autopreset-local-model-v1';
+  const MODEL_CACHE = 'autopreset-local-model-v2';
   let runtimePromise = null;
   let sessionPromise = null;
 
@@ -22,7 +23,7 @@
       ort.env.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.22.0/dist/';
       ort.env.wasm.numThreads = 1;
       return ort;
-    });
+    }).catch(error => { runtimePromise = null; throw new Error('Não foi possível carregar o runtime de áudio. Confira a conexão e tente novamente. (' + (error?.message || 'falha de rede') + ')'); });
     const ort = await runtimePromise;
     if (!sessionPromise) {
       onProgress?.('Baixando o modelo de guitarra (aprox. 136 MB, somente na primeira utilização)…');
@@ -62,6 +63,19 @@
     } finally {
       try { await decoder.close(); } catch { /* alguns WebViews já fecham o contexto */ }
     }
+  }
+
+  async function validateFile(file) {
+    if (!(file instanceof Blob) || file.size === 0) throw new Error('Escolha um arquivo de áudio no celular.');
+    if (file.size > MAX_AUDIO_BYTES) throw new Error('O áudio tem ' + (file.size / 1024 / 1024).toFixed(1) + ' MiB; o limite é 25 MiB.');
+    const name = String(file.name || '').toLowerCase();
+    if (!name.endsWith('.mp3') && !name.endsWith('.wav')) throw new Error('Formato não aceito. Selecione um arquivo .mp3 ou .wav salvo no aparelho.');
+    const header = new Uint8Array(await file.slice(0, 12).arrayBuffer());
+    const ascii = (start, end) => String.fromCharCode(...header.subarray(start, end));
+    const isWav = header.length >= 12 && ascii(0, 4) === 'RIFF' && ascii(8, 12) === 'WAVE';
+    const isMp3 = header.length >= 3 && (ascii(0, 3) === 'ID3' || (header[0] === 255 && (header[1] & 224) === 224));
+    if (!(name.endsWith('.wav') && isWav) && !(name.endsWith('.mp3') && isMp3)) throw new Error('O conteúdo do arquivo não parece ser um MP3/WAV válido. Tente baixar o áudio novamente.');
+    return { name: file.name || 'audio', size: file.size, type: isWav ? 'audio/wav' : 'audio/mpeg' };
   }
 
   function transitionWindow() {
@@ -174,6 +188,20 @@
     };
   }
 
+  // Uma primeira aproximação tonal, não reconhecimento de artista ou de equipamento.
+  function toneHints(features) {
+    const centroid = Number(features?.spectral_centroid_hz);
+    const rolloff = Number(features?.spectral_rolloff_85_hz);
+    if (!Number.isFinite(centroid) || !Number.isFinite(rolloff)) throw new Error('O áudio não gerou medições suficientes para sugerir controles.');
+    const brightness = Math.max(0, Math.min(1, (centroid * 0.7 + rolloff * 0.3) / 8000));
+    return {
+      bass: Math.round(58 - brightness * 14),
+      middle: 55,
+      treble: Math.round(38 + brightness * 24),
+      brightness: Number(brightness.toFixed(2))
+    };
+  }
+
   function toWav(channels) {
     const length = Math.min(channels[0].length, channels[1].length), bytes = new ArrayBuffer(44 + length * 4), view = new DataView(bytes);
     const write = (offset, text) => { for (let i = 0; i < text.length; i++) view.setUint8(offset + i, text.charCodeAt(i)); };
@@ -189,8 +217,7 @@
   }
 
   async function separate({ file, startSeconds, endSeconds, signal, onProgress }) {
-    if (!(file instanceof Blob) || file.size === 0) throw new Error('Selecione um arquivo de áudio.');
-    if (file.size > MAX_AUDIO_BYTES) throw new Error('O arquivo excede 25 MiB.');
+    await validateFile(file);
     if (!Number.isFinite(startSeconds) || !Number.isFinite(endSeconds) || startSeconds < 0 || endSeconds <= startSeconds || endSeconds - startSeconds > 45) throw new Error('Escolha um trecho de até 45 segundos.');
     checkAbort(signal);
     onProgress?.('Lendo o áudio neste aparelho…');
@@ -199,8 +226,9 @@
     const { ort, session } = await getSession(onProgress);
     const guitar = await separateGuitar(mix, ort, session, { signal, onProgress });
     const features = analyzeFeatures(guitar);
+    if (features.rms_db < -70) throw new Error('A faixa de guitarra saiu quase silenciosa. Confira o arquivo e tente outro trecho com a guitarra mais presente.');
     return { blob: toWav(guitar), features, model: 'HT-Demucs 6-stem · execução local' };
   }
 
-  root.AutoPresetLocalAudio = Object.freeze({ separate, separateGuitar, analyzeFeatures, toWav, transitionWindow, loadModelBytes, MODEL_URL, ORT_URL, MAX_AUDIO_BYTES, SAMPLE_RATE, SEGMENT, OVERLAP, STRIDE, STEM_GUITAR });
+  root.AutoPresetLocalAudio = Object.freeze({ separate, separateGuitar, analyzeFeatures, toneHints, toWav, transitionWindow, loadModelBytes, validateFile, MODEL_URL, ORT_URL, MAX_AUDIO_BYTES, SAMPLE_RATE, SEGMENT, OVERLAP, STRIDE, STEM_GUITAR });
 })(typeof window !== 'undefined' ? window : globalThis);
