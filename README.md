@@ -1,14 +1,16 @@
-# AutoPreset Studio V27 — MK-300 v73
+# AutoPreset Studio — MK-300 v73
 
-O GitHub Pages publica o HTML autônomo em `index.html`. O fonte modular fica em `src/`; o processador de guitarra está separado em `audio-service/`.
+O GitHub Pages publica o HTML autônomo em `index.html`. O fonte modular fica em `src/`; o serviço do servidor está em `audio-service/`.
 
-## Separação de guitarra
+## Assistente e análise de áudio
 
-O HTML do GitHub Pages não executa Python. O áudio é enviado somente ao serviço Demucs configurado pelo usuário. Ele processa o recorte, devolve um WAV e apaga os arquivos temporários. A interface requer o endereço HTTPS e a chave privada definidos no serviço. A chave não é gravada no site.
+O serviço recebe o trecho selecionado, separa a guitarra com Demucs, calcula métricas acústicas com librosa e usa essas métricas para pedir ao Claude uma sugestão de timbre. O arquivo de áudio não é enviado ao Claude. O navegador valida a sugestão e mantém o compilador binário de 448 bytes. Arquivos temporários são removidos ao fim do processamento.
 
 Para disponibilizar o endpoint, veja [`audio-service/README.md`](audio-service/README.md). A publicação automatizada usa Hugging Face Spaces e `.github/workflows/deploy-audio-space.yml`. Isso exige um Docker Space existente, capacidade de execução disponível na conta e um token de escrita; o código não cria recursos pagos nem configura segredos automaticamente.
 
-Com o GitHub Pages configurado para publicar `main` / `(root)`, mesclar alterações à `main` atualiza a página. A sincronização da API é opcional e só roda quando `HF_SPACE_REPO` estiver definido. Em seguida, no site, abra **Separação experimental → Conectar ao serviço experimental**, informe o endereço `https://<subdomínio>.hf.space` e a chave `AUTOPRESET_API_KEY`.
+Com o GitHub Pages configurado para publicar `main` / `(root)`, mesclar alterações à `main` atualiza a página. Para ativar IA e separação, configure `ANTHROPIC_API_KEY` como Secret do Hugging Face Space e `AUTOPRESET_ALLOWED_ORIGINS=https://fsantana0701.github.io` como variável. Em `src/config.js`, configure apenas a URL pública do Space; gere e publique o HTML autônomo. O usuário final não precisa colar nenhuma chave.
+
+A chave Claude continua necessária no servidor e o administrador paga o uso da API, separado do plano Claude.ai. Configure limites de gasto no provedor. A API também aplica limite simples por IP; CORS não substitui limites de conta nem proteção contra abuso.
 
 ## Atualizar o HTML publicado
 
