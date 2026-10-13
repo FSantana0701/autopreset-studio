@@ -4,6 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>AutoPreset Studio V27</title>
+<meta name="theme-color" content="#101114">
+<link rel="manifest" href="./manifest.webmanifest">
 <style>
 :root {
   color-scheme: dark;
@@ -175,7 +177,7 @@ body { background:radial-gradient(ellipse at 8% 0%, #42301c 0, transparent 34%),
   <div class="brand">Automatizador de Presets · MK‑300 v73</div>
   <header class="hero"><h1>AutoPreset Studio V27</h1><p>Crie, revise e exporte presets MK‑300 v73 com uma cadeia visual de sinal, controles por bloco e compilação local de 448 bytes.</p></header>
   <nav class="workflow" aria-label="Etapas"><span>1 · Escolher áudio</span><span>2 · Analisar trechos</span><span>3 · Revisar preset</span><span>4 · Exportar para MK‑300</span></nav>
-  <p class="stepHelp"><b>Fluxo:</b> envie áudio ou descreva uma referência, revise a sugestão e exporte. As credenciais ficam no servidor do AutoPreset, nunca nesta página. Revise qualquer sugestão antes de exportar. No M‑EFCS, importe em <b>Preset</b>, confira os modelos e só então teste na MK‑300.</p>
+  <p class="stepHelp"><b>Privacidade:</b> a separação de guitarra e as medições são feitas no aparelho. O áudio não é enviado para um servidor. Seus exemplos de correção ficam salvos localmente neste dispositivo.</p>
 
   <div id="screenSetup">
   <section class="card">
@@ -183,7 +185,8 @@ body { background:radial-gradient(ellipse at 8% 0%, #42301c 0, transparent 34%),
     <div class="grid"><div class="field"><label for="pedalboard">Pedaleira</label><select id="pedalboard"><option value="mk300" selected>M-Vave MK-300</option><option value="valeton">Valeton GP-100 · não implementado</option><option value="cuvave">Cuvave Cube Baby · não implementado</option><option value="zoom">Zoom G1X Four · não implementado</option><option value="boss">Boss GT-1 · não implementado</option></select></div>
     <div class="field"><label for="guitarType">Referência de captação</label><select id="guitarType"><option value="none">Sem ajuste de captação</option><option value="jem" selected>JEM / Superstrato · hipótese de saída alta</option><option value="lespaul">Les Paul · hipótese de humbuckers clássicos</option><option value="strato">Stratocaster · hipótese de single coils</option><option value="tele">Telecaster · hipótese de single coils</option></select></div></div>
     <p class="hint">O nome da guitarra não determina a saída dos captadores. Ajustes são heurísticos: JEM −10 de Gain / −5 de Bass; Les Paul −5 / 0; single coils +15 / +5, em pontos da escala 0–100. Só se aplicam ao clicar em Sugerir Timbre; importações mantêm os valores gravados.</p>
-    <div class="field"><label>Assistente do AutoPreset</label><p id="serviceStatus" class="hint" role="status">Verificando conexão segura do serviço…</p><input id="aiModel" type="hidden" value="claude-sonnet-5-5"><input id="audioServiceUrl" type="hidden"></div>
+    <div class="field"><label>Assistente local</label><p id="serviceStatus" class="hint" role="status">Pronto para analisar no aparelho. O modelo de separação é baixado uma vez (aprox. 136 MB); não há chave de API.</p></div>
+    <div class="actions"><button id="installPwa" type="button" class="secondary" hidden>Instalar AutoPreset no celular</button></div>
     <div class="actions"><button id="recoverProject" type="button" hidden>Recuperar rascunho deste navegador</button></div>
     <div class="actions"><button id="enterStudio" type="button">Entrar no Estúdio →</button></div><div id="setupStatus" class="status" aria-live="polite"></div>
     <div id="devWarning" class="status bad" role="status" hidden>Motor deste equipamento não implementado. Exportação, compartilhamento e edição estão desativados. Presets originais poderão ajudar a desenvolver suporte futuro.</div>
@@ -192,13 +195,14 @@ body { background:radial-gradient(ellipse at 8% 0%, #42301c 0, transparent 34%),
   <div id="screenStudio" hidden>
   <div class="actions"><button id="leaveStudio" type="button">← Voltar ao Setup</button></div>
   <section class="card" style="border-color:var(--accent)"><h2>Separação experimental de guitarra</h2>
-    <p class="hint stepHelp">Carregue MP3/WAV, marque um trecho de até 45 segundos e toque em <b>Separar e analisar guitarra</b>. O serviço seguro do AutoPreset separa a faixa e envia características acústicas para gerar uma sugestão. Não é necessário colar chaves.</p>
-    <fieldset id="audioInputs" style="border:0;padding:0;min-width:0"><div class="field"><label for="audioFile">MP3 ou WAV · até 25 MiB</label><input id="audioFile" type="file" accept=".mp3,.wav,audio/mpeg,audio/wav"><p class="hint">O serviço recorta apenas o intervalo selecionado, separa as fontes e apaga os arquivos temporários ao terminar.</p></div><audio id="previewAudio" controls preload="metadata" style="width:100%;margin-top:12px"></audio><p id="audioInfo" class="hint">Selecione o áudio para ouvir e marcar os trechos.</p><h3>Trechos · segundos ou mm:ss</h3><div id="snippets"></div><button id="addSnippet" type="button">+ Adicionar trecho</button></fieldset>
-    <div class="actions"><button id="testAI" type="button" class="secondary">Testar serviço</button><button id="cancelAI" type="button" disabled>Cancelar operação</button></div><div id="audioStatus" class="status" aria-live="polite"></div>
-    <section id="separationOutput" class="card" hidden><h3>Guitarra separada · ouça antes de usar</h3><audio id="guitarStemPreview" controls preload="metadata" style="width:100%"></audio><p><a id="downloadGuitarStem" class="downloadFallback" download="guitar-stem.wav">Baixar faixa de guitarra (.wav)</a></p><p class="hint">Podem permanecer vazamentos de voz ou instrumentos. A separação não identifica amp, gabinete ou parâmetros.</p></section>
+    <p class="hint stepHelp">Carregue MP3/WAV e marque um trecho de até 45 segundos. O modelo HT-Demucs 6-stem tenta destacar a guitarra dentro do próprio aparelho. Na primeira análise, runtime e modelo são baixados; o áudio não é enviado a uma API.</p>
+    <fieldset id="audioInputs" style="border:0;padding:0;min-width:0"><div class="field"><label for="audioFile">MP3 ou WAV · até 25 MiB</label><input id="audioFile" type="file" accept=".mp3,.wav,audio/mpeg,audio/wav"><p class="hint">O arquivo permanece no celular. Pode haver vazamento de outros instrumentos; ouça o resultado e avalie se serve para analisar o timbre.</p></div><audio id="previewAudio" controls preload="metadata" style="width:100%;margin-top:12px"></audio><p id="audioInfo" class="hint">Selecione o áudio para ouvir e marcar os trechos.</p><h3>Trechos · segundos ou mm:ss</h3><div id="snippets"></div><button id="addSnippet" type="button">+ Adicionar trecho</button></fieldset>
+    <div class="actions"><button id="cancelAI" type="button" disabled>Cancelar operação</button></div><div id="audioStatus" class="status" aria-live="polite"></div>
+    <section id="separationOutput" class="card" hidden><h3>Guitarra separada · ouça antes de analisar</h3><audio id="guitarStemPreview" controls preload="metadata" style="width:100%"></audio><p id="audioMetrics" class="meta"></p><p><a id="downloadGuitarStem" class="downloadFallback" download="guitar-stem.wav">Baixar faixa de guitarra (.wav)</a></p><p class="hint">A separação é aproximada. Compare o trecho e use-o apenas se a guitarra estiver audível o suficiente para orientar o preset.</p></section>
+    <section id="learningPanel" class="card" hidden><h3>Aprendizagem com seus testes</h3><p id="learningSummary" class="hint">As correções ficam neste aparelho. Elas servem de exemplos para sugerir presets semelhantes em análises futuras.</p><div class="actions"><button id="applyLearningExample" type="button" class="secondary" disabled>Usar correção parecida</button></div><label class="check"><input id="learningTested" type="checkbox"> Já comparei este preset na MK‑300</label><div class="grid" style="margin-top:12px"><div class="field"><label for="learningRating">Quanto se aproximou da referência?</label><select id="learningRating"><option value="1">1 · Muito diferente</option><option value="2">2 · Ainda distante</option><option value="3" selected>3 · Parcialmente parecido</option><option value="4">4 · Bem parecido</option><option value="5">5 · Muito próximo</option></select></div><div class="field"><label for="learningNote">O que você corrigiu?</label><input id="learningNote" type="text" maxlength="500" placeholder="Ex.: menos ganho, mais médios"></div></div><div class="actions"><button id="saveLearningExample" type="button">Salvar este teste como exemplo</button><button id="exportLearningExamples" type="button" class="secondary">Exportar meus exemplos</button></div><div id="learningStatus" class="status" aria-live="polite"></div></section>
   </section>
-  <details class="advancedPanel textAiPanel" open><summary>Sugerir timbre por música ou estilo</summary>
-    <section class="card" style="border-color:var(--accent)"><h2>Referência ou contexto de áudio</h2><p class="hint">Use uma referência por artista/música ou gere uma sugestão a partir da guitarra separada. O preset só muda depois da validação; campos opcionais omitidos preservam os ajustes atuais.</p><div class="field"><label for="ytUrl">Artista, música ou estilo</label><input id="ytUrl" type="text" maxlength="2000" placeholder="Ex.: Gravity · John Mayer" autocomplete="off"></div><div class="actions"><button id="analyzeAI" type="button">Sugerir por texto</button></div><div id="aiStatus" class="status" aria-live="polite"></div><p id="aiDescription" class="hint"></p></section>
+  <details class="advancedPanel textAiPanel" open><summary>Sugestão local e histórico de correções</summary>
+    <section class="card" style="border-color:var(--accent)"><h2>Referência por texto ou preset parecido</h2><p class="hint">Sem exemplos anteriores, a sugestão por texto usa perfis offline e é apenas um ponto de partida. Ao testar e corrigir o preset, salve o resultado para o AutoPreset usar como exemplo local nas próximas análises.</p><div class="field"><label for="ytUrl">Artista, música ou estilo</label><input id="ytUrl" type="text" maxlength="2000" placeholder="Ex.: Gravity · John Mayer" autocomplete="off"></div><div class="actions"><button id="analyzeAI" type="button">Aplicar perfil local</button></div><div id="aiStatus" class="status" aria-live="polite"></div><p id="aiDescription" class="hint"></p></section>
   </details>
   <p id="originBadge" class="originBadge" role="status">Edição manual</p>
   <div id="presetTabs" class="presetTabs" aria-label="Presets por trecho"></div>
@@ -315,6 +319,8 @@ body { background:radial-gradient(ellipse at 8% 0%, #42301c 0, transparent 34%),
 <script src="core/mk300-preset-handler.js"></script>
 <script src="integrations/tone3000-select.js"></script>
 <script src="integrations/audio-separation.js"></script>
+<script src="integrations/local-audio.js"></script>
+<script src="integrations/learning-store.js"></script>
 <script src="config.js"></script>
 <script>
 "use strict";
@@ -459,7 +465,7 @@ function populateFromBytes(bytes) {
     const syncedTime = Number.isInteger(syncIndex) ? baseView.getInt16(delayOffset + syncIndex * 2, true) : 0;
     const baseSync = Number.isInteger(syncIndex) ? syncedTime : 0;
     $("time").value = baseSync === 1 ? 450 : baseView.getInt16(delayOffset, true);
-    const syncWarning = baseSync === 1 ? " O Delay da base usa sincronismo. O controle em ms mostra 450 como referência; Sync é preservado até editar o delay." : "";
+    const syncWarning = baseSync === 1 ? " Atenção: o Delay da base usa sincronismo. O controle em ms mostra 450 como referência; a compilação desliga Sync para gravar o tempo manual." : "";
     return syncWarning;
 }
 
@@ -486,8 +492,8 @@ $("base").addEventListener("change", async (event) => {
     const candidateBytes = validateBaseBytes(new Uint8Array(buffer));
     // Só troca a base ativa depois de ler e validar o candidato por completo.
     const syncWarning = populateFromBytes(candidateBytes);
-    baseBytes = candidateBytes;
     loadExtras(candidateBytes);
+    baseBytes = candidateBytes;
     currentOrigin="Preset importado: "+file.name;
     setStatus($("baseStatus"), file.name + " carregado (448 bytes). Valores conhecidos preenchidos; campos desconhecidos preservados." + syncWarning, "good");
   } catch (error) {
@@ -597,11 +603,10 @@ function compilePreset() {
   handler.setKnobValue(BLOCK.AMP, 3, values.middle);
   handler.setKnobValue(BLOCK.AMP, 4, values.treble);
   handler.setKnobValue(BLOCK.DS, 0, values.driveGain);
-  const clearDelaySync=shouldClearDelaySync(source,models.delay,values,DLY_SYNC);
-  const preserveSyncedTime=!clearDelaySync&&new DataView(source.buffer,source.byteOffset,source.byteLength).getInt16(knobOffset(BLOCK.DLY,syncKnobIndex),true)===1;
-  if(!preserveSyncedTime)handler.setKnobValue(BLOCK.DLY, 0, values.time);
+  handler.setKnobValue(BLOCK.DLY, 0, values.time);
   handler.setKnobValue(BLOCK.DLY, 1, values.fb);
   handler.setKnobValue(BLOCK.DLY, 2, values.mix);
+  const clearDelaySync=shouldClearDelaySync(source,models.delay,values,DLY_SYNC);
   if(clearDelaySync)handler.setKnobValue(BLOCK.DLY,syncKnobIndex,0); // Mantém Sync da base até o usuário editar o delay.
 
   // Campos secundários permanecem explícitos e validados, agora pela mesma camada binária.
@@ -609,13 +614,8 @@ function compilePreset() {
     const modelIndex=selectedParameterModel(block),model=PARAMETER_BLOCKS[block].models[modelIndex];
     if(!model)continue;
     model.knobs.forEach((name,knob)=>{
-      if(block===BLOCK.DLY&&knob===0&&preserveSyncedTime)return;
       const spec=parameterRange(block,name,modelIndex),key=parameterKey(block,modelIndex,knob),alias=PARAMETER_ALIASES[block]?.[knob];
-      let value=alias?validInt(alias,-32768,32767,BLOCK_NAMES[block]+' · '+name):(Number.isInteger(parameterValues[key])?parameterValues[key]:sourceParameterValue(block,modelIndex,knob,model));
-      // Preserva valores brutos de presets antigos quando modelo e knob não mudaram.
-      const unchanged=source[0x36+block]===modelIndex&&value===new DataView(source.buffer,source.byteOffset,source.byteLength).getInt16(knobOffset(block,knob),true);
-      if(unchanged&&!(block===BLOCK.DLY&&knob===syncKnobIndex&&clearDelaySync))return;
-      if(alias)value=validInt(alias,spec.min,spec.max,BLOCK_NAMES[block]+' · '+name);
+      let value=alias?validInt(alias,spec.min,spec.max,BLOCK_NAMES[block]+' · '+name):(Number.isInteger(parameterValues[key])?parameterValues[key]:sourceParameterValue(block,modelIndex,knob,model));
       if(block===BLOCK.DLY&&knob===syncKnobIndex&&clearDelaySync)value=0;
       if(!Number.isInteger(value)||value<spec.min||value>spec.max)throw new Error(BLOCK_NAMES[block]+' · '+name+' deve ser um inteiro entre '+spec.min+' e '+spec.max+'.');
       handler.setKnobValue(block,knob,value);
@@ -717,7 +717,7 @@ function parameterRange(blockId,name,modelIndex=null){
  if(lower==='sync')return {min:0,max:1,step:1,unit:'',kind:'toggle'};
  if(lower==='time')return {min:1,max:32767,step:1,unit:'ms'};
  if(lower==='speed')return {min:0,max:32767,step:1,unit:'Hz · valor armazenado ×10'};
- if(lower==='low cut'||lower==='high cut')return {min:0,max:32767,step:1,unit:'valor bruto'};
+ if(lower==='low cut'||lower==='high cut')return {min:1,max:32767,step:1,unit:'valor bruto'};
  if(blockId===6)return {min:-12,max:12,step:1,unit:'dB'};
  if(lower==='thd'&&blockId===2&&[1,2,3].includes(modelIndex))return {min:-100,max:0,step:1,unit:'dB'};
  if(blockId===1&&['high pitch','low pitch','semi'].includes(lower))return {min:-12,max:12,step:1,unit:'semitons'};
@@ -839,8 +839,7 @@ function decodeShare(text){
  if(Array.from(bytes.slice(43,54)).some(x=>x>1))throw new Error('Estado de bloco inválido.');
  const v=new DataView(bytes.buffer);if(bytes[58]>99)throw new Error('AMP 100–119 é reservado para baixo; use um índice de guitarra 0–99.');if(bytes[59]>99||bytes[63]>17)throw new Error('Modelo CAB/Reverb fora do catálogo.');if(v.getUint16(24,true)<1||v.getUint16(24,true)>100)throw new Error('Volume geral inválido.');if(!v.getUint16(26,true))throw new Error('BPM inválido.');
  for(const[key,id]of [['drive',3],['amp',4],['delay',8],...Object.entries(BLOCK_MODEL_SELECTS).map(([key,v])=>[key,v.block])])if(!Array.from($(key).options).some(o=>Number(o.value)===bytes[54+id]))throw new Error('Modelo não disponível neste catálogo: '+key);
- // v1 mantém a validação histórica; knobs antes opacos continuam intactos.
- for(const[key,id,k,min,max]of [...extraFields,['ampGain',4,0,0,100],['driveGain',3,0,0,100],['time',8,0,1,32767],['fb',8,1,0,100],['mix',8,2,0,100]]){const n=v.getInt16(knobOffset(id,k),true);if(n<min||n>max)throw new Error('Parâmetro fora da faixa: '+key)}
+ for(const block of PARAMETER_BLOCKS){const modelIndex=bytes[0x36+block.id],model=block.models[modelIndex];if(!model)throw new Error('Modelo sem catálogo no bloco '+block.name+'.');model.knobs.forEach((name,knob)=>{const range=parameterRange(block.id,name,modelIndex),n=v.getInt16(knobOffset(block.id,knob),true),min=block.id===5&&knob>0||name==='Time'?0:range.min;if(n<min||n>range.max)throw new Error('Parâmetro fora da faixa: '+block.name+' · '+name)});}
  const name=new TextDecoder('utf-8',{fatal:true}).decode(bytes.slice(0,20).subarray(0,bytes.slice(0,20).indexOf(0)<0?20:bytes.slice(0,20).indexOf(0)));if(!name.trim()||new TextEncoder().encode(name).length>19)throw new Error('Nome inválido.');
  const sync=Number($('delay').options[Array.from($('delay').options).findIndex(o=>Number(o.value)===bytes[62])].dataset.sync);if(!Number.isInteger(sync)||![0,1].includes(v.getInt16(knobOffset(8,sync),true)))throw new Error('Sync do delay deve ser 0 ou 1.');
  return bytes;
@@ -1040,7 +1039,7 @@ function explainProviderFailure(error,provider=selectedAIProvider()){
  if(/model.*(not found|unsupported|no longer available|not available|deprecated|decommissioned)|not found for api version/i.test(message))return `O modelo “${$('aiModel').value.trim()}” não está disponível para essa chave/API. Confira o identificador e os modelos habilitados no provedor.`;
  return message;
 }
-$('testAI').addEventListener('click',async()=>{
+if($('testAI'))$('testAI').addEventListener('click',async()=>{
  const button=$('testAI');if(activeAIRequest){setStatus($('audioStatus'),'Termine ou cancele a análise atual antes de testar a conexão.','bad');return;}
  button.disabled=true;setStatus($('audioStatus'),'Verificando o serviço protegido do AutoPreset…');const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),20000);
  try{
@@ -1055,6 +1054,7 @@ $('testAI').addEventListener('click',async()=>{
  finally{clearTimeout(timer);button.disabled=false;}
 });
 $('analyzeAI').addEventListener('click',async()=>{
+ return; // Cloud AI is disabled in the local-first Android/PWA build.
  if(activeAIRequest)return;
  let request;const provider=selectedAIProvider();
  try{
@@ -1078,6 +1078,24 @@ $('analyzeAI').addEventListener('click',async()=>{
  finally{if(request){clearTimeout(request.timeout);activeAIRequest=null;$('mainAppWorkspace').disabled=$('pedalboard').value!=='mk300';$('pedalboard').disabled=false;$('guitarType').disabled=false;$('analyzeAI').disabled=false;$('cancelAI').disabled=true;lockAudioInputs(false);}}
 });
 
+function applyOfflineProfile(profile, reference, prefix='Perfil local'){
+ requireSupportedHardware();
+ let gateMovedBeforeDrive=false;
+ if(profile.ampGain>=75){const gateIndex=currentChainOrder.indexOf(2),driveIndex=currentChainOrder.indexOf(3);if(gateIndex>driveIndex){const [gateId]=currentChainOrder.splice(gateIndex,1);currentChainOrder.splice(driveIndex,0,gateId);gateMovedBeforeDrive=true;}}
+ currentOrigin=prefix+' · sem serviço externo';parameterValues={};
+ for(const key of ['name','bpm','amp','drive','delay','time','fb','mix','ampGain','driveGain'])$(key).value=String(profile[key]);
+ const offset=getGuitarOffset();$('ampGain').value=String(Math.max(0,Math.min(100,profile.ampGain+offset.gain)));$('bass').value=String(Math.max(0,Math.min(100,50+offset.bass)));
+ for(const key of ['dsOn','ampOn','dlyOn'])$(key).checked=profile[key]!==false;
+ $('cabOn').checked=true;$('revOn').checked=true;$('volOn').checked=false;$('volLevel').value='50';syncCurrentParameterAliases();refreshUI();
+ $('ampGainValue').value=$('ampGain').value;$('driveGainValue').value=$('driveGain').value;
+ commitSingleDraft(prefix+' · '+profile.label);
+ return 'Perfil '+profile.label+' aplicado como ponto de partida. Referência: '+reference+'. Ajustes heurísticos de captação: Gain '+offset.gain+' / Bass '+offset.bass+'.'+(gateMovedBeforeDrive?' Gate foi colocado antes do DS.':'');
+}
+$('analyzeAI').addEventListener('click',()=>{
+ try{const query=$('ytUrl').value.trim();if(!query)throw new Error('Digite o estilo ou a música.');const profile=profiles.find(item=>item.match.test(query))||fallbackProfile;setStatus($('aiStatus'),applyOfflineProfile(profile,query,'Sugestão offline'),'good');$('aiDescription').textContent='Sem API: perfil heurístico, ainda não é uma análise musical automática. Depois de testar e corrigir na MK‑300, salve o resultado como exemplo local.';}
+ catch(error){setStatus($('aiStatus'),error.message,'bad');}
+});
+
 
 function validateChain(order){if(!Array.isArray(order)||order.length!==11||order.some(id=>!Number.isInteger(id)||id<0||id>10)||new Set(order).size!==11)throw new Error('Cadeia deve conter exatamente os blocos 0 a 10, sem repetição.');return order;}
 function moveBlock(id,direction){requireSupportedHardware();const order=[...validateChain(currentChainOrder)];const index=order.indexOf(id),target=index+direction;if(target<0||target>=11)return;[order[index],order[target]]=[order[target],order[index]];currentChainOrder=order;refreshUI();}
@@ -1089,11 +1107,26 @@ const DRAFT_FIELDS=['wahModel','fxModel','gateModel','eqModel','modModel','cabSl
 const DRAFT_STATES=['namMode','namInstalled','namSuggested','dsOn','ampOn','cabOn','dlyOn','revOn','volOn'];
 function snapshotDraft(label){return {label,origin:currentOrigin,cabBeforeNam,fields:Object.fromEntries(DRAFT_FIELDS.map(key=>[key,$(key).value])),states:Object.fromEntries(DRAFT_STATES.map(key=>[key,$(key).checked])),order:[...currentChainOrder],additional:{...additionalStates},parameters:{...parameterValues},base:baseBytes?new Uint8Array(baseBytes):null,description:$('aiDescription').textContent};}
 function saveDraft(){if(activeDraftIndex>=0&&presetDrafts[activeDraftIndex])presetDrafts[activeDraftIndex]=snapshotDraft(presetDrafts[activeDraftIndex].label);}
-function restoreDraft(draft){currentOrigin=typeof draft.origin==='string'?draft.origin:'Projeto importado · origem anterior não registrada';cabBeforeNam=draft.cabBeforeNam??null;for(const[key,value]of Object.entries(draft.fields))$(key).value=value;for(const[key,value]of Object.entries(draft.states))$(key).checked=value;currentChainOrder=[...draft.order];additionalStates={...draft.additional};parameterValues={...(draft.parameters||{})};baseBytes=draft.base?new Uint8Array(draft.base):null;$('base').value='';setStatus($('baseStatus'),baseBytes?'Base própria de 448 bytes restaurada para este preset.':'Base de referência USER PRESET 134 ativa para este preset.','good');$('aiDescription').textContent=draft.description;$('ampGainValue').value=$('ampGain').value;$('driveGainValue').value=$('driveGain').value;syncCurrentParameterAliases();refreshUI();}
+function restoreDraft(draft){currentOrigin=typeof draft.origin==='string'?draft.origin:'Projeto importado · origem anterior não registrada';cabBeforeNam=draft.cabBeforeNam??null;for(const[key,value]of Object.entries(draft.fields))$(key).value=value;for(const[key,value]of Object.entries(draft.states))$(key).checked=value;currentChainOrder=[...draft.order];additionalStates={...draft.additional};parameterValues={...(draft.parameters||{})};baseBytes=draft.base?new Uint8Array(draft.base):null;$('base').value='';setStatus($('baseStatus'),baseBytes?'Base própria de 448 bytes restaurada para este preset.':'Base de referência USER PRESET 134 ativa para este preset.','good');$('aiDescription').textContent=draft.description;$('ampGainValue').value=$('ampGain').value;$('driveGainValue').value=$('driveGain').value;refreshUI();}
+function hydrateLearningDraft(draft){const checked=checkProjectDraft(draft);if(checked.base&&typeof checked.base==='string')checked.base=Uint8Array.from(atob(checked.base),c=>c.charCodeAt(0));return checked;}
+function updateLearningCount(){window.AutoPresetLearning.list().then(records=>{const text=records.length+' exemplo(s) de preset corrigido(s) salvos somente neste aparelho.';if(!$('learningPanel').hidden)$('learningSummary').textContent=text;}).catch(()=>{});}
+$('applyLearningExample').addEventListener('click',()=>{try{if(!lastLearningMatch)throw new Error('Nenhum exemplo semelhante disponível.');const draft=hydrateLearningDraft(lastLearningMatch.record.draft);restoreDraft(draft);commitSingleDraft('Exemplo local · '+lastLearningMatch.record.reference.slice(0,30));setStatus($('learningStatus'),'Exemplo aplicado como ponto de partida. Ajuste e compare de novo na pedaleira.','good');}catch(error){setStatus($('learningStatus'),'Não foi possível abrir o exemplo: '+error.message,'bad');}});
+$('saveLearningExample').addEventListener('click',async()=>{
+ try{
+  if(!lastLocalAnalysis)throw new Error('Separe primeiro um trecho de áudio.');
+  if(!$('learningTested').checked)throw new Error('Marque a confirmação de que você comparou o preset na MK‑300.');
+  requireSupportedHardware();saveDraft();const reference=String(lastLocalAnalysis.reference||lastLocalAnalysis.snippet.label).slice(0,160);
+  const draft=persistableDraft(snapshotDraft('Correção · '+reference.slice(0,50))),bytes=Array.from(compilePreset());
+  await window.AutoPresetLearning.save({reference,rating:Number($('learningRating').value),note:$('learningNote').value,features:lastLocalAnalysis.features,initial_draft:lastLocalAnalysis.initialDraft,draft,preset_bytes:bytes});
+  const count=(await window.AutoPresetLearning.list()).length;setStatus($('learningStatus'),'Correção salva. O exemplo inclui medições e preset validado, sem guardar o áudio. Total local: '+count+'.','good');$('learningSummary').textContent=count+' exemplo(s) de preset corrigido(s) salvos neste aparelho. Futuras análises poderão oferecer o mais parecido.';
+ }catch(error){setStatus($('learningStatus'),'Não foi possível salvar a correção: '+error.message,'bad');}
+});
+$('exportLearningExamples').addEventListener('click',async()=>{try{const json=await window.AutoPresetLearning.exportJson();if(!JSON.parse(json).examples.length)throw new Error('Ainda não há exemplos para exportar.');downloadBytes(json,'AutoPreset_exemplos_locais.json','application/json','learningStatus','Exemplos exportados. Este arquivo contém medições e presets, sem áudio.');}catch(error){setStatus($('learningStatus'),error.message,'warn');}});
+updateLearningCount();
 function renderDraftTabs(){const area=$('presetTabs');area.replaceChildren();presetDrafts.forEach((draft,index)=>{const button=document.createElement('button');button.type='button';button.textContent=draft.label;button.className='presetTab'+(index===activeDraftIndex?' selected':'');button.setAttribute('aria-pressed',String(index===activeDraftIndex));button.addEventListener('click',()=>switchDraft(index));area.appendChild(button);});}
 function switchDraft(index){requireSupportedHardware();if(!Number.isInteger(index)||index<0||index>=presetDrafts.length)throw new Error('Aba inválida.');saveDraft();activeDraftIndex=index;restoreDraft(presetDrafts[index]);renderDraftTabs();scheduleAutosave();}
 function commitSingleDraft(label){presetDrafts=[snapshotDraft(label)];activeDraftIndex=0;renderDraftTabs();scheduleAutosave();}
-let snippets=[{id:1,label:'Base',start:'0:10',end:'0:40'}],nextSnippetId=2,pendingAutoAnalysis=false;
+let snippets=[{id:1,label:'Base',start:'0:10',end:'0:40'}],nextSnippetId=2;
 function renderSnippets(){const area=$('snippets');area.replaceChildren();for(const snippet of snippets){const row=document.createElement('div');row.className='snippetRow';for(const[key,label]of [['label','Nome'],['start','Início'],['end','Fim']]){const field=document.createElement('label');field.textContent=label;const input=document.createElement('input');input.type='text';input.value=snippet[key];input.maxLength=key==='label'?40:14;input.setAttribute('aria-label',label+' do trecho '+snippet.id);input.addEventListener('input',()=>{snippet[key]=input.value});field.appendChild(input);row.appendChild(field);}const remove=document.createElement('button');remove.type='button';remove.textContent='Remover';remove.addEventListener('click',()=>{if(activeAIRequest)return;snippets=snippets.filter(s=>s.id!==snippet.id);renderSnippets()});row.appendChild(remove);const play=document.createElement('button');play.type='button';play.textContent='Ouvir';play.addEventListener('click',()=>previewSnippet(snippet.id));row.appendChild(play);const separate=document.createElement('button');separate.type='button';separate.textContent='Separar e analisar guitarra';separate.addEventListener('click',()=>separateGuitarSnippet(snippet.id,separate));row.appendChild(separate);area.appendChild(row)}}
 $('addSnippet').addEventListener('click',()=>{if(activeAIRequest)return;if(snippets.length>=6){setStatus($('audioStatus'),'Máximo de 6 trechos por análise.','bad');return;}snippets.push({id:nextSnippetId++,label:'Trecho '+(snippets.length+1),start:'',end:''});renderSnippets();});
 function parseTimestamp(text){if(typeof text!=='string'||!text.trim())throw new Error('Tempo não pode ficar vazio.');const raw=text.trim();if(!/^\d+(?::\d{1,2}){0,2}(?:\.\d{1,3})?$/.test(raw))throw new Error('Use segundos, mm:ss ou hh:mm:ss.');const parts=raw.split(':').map(Number);if(parts.length>1&&parts.slice(1).some(v=>v>=60))throw new Error('Minutos/segundos devem ser menores que 60.');const seconds=parts.reduce((total,value)=>total*60+value,0);if(!Number.isFinite(seconds))throw new Error('Tempo inválido.');return seconds;}
@@ -1102,6 +1135,7 @@ function audioDuration(file,signal){return new Promise((resolve,reject)=>{const 
 function detectAudioMime(bytes,name){const ascii=(a,b)=>String.fromCharCode(...bytes.slice(a,b));if(/\.wav$/i.test(name)&&ascii(0,4)==='RIFF'&&ascii(8,12)==='WAVE')return 'audio/wav';if(/\.mp3$/i.test(name)&&(ascii(0,3)==='ID3'||bytes[0]===255&&(bytes[1]&224)===224))return 'audio/mpeg';throw new Error('Arquivo não corresponde a um MP3/WAV reconhecido.');}
 function bytesToBase64(bytes){const chunks=[];for(let i=0;i<bytes.length;i+=32768)chunks.push(String.fromCharCode(...bytes.subarray(i,i+32768)));return btoa(chunks.join(''));}
 function lockAudioInputs(busy){$('audioInputs').disabled=busy;}
+let lastLocalAnalysis=null,lastLearningMatch=null;
 async function separateGuitarSnippet(id,button){
  if(activeAIRequest)return;let request;
  try{
@@ -1110,25 +1144,36 @@ async function separateGuitarSnippet(id,button){
   const start=parseTimestamp(snippet.start),end=parseTimestamp(snippet.end),duration=$('previewAudio').duration;
   if(!Number.isFinite(duration)||end>duration+0.01||end<=start)throw new Error('Confira o início e o fim do trecho.');
   if(end-start>45)throw new Error('Cada trecho pode ter no máximo 45 segundos.');
-  const serviceUrl=getAutoPresetApi();$('audioServiceUrl').value=serviceUrl;
   const controller=new AbortController();request={controller,reason:null};activeAIRequest=request;
   $('previewAudio').pause();$('mainAppWorkspace').disabled=true;$('pedalboard').disabled=true;$('guitarType').disabled=true;lockAudioInputs(true);$('cancelAI').disabled=false;button.disabled=true;
   request.timeout=setTimeout(()=>{request.reason='timeout';controller.abort()},240000);
-  setStatus($('audioStatus'),'Separando guitarra de “'+snippet.label+'” ('+start.toFixed(1)+'–'+end.toFixed(1)+' s). Aguarde…');
-  const result=await window.AutoPresetAudio.separate({serviceUrl,file,startSeconds:start,endSeconds:end,signal:controller.signal});
+  const initialDraft=persistableDraft(snapshotDraft('Antes da análise'));
+  setStatus($('audioStatus'),'Preparando o áudio no aparelho…');
+  const result=await window.AutoPresetLocalAudio.separate({file,startSeconds:start,endSeconds:end,signal:controller.signal,onProgress:message=>setStatus($('audioStatus'),message)});
   if(controller.signal.aborted)throw new DOMException('Cancelado','AbortError');
   if(guitarStemUrl)URL.revokeObjectURL(guitarStemUrl);guitarStemUrl=URL.createObjectURL(result.blob);
   $('guitarStemPreview').src=guitarStemUrl;$('downloadGuitarStem').href=guitarStemUrl;$('separationOutput').hidden=false;
-  $('ytUrl').value='Guitarra isolada do trecho “'+snippet.label+'” ('+start.toFixed(1)+'–'+end.toFixed(1)+' s). Analise o timbre real desta gravação: ataque, brilho, sustain, dinâmica, saturação e quantidade aparente de efeitos. Métricas acústicas medidas na guitarra separada: '+JSON.stringify(result.features||{})+'.';
-  setStatus($('audioStatus'),'Guitarra separada pelo modelo '+result.model+'. Preparando sugestão automática de preset…','good');
-  pendingAutoAnalysis=true;
+  const typedReference=$('ytUrl').value.trim();
+  if(!typedReference)$('ytUrl').value='Trecho '+snippet.label+' · '+start.toFixed(1)+'–'+end.toFixed(1)+' s';
+  const reference=typedReference||$('ytUrl').value;
+  lastLocalAnalysis={features:result.features,reference,snippet:{...snippet},initialDraft};
+  $('audioMetrics').textContent='RMS '+result.features.rms_db+' dBFS · Centroide '+result.features.spectral_centroid_hz+' Hz · Rolloff 85% '+result.features.spectral_rolloff_85_hz+' Hz · ZCR '+result.features.zero_crossing_rate;
+  $('learningPanel').hidden=false;$('learningTested').checked=false;$('learningNote').value='';$('applyLearningExample').disabled=true;lastLearningMatch=null;
+  const match=await window.AutoPresetLearning.bestMatch(result.features);
+  if(match){lastLearningMatch=match;$('applyLearningExample').disabled=false;$('learningSummary').textContent='Existe um exemplo corrigido parecido (“'+match.record.reference+'”, nota '+match.record.rating+'/5). Você decide se quer usá-lo como base.';}
+  else $('learningSummary').textContent='Ainda não há correções de áudio salvas neste aparelho. Faça o primeiro ajuste manual, teste na MK‑300 e salve o resultado para criar o primeiro exemplo.';
+  setStatus($('audioStatus'),'Guitarra destacada por '+result.model+'. As medições e o áudio ficaram no aparelho. Revise a faixa antes de criar ou reutilizar um preset.','good');
  }catch(error){setStatus($('audioStatus'),error.name==='AbortError'?(request?.reason==='timeout'?'Tempo limite excedido; tente um trecho menor.':'Separação cancelada.'):'Falha na separação: '+error.message,'bad');}
- finally{if(request){clearTimeout(request.timeout);activeAIRequest=null;$('mainAppWorkspace').disabled=$('pedalboard').value!=='mk300';$('pedalboard').disabled=false;$('guitarType').disabled=false;$('cancelAI').disabled=true;lockAudioInputs(false);button.disabled=false;if(pendingAutoAnalysis){pendingAutoAnalysis=false;setTimeout(()=>$('analyzeAI').click(),0);}}}
+ finally{if(request){clearTimeout(request.timeout);activeAIRequest=null;$('mainAppWorkspace').disabled=$('pedalboard').value!=='mk300';$('pedalboard').disabled=false;$('guitarType').disabled=false;$('cancelAI').disabled=true;lockAudioInputs(false);button.disabled=false;}}
 }
-try{$('audioServiceUrl').value=window.AUTO_PRESET_API||'';}catch{}
-if(window.AUTO_PRESET_API){$('serviceStatus').textContent='Serviço configurado. Teste a conexão para confirmar IA e separação.';}else{$('serviceStatus').textContent='Serviço ainda não conectado. O administrador precisa configurar o endpoint seguro do AutoPreset.';}
+$('serviceStatus').textContent='Análise local pronta. O modelo de 136 MB só é baixado quando você iniciar a primeira separação; nenhuma chave de API é usada.';
 renderSnippets();
-if(!/^https?:$/.test(window.location.protocol)&&window.location.protocol!=='about:')setStatus($('audioStatus'),`Edição local disponível (${window.location.protocol}). Para separar áudio, use um serviço HTTPS ou localhost.`,'warn');
+if(!/^https?:$/.test(window.location.protocol)&&window.location.protocol!=='about:')setStatus($('audioStatus'),'Para baixar o modelo local, abra o AutoPreset por HTTPS no Chrome. Depois do primeiro download, o áudio é processado no aparelho.','warn');
+
+let pendingInstallPrompt=null;
+window.addEventListener('beforeinstallprompt',event=>{event.preventDefault();pendingInstallPrompt=event;$('installPwa').hidden=false;});
+$('installPwa').addEventListener('click',async()=>{if(!pendingInstallPrompt){setStatus($('setupStatus'),'No Chrome do Android, abra o menu ⋮ e toque em “Instalar app” ou “Adicionar à tela inicial”.','warn');return;}pendingInstallPrompt.prompt();await pendingInstallPrompt.userChoice;pendingInstallPrompt=null;$('installPwa').hidden=true;});
+if('serviceWorker' in navigator && /^https?:$/.test(window.location.protocol))navigator.serviceWorker.register('./sw.js').catch(()=>{});
 
 
 function validNamSlot(){if(!$('namInstalled').checked)throw new Error('Confirme que a captura compatível está instalada no slot selecionado.');return validInt('namSlot',1,100,'Slot NAM');}
@@ -1160,13 +1205,12 @@ function checkProjectDraft(raw){
  for(const key of DRAFT_FIELDS){if(typeof raw.fields?.[key]!=='string'||raw.fields[key].length>2000)throw new Error('Campo de projeto inválido: '+key);draft.fields[key]=raw.fields[key];}
  for(const key of DRAFT_STATES){if(typeof raw.states?.[key]!=='boolean')throw new Error('Estado de projeto inválido: '+key);draft.states[key]=raw.states[key];}
  for(const[key,value]of Object.entries(raw.additional||{})){if(!/^(0|1|2|6|7)$/.test(key)||typeof value!=='boolean')throw new Error('Estado secundário inválido.');draft.additional[key]=value;}
- for(const[key,value]of Object.entries(raw.parameters||{})){const parts=key.split(':').map(Number);if(parts.length!==3||parts.some(n=>!Number.isInteger(n))||!Number.isInteger(value))throw new Error('Knob de projeto inválido.');const [blockId,modelIndex,knobIndex]=parts,model=PARAMETER_BLOCKS[blockId]?.models[modelIndex],name=model?.knobs[knobIndex];if(!name)throw new Error('Knob de projeto não existe no catálogo v73.');if(value< -32768||value>32767)throw new Error('Knob de projeto fora da faixa: '+name);draft.parameters[key]=value;}
+ for(const[key,value]of Object.entries(raw.parameters||{})){const parts=key.split(':').map(Number);if(parts.length!==3||parts.some(n=>!Number.isInteger(n))||!Number.isInteger(value))throw new Error('Knob de projeto inválido.');const [blockId,modelIndex,knobIndex]=parts,model=PARAMETER_BLOCKS[blockId]?.models[modelIndex],name=model?.knobs[knobIndex];if(!name)throw new Error('Knob de projeto não existe no catálogo v73.');const range=parameterRange(blockId,name,modelIndex);if(value<range.min||value>range.max)throw new Error('Knob de projeto fora da faixa: '+name);draft.parameters[key]=value;}
  if(raw.base!==null){if(typeof raw.base!=='string'||raw.base.length>600)throw new Error('Base do projeto inválida.');draft.base=validateBaseBytes(Uint8Array.from(atob(raw.base),c=>c.charCodeAt(0)));}
  if(!['unknown','amp_only','amp_cab'].includes(draft.fields.namKind))throw new Error('Tipo de captura do projeto inválido.');
  const ranges={wahModel:[0,5],fxModel:[0,15],gateModel:[0,7],eqModel:[0,2],modModel:[0,19],cabSlot:[1,100],cabLevel:[0,100],cabLow:[0,32767],cabHigh:[0,32767],revModel:[0,17],revP0:[0,100],revP1:[0,100],revP2:[0,100],revP3:[0,100],revP4:[0,100],presetVolume:[1,100],bpm:[1,65535],ampGain:[0,100],ampLevel:[0,100],bass:[0,100],middle:[0,100],treble:[0,100],driveGain:[0,100],dsLevel:[0,100],time:[1,32767],fb:[0,100],mix:[0,100],volLevel:[0,100],namSlot:[1,100],amp:[0,99],drive:[0,39],delay:[0,26]};
  for(const[key,[min,max]]of Object.entries(ranges)){const rawValue=draft.fields[key];if(!/^-?\d+$/.test(rawValue)||Number(rawValue)<min||Number(rawValue)>max)throw new Error('Valor de projeto fora da faixa: '+key);}
- // Projetos v1 anteriores não possuíam metadados de faixa por modelo.
- // A compilação valida valores editados; os valores originais são preservados.
+ validateReverb({model:Number(draft.fields.revModel),parameters:['revP0','revP1','revP2','revP3','revP4'].map(key=>Number(draft.fields[key]))});
  const name=draft.fields.name.trim();if(!name||new TextEncoder().encode(name).length>19)throw new Error('Nome de projeto inválido.');return draft;
 }
 function restoreProject(data){

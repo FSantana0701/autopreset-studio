@@ -9,6 +9,8 @@ app_port: 7860
 
 # Serviço de áudio e sugestões do AutoPreset
 
+> **Legado:** a interface Android/PWA atual usa `src/integrations/local-audio.js` e não chama este serviço. Esta API ainda requer chave Claude no servidor e pode gerar custos; não publique nem configure para usar o fluxo local.
+
 O serviço recebe um MP3/WAV e um intervalo de até 45 segundos, recorta o trecho, separa a guitarra com Demucs e calcula métricas acústicas com librosa. O navegador envia essas métricas e o contexto ao endpoint Claude do próprio serviço. O provedor recebe texto/métricas, não o arquivo de áudio. Os arquivos temporários são removidos no fim da requisição.
 
 ## Execução local
@@ -45,5 +47,3 @@ No GitHub, configure o Secret `HF_TOKEN` com acesso de escrita ao Space e a vari
 No arquivo `src/config.js`, informe `window.AUTO_PRESET_API = 'https://SEU-SUBDOMINIO.hf.space';` e gere/publice o HTML autônomo. Esta URL é pública; não inclua nela segredo algum.
 
 O Space precisa de compute compatível com Docker e Demucs. Pode dormir quando ocioso e demorar para iniciar. A chave Claude não é incluída no plano Claude.ai; o administrador precisa contratar e pagar o uso da API.
-
-Confira disponibilidade de Docker Spaces, hardware, custos e suspensão por inatividade no painel do Hugging Face antes de ativar o serviço. O primeiro processamento baixa os pesos do modelo.
