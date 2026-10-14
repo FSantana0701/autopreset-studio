@@ -10,7 +10,9 @@
   const MODEL_URL = 'https://huggingface.co/StemSplitio/htdemucs-6s-onnx/resolve/49df9b6989cf2150840ea65b0bef77a2e471b678/htdemucs_6s_fp16weights.onnx';
   const ORT_URL = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.22.0/dist/ort.min.mjs';
   const ORT_WEBGPU_URL = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.22.0/dist/ort.webgpu.min.mjs';
+  const ORT_WEBGL_URL = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.22.0/dist/ort.webgl.min.mjs';
   const MAX_AUDIO_BYTES = 25 * 1024 * 1024;
+  const ESTIMATED_PEAK_RAM_MB = 1100;
   const MODEL_CACHE = 'autopreset-local-model-v2';
   let runtimePromise = null;
   let sessionPromise = null;
@@ -24,8 +26,16 @@
     catch { return false; }
   }
 
-  async function loadOrt(useWebGPU) {
-    const ort = await import(useWebGPU ? ORT_WEBGPU_URL : ORT_URL);
+  function hasWebGL() {
+    try {
+      const canvas = root.document?.createElement('canvas');
+      return !!(canvas && (canvas.getContext('webgl2') || canvas.getContext('webgl')));
+    } catch { return false; }
+  }
+
+  async function loadOrt(provider) {
+    const url = provider === 'webgpu' ? ORT_WEBGPU_URL : provider === 'webgl' ? ORT_WEBGL_URL : ORT_URL;
+    const ort = await import(url);
     ort.env.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.22.0/dist/';
     // GitHub Pages não envia COOP/COEP. Um worker WASM multithread pode falhar
     // em alguns WebViews Android, portanto o fallback permanece single-thread.
@@ -37,31 +47,66 @@
     return useWebGPU ? ['webgpu', 'wasm'] : ['wasm'];
   }
 
+  function describeError(error) {
+    if (typeof error === 'string' && error.trim()) return error;
+    if (error && typeof error.message === 'string' && error.message.trim()) return error.message;
+    if (error && typeof error.toString === 'function') {
+      const rendered = String(error);
+      if (rendered && rendered !== '[object Object]') return rendered;
+    }
+    try {
+      const json = JSON.stringify(error);
+      if (json && json !== '{}' && json !== 'null') return json;
+    } catch { /* error may contain circular references */ }
+    return 'erro interno do runtime de áudio sem detalhes';
+  }
+
+  function candidateProviders(hasGpu, hasGl) {
+    const candidates = [];
+    if (hasGpu) candidates.push('webgpu');
+    if (hasGl) candidates.push('webgl');
+    candidates.push('wasm');
+    return [...new Set(candidates)];
+  }
+
   async function getSession(onProgress) {
-    if (!runtimePromise) runtimePromise = hasWebGPU()
-      .then(useWebGPU => loadOrt(useWebGPU).then(ort => ({ ort, useWebGPU })))
-      .catch(async error => {
-        runtimePromise = null;
-        try { return { ort: await loadOrt(false), useWebGPU: false }; }
-        catch (fallbackError) {
-          throw new Error('Não foi possível carregar o runtime de áudio. Confira a conexão e tente novamente. (' + (fallbackError?.message || error?.message || 'falha de rede') + ')');
+    if (!runtimePromise) runtimePromise = (async () => {
+      const webgpu = await hasWebGPU();
+      const webgl = hasWebGL();
+      const failures = [];
+      const providers = candidateProviders(webgpu, webgl);
+      for (const provider of providers) {
+        try {
+          const ort = await loadOrt(provider);
+          return { ort, provider, providers };
+        } catch (error) {
+          failures.push(provider + ': ' + describeError(error));
         }
-      });
+      }
+      throw new Error('Não foi possível carregar o runtime de áudio. Confira a conexão e tente novamente. ' + failures.join(' | '));
+    })().catch(error => { runtimePromise = null; throw error; });
     const runtime = await runtimePromise;
     if (!sessionPromise) {
       onProgress?.('Baixando o modelo de guitarra (aprox. 136 MB, somente na primeira utilização)…');
       sessionPromise = loadModelBytes().then(async modelBytes => {
-        const options = { executionProviders: executionProviders(runtime.useWebGPU), graphOptimizationLevel: 'basic' };
-        try {
-          const session = await runtime.ort.InferenceSession.create(modelBytes, options);
-          return { ort: runtime.ort, session, provider: runtime.useWebGPU ? 'WebGPU + WASM' : 'WASM' };
-        } catch (error) {
-          if (!runtime.useWebGPU) throw error;
-          onProgress?.('A aceleração gráfica não ficou disponível; tentando o modo compatível do aparelho…');
-          const ort = await loadOrt(false);
-          const session = await ort.InferenceSession.create(modelBytes, { executionProviders: ['wasm'], graphOptimizationLevel: 'basic' });
-          return { ort, session, provider: 'WASM' };
+        const failures = [];
+        const available = runtime.providers;
+        for (const provider of available) {
+          try {
+            onProgress?.(provider === 'wasm'
+              ? 'Preparando inferência por CPU; o modelo pode usar cerca de 1,1 GB de RAM…'
+              : 'Preparando aceleração ' + provider.toUpperCase() + '…');
+            const ort = provider === runtime.provider ? runtime.ort : await loadOrt(provider);
+            const session = await ort.InferenceSession.create(modelBytes, {
+              executionProviders: provider === 'webgpu' ? ['webgpu', 'wasm'] : provider === 'webgl' ? ['webgl', 'wasm'] : ['wasm'],
+              graphOptimizationLevel: 'basic'
+            });
+            return { ort, session, provider: provider.toUpperCase() + (provider === 'wasm' ? '' : ' + WASM') };
+          } catch (error) {
+            failures.push(provider + ': ' + describeError(error));
+          }
         }
+        throw new Error('Não foi possível preparar o modelo no aparelho (pico estimado de RAM: ' + ESTIMATED_PEAK_RAM_MB + ' MB). ' + failures.join(' | '));
       }).catch(error => { sessionPromise = null; throw error; });
     }
     return await sessionPromise;
@@ -136,7 +181,11 @@
       chunkBuffer.fill(0);
       chunkBuffer.subarray(0, count).set(mix[0].subarray(start, end));
       chunkBuffer.subarray(SEGMENT, SEGMENT + count).set(mix[1].subarray(start, end));
-      const result = await session.run({ mix: new ort.Tensor('float32', chunkBuffer, [1, 2, SEGMENT]) });
+      let result;
+      try { result = await session.run({ mix: new ort.Tensor('float32', chunkBuffer, [1, 2, SEGMENT]) }); }
+      catch (error) {
+        throw new Error('Falha na inferência local, trecho ' + (chunk + 1) + '/' + chunks + ': ' + describeError(error));
+      }
       const stems = result.stems?.data;
       if (!(stems instanceof Float32Array) || stems.length < 6 * 2 * SEGMENT) throw new Error('O modelo local retornou uma estrutura de faixas inesperada.');
       const rowOffset = STEM_GUITAR * 2 * SEGMENT;
@@ -259,8 +308,9 @@
     let guitar;
     try { guitar = await separateGuitar(mix, ort, session, { signal, onProgress }); }
     catch (error) {
-      if (/Aborted\(|out of memory|memory access out of bounds|allocation failed/i.test(String(error?.message || error))) {
-        throw new Error('O navegador interrompeu a separação local. Feche outras abas/apps, atualize o Chrome e tente novamente com um trecho menor. O áudio continua no aparelho.');
+      const detail = describeError(error);
+      if (/Aborted\(|out of memory|memory access out of bounds|allocation failed|sem detalhes do runtime/i.test(detail)) {
+        throw new Error('O navegador não conseguiu reservar memória para a separação local (o modelo pode exigir cerca de 1,1 GB de RAM). Feche outros apps, use Chrome atualizado com aceleração gráfica ou tente em um aparelho com mais memória. ' + detail);
       }
       throw error;
     }
@@ -269,5 +319,5 @@
     return { blob: toWav(guitar), features, model: 'HT-Demucs 6-stem · execução local (' + provider + ')' };
   }
 
-  root.AutoPresetLocalAudio = Object.freeze({ separate, separateGuitar, analyzeFeatures, toneHints, toWav, transitionWindow, loadModelBytes, validateFile, hasWebGPU, executionProviders, MODEL_URL, ORT_URL, ORT_WEBGPU_URL, MAX_AUDIO_BYTES, SAMPLE_RATE, SEGMENT, OVERLAP, STRIDE, STEM_GUITAR });
+  root.AutoPresetLocalAudio = Object.freeze({ separate, separateGuitar, analyzeFeatures, toneHints, toWav, transitionWindow, loadModelBytes, validateFile, hasWebGPU, hasWebGL, candidateProviders, describeError, executionProviders, MODEL_URL, ORT_URL, ORT_WEBGPU_URL, ORT_WEBGL_URL, MAX_AUDIO_BYTES, ESTIMATED_PEAK_RAM_MB, SAMPLE_RATE, SEGMENT, OVERLAP, STRIDE, STEM_GUITAR });
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -1,6 +1,6 @@
 # AutoPreset Studio · MK-300 v73
 
-## V29 · análise local guiada por áudio
+## V30 · análise local guiada por áudio
 
 A biblioteca interna inclui quatro arquivos `.dzh` originais anexados pelo usuário: JP CLEAN, JP OVERDRIVE, JP HEAVY RHYTHM e JP EPIC SOLO. Cada arquivo é validado por SHA-256 no teste e pode ser baixado sem regravação. Também pode ser aberto como novo rascunho, mantendo o arquivo original como base para que os knobs e bytes desconhecidos continuem preservados.
 
@@ -12,7 +12,7 @@ O site agora também pode ser instalado no Android como PWA. O editor, o compila
 
 - Não é necessária chave de OpenAI, Anthropic ou Gemini.
 - O arquivo da música não é enviado ao AutoPreset nem guardado pelo app.
-- Na primeira separação, o app baixa o runtime ONNX e o modelo `htdemucs_6s` (aprox. 136 MB). O modelo é fixado a uma revisão específica; a inferência acontece no aparelho. Em navegadores com WebGPU disponível, o app usa a GPU e mantém WASM como fallback; nos demais, usa WASM single-thread. O navegador tenta guardar o modelo no Cache Storage para reutilização. A primeira execução pode demorar em rede móvel e ganhou limite de 15 minutos, com opção de cancelar. A interface e o runtime ainda podem precisar de conexão para carregar; o áudio nunca é enviado à API.
+- Na primeira separação, o app baixa o runtime ONNX e o modelo `htdemucs_6s` (aprox. 136 MB). O modelo é fixado a uma revisão específica; a inferência acontece no aparelho. A seleção de execução tenta WebGPU, WebGL e WASM single-thread, conforme o navegador e o aparelho suportam. A referência do modelo estima pico de RAM de aproximadamente 1,1 GB por segmento; o Chrome atualizado com aceleração gráfica é recomendado. O navegador tenta guardar o modelo no Cache Storage para reutilização. A primeira execução pode demorar em rede móvel e tem limite de 15 minutos, com opção de cancelar. A interface e o runtime ainda podem precisar de conexão para carregar; o áudio nunca é enviado à API.
 - Recomenda-se abrir por HTTPS no Chrome do Android. A página e os recursos PWA podem ser publicados gratuitamente como arquivos estáticos.
 - O modelo 6-stem tem uma saída específica de guitarra, mas o resultado é experimental e pode conter vazamento. Após a separação, o usuário pode gerar um preset heurístico usando perfil de referência e medidas de brilho espectral. Isso não é reconhecimento musical por IA nem garante cópia do timbre. A gravação e a avaliação física na MK-300 continuam sendo a referência.
 
