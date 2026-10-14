@@ -9,6 +9,7 @@
   // Fixar o commit evita que o mesmo cache URL passe a entregar outro modelo.
   const MODEL_URL = 'https://huggingface.co/StemSplitio/htdemucs-6s-onnx/resolve/49df9b6989cf2150840ea65b0bef77a2e471b678/htdemucs_6s_fp16weights.onnx';
   const ORT_URL = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.22.0/dist/ort.min.mjs';
+  const ORT_WEBGPU_URL = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.22.0/dist/ort.webgpu.min.mjs';
   const MAX_AUDIO_BYTES = 25 * 1024 * 1024;
   const MODEL_CACHE = 'autopreset-local-model-v2';
   let runtimePromise = null;
@@ -18,21 +19,52 @@
     if (signal?.aborted) throw new DOMException('Análise cancelada.', 'AbortError');
   }
 
+  async function hasWebGPU() {
+    try { return !!(root.navigator?.gpu && await root.navigator.gpu.requestAdapter()); }
+    catch { return false; }
+  }
+
+  async function loadOrt(useWebGPU) {
+    const ort = await import(useWebGPU ? ORT_WEBGPU_URL : ORT_URL);
+    ort.env.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.22.0/dist/';
+    // GitHub Pages não envia COOP/COEP. Um worker WASM multithread pode falhar
+    // em alguns WebViews Android, portanto o fallback permanece single-thread.
+    ort.env.wasm.numThreads = 1;
+    return ort;
+  }
+
+  function executionProviders(useWebGPU) {
+    return useWebGPU ? ['webgpu', 'wasm'] : ['wasm'];
+  }
+
   async function getSession(onProgress) {
-    if (!runtimePromise) runtimePromise = import(ORT_URL).then(ort => {
-      ort.env.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.22.0/dist/';
-      ort.env.wasm.numThreads = 1;
-      return ort;
-    }).catch(error => { runtimePromise = null; throw new Error('Não foi possível carregar o runtime de áudio. Confira a conexão e tente novamente. (' + (error?.message || 'falha de rede') + ')'); });
-    const ort = await runtimePromise;
+    if (!runtimePromise) runtimePromise = hasWebGPU()
+      .then(useWebGPU => loadOrt(useWebGPU).then(ort => ({ ort, useWebGPU })))
+      .catch(async error => {
+        runtimePromise = null;
+        try { return { ort: await loadOrt(false), useWebGPU: false }; }
+        catch (fallbackError) {
+          throw new Error('Não foi possível carregar o runtime de áudio. Confira a conexão e tente novamente. (' + (fallbackError?.message || error?.message || 'falha de rede') + ')');
+        }
+      });
+    const runtime = await runtimePromise;
     if (!sessionPromise) {
       onProgress?.('Baixando o modelo de guitarra (aprox. 136 MB, somente na primeira utilização)…');
-      sessionPromise = loadModelBytes().then(modelBytes => ort.InferenceSession.create(modelBytes, {
-        executionProviders: ['wasm'],
-        graphOptimizationLevel: 'all'
-      })).catch(error => { sessionPromise = null; throw error; });
+      sessionPromise = loadModelBytes().then(async modelBytes => {
+        const options = { executionProviders: executionProviders(runtime.useWebGPU), graphOptimizationLevel: 'basic' };
+        try {
+          const session = await runtime.ort.InferenceSession.create(modelBytes, options);
+          return { ort: runtime.ort, session, provider: runtime.useWebGPU ? 'WebGPU + WASM' : 'WASM' };
+        } catch (error) {
+          if (!runtime.useWebGPU) throw error;
+          onProgress?.('A aceleração gráfica não ficou disponível; tentando o modo compatível do aparelho…');
+          const ort = await loadOrt(false);
+          const session = await ort.InferenceSession.create(modelBytes, { executionProviders: ['wasm'], graphOptimizationLevel: 'basic' });
+          return { ort, session, provider: 'WASM' };
+        }
+      }).catch(error => { sessionPromise = null; throw error; });
     }
-    return { ort, session: await sessionPromise };
+    return await sessionPromise;
   }
 
   async function loadModelBytes() {
@@ -223,12 +255,19 @@
     onProgress?.('Lendo o áudio neste aparelho…');
     const mix = await decodeClip(file, startSeconds, endSeconds);
     checkAbort(signal);
-    const { ort, session } = await getSession(onProgress);
-    const guitar = await separateGuitar(mix, ort, session, { signal, onProgress });
+    const { ort, session, provider } = await getSession(onProgress);
+    let guitar;
+    try { guitar = await separateGuitar(mix, ort, session, { signal, onProgress }); }
+    catch (error) {
+      if (/Aborted\(|out of memory|memory access out of bounds|allocation failed/i.test(String(error?.message || error))) {
+        throw new Error('O navegador interrompeu a separação local. Feche outras abas/apps, atualize o Chrome e tente novamente com um trecho menor. O áudio continua no aparelho.');
+      }
+      throw error;
+    }
     const features = analyzeFeatures(guitar);
     if (features.rms_db < -70) throw new Error('A faixa de guitarra saiu quase silenciosa. Confira o arquivo e tente outro trecho com a guitarra mais presente.');
-    return { blob: toWav(guitar), features, model: 'HT-Demucs 6-stem · execução local' };
+    return { blob: toWav(guitar), features, model: 'HT-Demucs 6-stem · execução local (' + provider + ')' };
   }
 
-  root.AutoPresetLocalAudio = Object.freeze({ separate, separateGuitar, analyzeFeatures, toneHints, toWav, transitionWindow, loadModelBytes, validateFile, MODEL_URL, ORT_URL, MAX_AUDIO_BYTES, SAMPLE_RATE, SEGMENT, OVERLAP, STRIDE, STEM_GUITAR });
+  root.AutoPresetLocalAudio = Object.freeze({ separate, separateGuitar, analyzeFeatures, toneHints, toWav, transitionWindow, loadModelBytes, validateFile, hasWebGPU, executionProviders, MODEL_URL, ORT_URL, ORT_WEBGPU_URL, MAX_AUDIO_BYTES, SAMPLE_RATE, SEGMENT, OVERLAP, STRIDE, STEM_GUITAR });
 })(typeof window !== 'undefined' ? window : globalThis);

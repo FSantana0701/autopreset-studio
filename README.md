@@ -12,7 +12,7 @@ O site agora também pode ser instalado no Android como PWA. O editor, o compila
 
 - Não é necessária chave de OpenAI, Anthropic ou Gemini.
 - O arquivo da música não é enviado ao AutoPreset nem guardado pelo app.
-- Na primeira separação, o app baixa o runtime ONNX e o modelo `htdemucs_6s` (aprox. 136 MB). O modelo é fixado a uma revisão específica; a inferência acontece no aparelho. O navegador tenta guardá-lo no Cache Storage para reutilização. A primeira execução pode demorar em rede móvel e ganhou limite de 15 minutos, com opção de cancelar. A interface e o runtime ainda podem precisar de conexão para carregar; o áudio nunca é enviado à API.
+- Na primeira separação, o app baixa o runtime ONNX e o modelo `htdemucs_6s` (aprox. 136 MB). O modelo é fixado a uma revisão específica; a inferência acontece no aparelho. Em navegadores com WebGPU disponível, o app usa a GPU e mantém WASM como fallback; nos demais, usa WASM single-thread. O navegador tenta guardar o modelo no Cache Storage para reutilização. A primeira execução pode demorar em rede móvel e ganhou limite de 15 minutos, com opção de cancelar. A interface e o runtime ainda podem precisar de conexão para carregar; o áudio nunca é enviado à API.
 - Recomenda-se abrir por HTTPS no Chrome do Android. A página e os recursos PWA podem ser publicados gratuitamente como arquivos estáticos.
 - O modelo 6-stem tem uma saída específica de guitarra, mas o resultado é experimental e pode conter vazamento. Após a separação, o usuário pode gerar um preset heurístico usando perfil de referência e medidas de brilho espectral. Isso não é reconhecimento musical por IA nem garante cópia do timbre. A gravação e a avaliação física na MK-300 continuam sendo a referência.
 

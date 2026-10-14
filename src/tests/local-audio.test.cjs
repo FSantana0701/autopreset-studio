@@ -11,6 +11,8 @@ const local = context.AutoPresetLocalAudio;
 
 assert.equal(local.STEM_GUITAR, 4, 'faixa de guitarra é a quinta saída do modelo 6-stem');
 assert.equal(local.SEGMENT, 343980, 'modelo recebe segmentos fixos de 7,8 s a 44,1 kHz');
+assert.deepEqual(Array.from(local.executionProviders(false)), ['wasm']);
+assert.deepEqual(Array.from(local.executionProviders(true)), ['webgpu', 'wasm']);
 
 function namedBlob(bytes, name) {
   const file = new Blob([bytes]);
@@ -19,6 +21,9 @@ function namedBlob(bytes, name) {
 }
 
 (async () => {
+  assert.equal(await local.hasWebGPU(), false, 'sem GPU web, usa o modo WASM compatível');
+  context.navigator = { gpu: { requestAdapter: async () => ({}) } };
+  assert.equal(await local.hasWebGPU(), true, 'detecta WebGPU antes de escolher o runtime');
   const wavHeader = new Uint8Array(12);
   wavHeader.set([82, 73, 70, 70], 0); // RIFF
   wavHeader.set([87, 65, 86, 69], 8); // WAVE
