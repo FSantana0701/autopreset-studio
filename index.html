@@ -1194,6 +1194,10 @@ class MK300PresetHandler {
     let guitar;
     try { guitar = await separateGuitar(mix, ort, session, { signal, onProgress }); }
     catch (error) {
+      // Se uma sessão foi abortada pelo driver ou pelo limite de memória,
+      // não reutilizar a sessão quebrada quando o usuário tocar em Tentar novamente.
+      try { await session.release?.(); } catch { /* sessão já encerrada pelo runtime */ }
+      sessionPromise = null;
       const detail = describeError(error);
       if (/Aborted\(|out of memory|memory access out of bounds|allocation failed|sem detalhes do runtime/i.test(detail)) {
         throw new Error('O navegador não conseguiu reservar memória para a separação local (o modelo pode exigir cerca de 1,1 GB de RAM). Feche outros apps, use Chrome atualizado com aceleração gráfica ou tente em um aparelho com mais memória. ' + detail);
