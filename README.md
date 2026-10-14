@@ -5,11 +5,22 @@ Ferramenta responsiva de palco para preparar, revisar e exportar presets da **M�
 ## Recursos principais
 
 - **PWA com suporte offline:** instale o app pelo navegador e use as funções locais — abrir projetos, editar presets e exportar arquivos — quando a interface já estiver armazenada no dispositivo. A primeira instalação exige conexão. Recursos que consultam serviços externos, como o catálogo e os downloads do TONE3000, precisam de internet.
+- **Estúdio de Preparação / Cortador em Tempo Real:** marque Início e Fim no player e grave até 45 segundos da faixa para análise local, sem decodificar o arquivo original inteiro.
 - **Analisador heurístico de áudio:** usa a Web Audio API nativa para medir RMS, taxa de cruzamentos por zero e fator de crista em trechos da mixagem. Não carrega modelos ONNX nem envia o áudio para um serviço de análise. Os limites de tamanho e duração ajudam a controlar o uso de memória durante a decodificação.
 - **Capturas NAM A2 pelo TONE3000:** permite selecionar capturas compatíveis A2-Lite, conferir metadados e baixar o arquivo .nam escolhido. A captura é importada no software compatível da M‑VAVE; ela não é incorporada ao arquivo .dzh.
 - **Perfis textuais offline:** referências de estilo podem servir como ponto de partida heurístico. São sugestões para revisão e teste, não uma reprodução garantida de uma gravação.
 - **Edição e projetos:** ajuste blocos e parâmetros, salve uma sessão em JSON, recupere um rascunho e exporte presets individualmente ou em lote.
 - **Compartilhamento:** gere ou importe códigos de preset sem alterar o formato binário do equipamento.
+
+## Estúdio de Preparação / Cortador em Tempo Real
+
+Prepare faixas longas diretamente na PWA: escolha um arquivo salvo no aparelho, ouça no player HTML5 e use **Capturar Início** e **Capturar Fim** para marcar um trecho de até **45 segundos**. Toque em **Gravar e Analisar Trecho** e mantenha a tela aberta até a conclusão; as medições e sugestões aparecem na área de análise.
+
+A captura combina `HTMLMediaElement.captureStream()` e `MediaRecorder`, APIs nativas de mídia do navegador, para recortar a música por **streaming em tempo real**. O player reproduz o intervalo selecionado e o gravador gera um Blob contendo apenas esse trecho. Depois, a Web Audio API decodifica somente o Blob e o analisador heurístico calcula RMS, ZCR e fator de crista.
+
+Essa arquitetura evita carregar o arquivo original inteiro como PCM na memória, removendo desse fluxo o principal gargalo de RAM que pode causar **Out of Memory** em dispositivos móveis. O processamento permanece local e offline, sem bibliotecas externas, modelos ou envio de áudio, mantendo a PWA leve. O uso de memória da análise fica limitado ao trecho gravado.
+
+O navegador precisa oferecer `captureStream()` e `MediaRecorder`. A gravação leva o tempo do trecho e pode ser cancelada; mudanças de posição, pausas ou ocultação da tela interrompem a captura. Os limites temporais dependem do navegador e do codec, sem precisão garantida por amostra. O recorte preserva a mixagem: não separa a guitarra dos demais instrumentos.
 
 ## Análise de áudio
 
@@ -18,7 +29,7 @@ Ferramenta responsiva de palco para preparar, revisar e exportar presets da **M�
 3. Execute a análise para visualizar as medições e usar as sugestões como ponto de partida.
 4. Revise os parâmetros no editor, confira o resultado na MK‑300 e exporte o preset.
 
-O analisador trabalha com a **mixagem completa**. RMS, ZCR e fator de crista não isolam a guitarra nem identificam com certeza amplificadores, pedais ou efeitos presentes na gravação. A decodificação de MP3 cria dados PCM em memória; por isso, o app limita os arquivos a **25 MiB**, a duração a **5 minutos** e cada trecho a **45 segundos**. Para aparelhos com pouca memória, prefira arquivos menores e feche outros apps durante a decodificação.
+O analisador trabalha com a **mixagem completa**. RMS, ZCR e fator de crista não isolam a guitarra nem identificam com certeza amplificadores, pedais ou efeitos presentes na gravação. No fluxo de importação direta acima, a decodificação de MP3 cria dados PCM em memória; por isso, o app limita os arquivos a **25 MiB**, a duração a **5 minutos** e cada trecho a **45 segundos**. Para faixas longas ou aparelhos com pouca memória, use o **Estúdio de Preparação / Cortador em Tempo Real**, que analisa somente a gravação do trecho selecionado.
 
 A análise local não precisa de chave de API. Funções de provedores externos, quando usadas, dependem de internet e das credenciais configuradas pelo próprio usuário.
 
@@ -62,7 +73,7 @@ A PWA não é um APK e não está publicada na Play Store.
 - **src/index.html**: fonte usada para gerar as páginas autônomas.
 - **src/data/**: catálogo do firmware v73 e dados do pack.
 - **src/core/mk300-preset-handler.js**: validação e compilação binária do preset.
-- **src/integrations/audio-heuristic-analyzer.js**: medições locais com Web Audio.
+- **src/integrations/audio-heuristic-analyzer.js**: captura em tempo real e medições locais com Web Audio.
 - **src/integrations/learning-store.js**: exemplos de correção armazenados localmente.
 - **src/integrations/tone3000-select.js**: seleção e download de capturas NAM compatíveis.
 - **manifest.webmanifest**, **sw.js** e **icons/**: instalação e cache da PWA.
@@ -85,6 +96,7 @@ node src/tests/john-petrucci-pack.test.cjs
 node src/tests/claude-adapter.test.cjs
 node src/tests/tone3000-select.test.cjs
 node src/tests/audio-heuristic-analyzer.test.cjs
+node src/tests/audio-cropper.test.cjs
 node src/tests/learning-store.test.cjs
 node src/tests/pwa.test.cjs
 python -m unittest discover -s src/tests -p 'audio_service_test.py' -v
