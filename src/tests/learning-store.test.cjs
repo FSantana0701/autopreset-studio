@@ -25,6 +25,13 @@ const draft = { label: 'Correção do usuário', fields: { ampGain: '42' }, stat
   assert.equal(match.record.reference, 'Trecho teste');
   assert.ok(match.distance < 0.1);
   assert.ok(learning.distance(base, { ...base, rms_db: -60 }) > learning.distance(base, { ...base, rms_db: -15 }));
+  const mix={audio_source:'full_mix',feature_version:2,rms_db:-18,zero_crossing_rate:0.1,crest_factor_db:9};
+  assert.equal(learning.distance(mix,base),Infinity,'mixagem não compara com guitarra isolada');
+  await learning.save({reference:'Mixagem',features:mix,draft});
+  assert.equal((await learning.bestMatch(mix)).record.reference,'Mixagem');
+  const mixRecord=(await learning.list()).find(item=>item.reference==='Mixagem');
+  assert.equal(mixRecord.features.audio_source,'full_mix');
+  await learning.remove(mixRecord.id);
   const exported = JSON.parse(await learning.exportJson());
   assert.equal(exported.format, 'AutoPresetLearning');
   assert.equal(exported.examples.length, 1);

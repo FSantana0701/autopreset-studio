@@ -13,8 +13,8 @@ assert.match(html, /rel=["']manifest["'][^>]*href=["']\.\/manifest\.webmanifest[
 assert.match(html, /navigator\.serviceWorker\.register\(['"]\.\/sw\.js['"]\)/);
 assert.match(serviceWorker, /addEventListener\(['"]install['"]/);
 assert.match(serviceWorker, /addEventListener\(['"]fetch['"]/);
-assert.match(serviceWorker, /key\.startsWith\(['"]autopreset-studio-shell-['"]\)/, 'atualizações não devem apagar o cache do modelo de áudio');
-assert.match(serviceWorker, /CACHE_NAME\s*=\s*['"]autopreset-studio-shell-v4['"]/, 'a atualização invalida o HTML PWA anterior sem limpar o cache do modelo');
+assert.match(serviceWorker, /key\.startsWith\(['"]autopreset-studio-shell-['"]\)/, 'atualizações invalidam o HTML antigo');
+assert.match(serviceWorker, /CACHE_NAME\s*=\s*['"]autopreset-studio-shell-v5['"]/, 'a atualização usa o HTML sem separador');
 
 for (const [filename, expectedSize] of [['autopreset-192.png', 192], ['autopreset-512.png', 512]]) {
   const image = fs.readFileSync(path.join(appRoot, 'icons', filename));
@@ -24,3 +24,16 @@ for (const [filename, expectedSize] of [['autopreset-192.png', 192], ['autoprese
 }
 
 console.log('PWA: manifesto, registro do service worker e ícones instaláveis verificados.');
+
+const vm = require('node:vm');
+const deleted = [], handlers = {};
+vm.runInNewContext(serviceWorker, {
+ self:{addEventListener:(event,handler)=>handlers[event]=handler,clients:{claim:async()=>{}}},
+ caches:{keys:async()=>['autopreset-studio-shell-v4','autopreset-studio-shell-v5','autopreset-local-model-v1','other-app-cache'],delete:async key=>deleted.push(key)}
+});
+let activation;
+handlers.activate({waitUntil:promise=>activation=promise});
+activation.then(()=>{
+ assert.deepEqual(deleted.sort(),['autopreset-local-model-v1','autopreset-studio-shell-v4']);
+ console.log('PWA: remove cache antigo do modelo sem apagar caches de outros apps.');
+}).catch(error=>{console.error(error);process.exitCode=1;});

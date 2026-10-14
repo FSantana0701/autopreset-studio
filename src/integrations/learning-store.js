@@ -5,14 +5,16 @@
   const STORAGE_KEY = 'autopreset-learning-v1';
   const FEATURE_SCALES = Object.freeze({ rms_db: 30, spectral_centroid_hz: 4000, spectral_rolloff_85_hz: 6000, zero_crossing_rate: 0.2 });
 
+  const MIX_SCALES = Object.freeze({ rms_db: 30, zero_crossing_rate: 0.2, crest_factor_db: 20 });
   function normalizeRecord(record) {
     if (!record || typeof record !== 'object' || !record.features || !record.draft || typeof record.draft !== 'object') throw new Error('Exemplo de aprendizagem incompleto.');
     const features = {};
-    for (const key of Object.keys(FEATURE_SCALES)) {
+    for (const key of Object.keys(record.features.audio_source === 'full_mix' ? MIX_SCALES : FEATURE_SCALES)) {
       const value = Number(record.features[key]);
       if (!Number.isFinite(value)) throw new Error('Medições de áudio inválidas.');
       features[key] = value;
     }
+    if (record.features.audio_source === 'full_mix') { features.audio_source = 'full_mix'; features.feature_version = 2; }
     const now = new Date().toISOString();
     return {
       id: String(record.id || (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : Date.now() + '-' + Math.random().toString(16).slice(2))),
@@ -28,8 +30,9 @@
   }
 
   function distance(a, b) {
+    if ((a?.audio_source === 'full_mix') !== (b?.audio_source === 'full_mix')) return Infinity;
     let sum = 0, count = 0;
-    for (const [key, scale] of Object.entries(FEATURE_SCALES)) {
+    for (const [key, scale] of Object.entries(a?.audio_source === 'full_mix' ? MIX_SCALES : FEATURE_SCALES)) {
       const left = Number(a?.[key]), right = Number(b?.[key]);
       if (Number.isFinite(left) && Number.isFinite(right)) { sum += ((left - right) / scale) ** 2; count++; }
     }
