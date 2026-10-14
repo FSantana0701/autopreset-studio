@@ -182,7 +182,7 @@ body { background:radial-gradient(ellipse at 8% 0%, #42301c 0, transparent 34%),
 <body>
 <main class="wrap">
   <div class="brand">Automatizador de Presets · MK‑300 v73</div>
-  <header class="hero"><h1>AutoPreset Studio V28</h1><p>Crie, revise e exporte presets MK‑300 v73 com uma cadeia visual de sinal, controles por bloco, referências de presets e compilação local de 448 bytes.</p></header>
+  <header class="hero"><h1>AutoPreset Studio V29</h1><p>Analise a faixa de guitarra no aparelho, monte um ponto de partida, revise a cadeia de sinal e exporte presets MK‑300 v73 de 448 bytes.</p></header>
   <nav class="workflow" aria-label="Etapas"><span>1 · Escolher áudio</span><span>2 · Analisar trechos</span><span>3 · Revisar preset</span><span>4 · Exportar para MK‑300</span></nav>
   <p class="stepHelp"><b>Privacidade:</b> a separação de guitarra e as medições são feitas no aparelho. O áudio não é enviado para um servidor. Seus exemplos de correção ficam salvos localmente neste dispositivo.</p>
 
@@ -202,10 +202,10 @@ body { background:radial-gradient(ellipse at 8% 0%, #42301c 0, transparent 34%),
   <div id="screenStudio" hidden>
   <div class="actions"><button id="leaveStudio" type="button">← Voltar ao Setup</button></div>
   <section class="card" style="border-color:var(--accent)"><h2>Separação experimental de guitarra</h2>
-    <p class="hint stepHelp">Carregue MP3/WAV e marque um trecho de até 45 segundos. O modelo HT-Demucs 6-stem tenta destacar a guitarra dentro do próprio aparelho. Na primeira análise, runtime e modelo são baixados; o áudio não é enviado a uma API.</p>
-    <fieldset id="audioInputs" style="border:0;padding:0;min-width:0"><div class="field"><label for="audioFile">MP3 ou WAV · até 25 MiB</label><input id="audioFile" type="file" accept=".mp3,.wav,audio/mpeg,audio/wav"><p class="hint">O arquivo permanece no celular. Pode haver vazamento de outros instrumentos; ouça o resultado e avalie se serve para analisar o timbre.</p></div><audio id="previewAudio" controls preload="metadata" style="width:100%;margin-top:12px"></audio><p id="audioInfo" class="hint">Selecione o áudio para ouvir e marcar os trechos.</p><h3>Trechos · segundos ou mm:ss</h3><div id="snippets"></div><button id="addSnippet" type="button">+ Adicionar trecho</button></fieldset>
+    <p class="hint stepHelp">1. Salve um MP3/WAV no celular (por exemplo, baixe-o do Drive). 2. Toque em <b>Escolher arquivo</b> e selecione-o em Downloads, Música ou Áudio. 3. Marque um trecho e toque em <b>Separar e analisar guitarra</b>. A primeira análise baixa o runtime e o modelo de 136 MB. O áudio fica no aparelho; não é enviado a uma API.</p>
+    <fieldset id="audioInputs" style="border:0;padding:0;min-width:0"><div class="field"><label for="audioFile">Arquivo MP3 ou WAV salvo no celular · até 25 MiB</label><input id="audioFile" type="file" accept="audio/*,.mp3,.wav" aria-describedby="audioInfo"><p class="hint">Se o seletor abrir uma pasta vazia, toque no menu ☰ e procure em Downloads, Música ou Áudio. Arquivos que ainda estão no Drive precisam ser baixados primeiro. A análise aceita somente .mp3 e .wav.</p></div><audio id="previewAudio" controls preload="metadata" style="width:100%;margin-top:12px"></audio><p id="audioInfo" class="hint" role="status" aria-live="polite">Nenhum áudio selecionado. A análise não começa até você escolher um arquivo.</p><h3>Trechos · segundos ou mm:ss (máximo 45 s)</h3><div id="snippets"></div><button id="addSnippet" type="button">+ Adicionar trecho</button></fieldset>
     <div class="actions"><button id="cancelAI" type="button" disabled>Cancelar operação</button></div><div id="audioStatus" class="status" aria-live="polite"></div>
-    <section id="separationOutput" class="card" hidden><h3>Guitarra separada · ouça antes de analisar</h3><audio id="guitarStemPreview" controls preload="metadata" style="width:100%"></audio><p id="audioMetrics" class="meta"></p><p><a id="downloadGuitarStem" class="downloadFallback" download="guitar-stem.wav">Baixar faixa de guitarra (.wav)</a></p><p class="hint">A separação é aproximada. Compare o trecho e use-o apenas se a guitarra estiver audível o suficiente para orientar o preset.</p></section>
+    <section id="separationOutput" class="card" hidden><h3>Guitarra separada · resultado da análise</h3><audio id="guitarStemPreview" controls preload="metadata" style="width:100%"></audio><p id="audioMetrics" class="meta"></p><p><a id="downloadGuitarStem" class="downloadFallback" download="guitar-stem.wav">Baixar faixa de guitarra (.wav)</a></p><p class="hint">A separação é aproximada e a análise local mede características gerais do timbre. Não reconhece artista nem reproduz automaticamente uma gravação. Ouça a faixa antes de continuar.</p><div class="actions"><button id="applyAudioSuggestion" type="button" disabled>Montar preset inicial com este áudio</button></div><p id="audioSuggestionStatus" class="status" aria-live="polite">Depois que a análise terminar, você pode aplicar uma sugestão offline e revisar os controles antes de exportar.</p></section>
     <section id="learningPanel" class="card" hidden><h3>Aprendizagem com seus testes</h3><p id="learningSummary" class="hint">As correções ficam neste aparelho. Elas servem de exemplos para sugerir presets semelhantes em análises futuras.</p><div class="actions"><button id="applyLearningExample" type="button" class="secondary" disabled>Usar correção parecida</button></div><label class="check"><input id="learningTested" type="checkbox"> Já comparei este preset na MK‑300</label><div class="grid" style="margin-top:12px"><div class="field"><label for="learningRating">Quanto se aproximou da referência?</label><select id="learningRating"><option value="1">1 · Muito diferente</option><option value="2">2 · Ainda distante</option><option value="3" selected>3 · Parcialmente parecido</option><option value="4">4 · Bem parecido</option><option value="5">5 · Muito próximo</option></select></div><div class="field"><label for="learningNote">O que você corrigiu?</label><input id="learningNote" type="text" maxlength="500" placeholder="Ex.: menos ganho, mais médios"></div></div><div class="actions"><button id="saveLearningExample" type="button">Salvar este teste como exemplo</button><button id="exportLearningExamples" type="button" class="secondary">Exportar meus exemplos</button></div><div id="learningStatus" class="status" aria-live="polite"></div></section>
   </section>
   <details class="advancedPanel textAiPanel" open><summary>Sugestão local e histórico de correções</summary>
@@ -892,10 +892,12 @@ class MK300PresetHandler {
   const OVERLAP = Math.floor(SEGMENT / 4);
   const STRIDE = SEGMENT - OVERLAP;
   const STEM_GUITAR = 4;
-  const MODEL_URL = 'https://huggingface.co/StemSplitio/htdemucs-6s-onnx/resolve/main/htdemucs_6s_fp16weights.onnx';
+  // Fixar o commit evita que o mesmo cache URL passe a entregar outro modelo.
+  const MODEL_URL = 'https://huggingface.co/StemSplitio/htdemucs-6s-onnx/resolve/49df9b6989cf2150840ea65b0bef77a2e471b678/htdemucs_6s_fp16weights.onnx';
   const ORT_URL = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.22.0/dist/ort.min.mjs';
+  const ORT_WEBGPU_URL = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.22.0/dist/ort.webgpu.min.mjs';
   const MAX_AUDIO_BYTES = 25 * 1024 * 1024;
-  const MODEL_CACHE = 'autopreset-local-model-v1';
+  const MODEL_CACHE = 'autopreset-local-model-v2';
   let runtimePromise = null;
   let sessionPromise = null;
 
@@ -903,21 +905,52 @@ class MK300PresetHandler {
     if (signal?.aborted) throw new DOMException('Análise cancelada.', 'AbortError');
   }
 
+  async function hasWebGPU() {
+    try { return !!(root.navigator?.gpu && await root.navigator.gpu.requestAdapter()); }
+    catch { return false; }
+  }
+
+  async function loadOrt(useWebGPU) {
+    const ort = await import(useWebGPU ? ORT_WEBGPU_URL : ORT_URL);
+    ort.env.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.22.0/dist/';
+    // GitHub Pages não envia COOP/COEP. Um worker WASM multithread pode falhar
+    // em alguns WebViews Android, portanto o fallback permanece single-thread.
+    ort.env.wasm.numThreads = 1;
+    return ort;
+  }
+
+  function executionProviders(useWebGPU) {
+    return useWebGPU ? ['webgpu', 'wasm'] : ['wasm'];
+  }
+
   async function getSession(onProgress) {
-    if (!runtimePromise) runtimePromise = import(ORT_URL).then(ort => {
-      ort.env.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.22.0/dist/';
-      ort.env.wasm.numThreads = 1;
-      return ort;
-    });
-    const ort = await runtimePromise;
+    if (!runtimePromise) runtimePromise = hasWebGPU()
+      .then(useWebGPU => loadOrt(useWebGPU).then(ort => ({ ort, useWebGPU })))
+      .catch(async error => {
+        runtimePromise = null;
+        try { return { ort: await loadOrt(false), useWebGPU: false }; }
+        catch (fallbackError) {
+          throw new Error('Não foi possível carregar o runtime de áudio. Confira a conexão e tente novamente. (' + (fallbackError?.message || error?.message || 'falha de rede') + ')');
+        }
+      });
+    const runtime = await runtimePromise;
     if (!sessionPromise) {
       onProgress?.('Baixando o modelo de guitarra (aprox. 136 MB, somente na primeira utilização)…');
-      sessionPromise = loadModelBytes().then(modelBytes => ort.InferenceSession.create(modelBytes, {
-        executionProviders: ['wasm'],
-        graphOptimizationLevel: 'all'
-      })).catch(error => { sessionPromise = null; throw error; });
+      sessionPromise = loadModelBytes().then(async modelBytes => {
+        const options = { executionProviders: executionProviders(runtime.useWebGPU), graphOptimizationLevel: 'basic' };
+        try {
+          const session = await runtime.ort.InferenceSession.create(modelBytes, options);
+          return { ort: runtime.ort, session, provider: runtime.useWebGPU ? 'WebGPU + WASM' : 'WASM' };
+        } catch (error) {
+          if (!runtime.useWebGPU) throw error;
+          onProgress?.('A aceleração gráfica não ficou disponível; tentando o modo compatível do aparelho…');
+          const ort = await loadOrt(false);
+          const session = await ort.InferenceSession.create(modelBytes, { executionProviders: ['wasm'], graphOptimizationLevel: 'basic' });
+          return { ort, session, provider: 'WASM' };
+        }
+      }).catch(error => { sessionPromise = null; throw error; });
     }
-    return { ort, session: await sessionPromise };
+    return await sessionPromise;
   }
 
   async function loadModelBytes() {
@@ -948,6 +981,19 @@ class MK300PresetHandler {
     } finally {
       try { await decoder.close(); } catch { /* alguns WebViews já fecham o contexto */ }
     }
+  }
+
+  async function validateFile(file) {
+    if (!(file instanceof Blob) || file.size === 0) throw new Error('Escolha um arquivo de áudio no celular.');
+    if (file.size > MAX_AUDIO_BYTES) throw new Error('O áudio tem ' + (file.size / 1024 / 1024).toFixed(1) + ' MiB; o limite é 25 MiB.');
+    const name = String(file.name || '').toLowerCase();
+    if (!name.endsWith('.mp3') && !name.endsWith('.wav')) throw new Error('Formato não aceito. Selecione um arquivo .mp3 ou .wav salvo no aparelho.');
+    const header = new Uint8Array(await file.slice(0, 12).arrayBuffer());
+    const ascii = (start, end) => String.fromCharCode(...header.subarray(start, end));
+    const isWav = header.length >= 12 && ascii(0, 4) === 'RIFF' && ascii(8, 12) === 'WAVE';
+    const isMp3 = header.length >= 3 && (ascii(0, 3) === 'ID3' || (header[0] === 255 && (header[1] & 224) === 224));
+    if (!(name.endsWith('.wav') && isWav) && !(name.endsWith('.mp3') && isMp3)) throw new Error('O conteúdo do arquivo não parece ser um MP3/WAV válido. Tente baixar o áudio novamente.');
+    return { name: file.name || 'audio', size: file.size, type: isWav ? 'audio/wav' : 'audio/mpeg' };
   }
 
   function transitionWindow() {
@@ -1060,6 +1106,20 @@ class MK300PresetHandler {
     };
   }
 
+  // Uma primeira aproximação tonal, não reconhecimento de artista ou de equipamento.
+  function toneHints(features) {
+    const centroid = Number(features?.spectral_centroid_hz);
+    const rolloff = Number(features?.spectral_rolloff_85_hz);
+    if (!Number.isFinite(centroid) || !Number.isFinite(rolloff)) throw new Error('O áudio não gerou medições suficientes para sugerir controles.');
+    const brightness = Math.max(0, Math.min(1, (centroid * 0.7 + rolloff * 0.3) / 8000));
+    return {
+      bass: Math.round(58 - brightness * 14),
+      middle: 55,
+      treble: Math.round(38 + brightness * 24),
+      brightness: Number(brightness.toFixed(2))
+    };
+  }
+
   function toWav(channels) {
     const length = Math.min(channels[0].length, channels[1].length), bytes = new ArrayBuffer(44 + length * 4), view = new DataView(bytes);
     const write = (offset, text) => { for (let i = 0; i < text.length; i++) view.setUint8(offset + i, text.charCodeAt(i)); };
@@ -1075,20 +1135,27 @@ class MK300PresetHandler {
   }
 
   async function separate({ file, startSeconds, endSeconds, signal, onProgress }) {
-    if (!(file instanceof Blob) || file.size === 0) throw new Error('Selecione um arquivo de áudio.');
-    if (file.size > MAX_AUDIO_BYTES) throw new Error('O arquivo excede 25 MiB.');
+    await validateFile(file);
     if (!Number.isFinite(startSeconds) || !Number.isFinite(endSeconds) || startSeconds < 0 || endSeconds <= startSeconds || endSeconds - startSeconds > 45) throw new Error('Escolha um trecho de até 45 segundos.');
     checkAbort(signal);
     onProgress?.('Lendo o áudio neste aparelho…');
     const mix = await decodeClip(file, startSeconds, endSeconds);
     checkAbort(signal);
-    const { ort, session } = await getSession(onProgress);
-    const guitar = await separateGuitar(mix, ort, session, { signal, onProgress });
+    const { ort, session, provider } = await getSession(onProgress);
+    let guitar;
+    try { guitar = await separateGuitar(mix, ort, session, { signal, onProgress }); }
+    catch (error) {
+      if (/Aborted\(|out of memory|memory access out of bounds|allocation failed/i.test(String(error?.message || error))) {
+        throw new Error('O navegador interrompeu a separação local. Feche outras abas/apps, atualize o Chrome e tente novamente com um trecho menor. O áudio continua no aparelho.');
+      }
+      throw error;
+    }
     const features = analyzeFeatures(guitar);
-    return { blob: toWav(guitar), features, model: 'HT-Demucs 6-stem · execução local' };
+    if (features.rms_db < -70) throw new Error('A faixa de guitarra saiu quase silenciosa. Confira o arquivo e tente outro trecho com a guitarra mais presente.');
+    return { blob: toWav(guitar), features, model: 'HT-Demucs 6-stem · execução local (' + provider + ')' };
   }
 
-  root.AutoPresetLocalAudio = Object.freeze({ separate, separateGuitar, analyzeFeatures, toWav, transitionWindow, loadModelBytes, MODEL_URL, ORT_URL, MAX_AUDIO_BYTES, SAMPLE_RATE, SEGMENT, OVERLAP, STRIDE, STEM_GUITAR });
+  root.AutoPresetLocalAudio = Object.freeze({ separate, separateGuitar, analyzeFeatures, toneHints, toWav, transitionWindow, loadModelBytes, validateFile, hasWebGPU, executionProviders, MODEL_URL, ORT_URL, ORT_WEBGPU_URL, MAX_AUDIO_BYTES, SAMPLE_RATE, SEGMENT, OVERLAP, STRIDE, STEM_GUITAR });
 })(typeof window !== 'undefined' ? window : globalThis);
 
 </script>
@@ -1982,6 +2049,22 @@ function applyOfflineProfile(profile, reference, prefix='Perfil local'){
  commitSingleDraft(prefix+' · '+profile.label);
  return 'Perfil '+profile.label+' aplicado como ponto de partida. Referência: '+reference+'. Ajustes heurísticos de captação: Gain '+offset.gain+' / Bass '+offset.bass+'.'+(gateMovedBeforeDrive?' Gate foi colocado antes do DS.':'');
 }
+$('applyAudioSuggestion').addEventListener('click',()=>{
+ try{
+  if(!lastLocalAnalysis)throw new Error('Analise primeiro um trecho de áudio.');
+  const reference=$('ytUrl').value.trim()||$('ytUrlLocal').value.trim()||'Guitarra medida localmente';
+  const profile=profiles.find(item=>item.match.test(reference))||fallbackProfile;
+  const hints=window.AutoPresetLocalAudio.toneHints(lastLocalAnalysis.features);
+  const message=applyOfflineProfile(profile,reference,'Sugestão a partir do áudio');
+  const pickup=getGuitarOffset();
+  $('bass').value=String(Math.max(0,Math.min(100,hints.bass+pickup.bass)));
+  $('middle').value=String(hints.middle);
+  $('treble').value=String(hints.treble);
+  syncCurrentParameterAliases();refreshUI();commitSingleDraft('Áudio · '+profile.label);
+  $('audioSuggestionStatus').textContent=message+' A medição do espectro ajustou Bass '+$('bass').value+', Middle '+$('middle').value+' e Treble '+$('treble').value+'. Isso é uma heurística inicial; ouça e corrija o preset.';
+  $('audioSuggestionStatus').className='status warn';
+ }catch(error){$('audioSuggestionStatus').textContent=error.message;$('audioSuggestionStatus').className='status bad';}
+});
 $('analyzeAI').addEventListener('click',()=>{
  try{const query=$('ytUrl').value.trim();if(!query)throw new Error('Digite o estilo ou a música.');const profile=profiles.find(item=>item.match.test(query))||fallbackProfile;setStatus($('aiStatus'),applyOfflineProfile(profile,query,'Sugestão offline'),'good');$('aiDescription').textContent='Sem API: perfil heurístico, ainda não é uma análise musical automática. Depois de testar e corrigir na MK‑300, salve o resultado como exemplo local.';}
  catch(error){setStatus($('aiStatus'),error.message,'bad');}
@@ -2039,8 +2122,8 @@ function renderReferencePack(){
  }
 }
 renderReferencePack();
-let snippets=[{id:1,label:'Base',start:'0:10',end:'0:40'}],nextSnippetId=2;
-function renderSnippets(){const area=$('snippets');area.replaceChildren();for(const snippet of snippets){const row=document.createElement('div');row.className='snippetRow';for(const[key,label]of [['label','Nome'],['start','Início'],['end','Fim']]){const field=document.createElement('label');field.textContent=label;const input=document.createElement('input');input.type='text';input.value=snippet[key];input.maxLength=key==='label'?40:14;input.setAttribute('aria-label',label+' do trecho '+snippet.id);input.addEventListener('input',()=>{snippet[key]=input.value});field.appendChild(input);row.appendChild(field);}const remove=document.createElement('button');remove.type='button';remove.textContent='Remover';remove.addEventListener('click',()=>{if(activeAIRequest)return;snippets=snippets.filter(s=>s.id!==snippet.id);renderSnippets()});row.appendChild(remove);const play=document.createElement('button');play.type='button';play.textContent='Ouvir';play.addEventListener('click',()=>previewSnippet(snippet.id));row.appendChild(play);const separate=document.createElement('button');separate.type='button';separate.textContent='Separar e analisar guitarra';separate.addEventListener('click',()=>separateGuitarSnippet(snippet.id,separate));row.appendChild(separate);area.appendChild(row)}}
+let snippets=[{id:1,label:'Base',start:'0:10',end:'0:40'}],nextSnippetId=2,audioReady=false,audioSelectionToken=0;
+function renderSnippets(){const area=$('snippets');area.replaceChildren();for(const snippet of snippets){const row=document.createElement('div');row.className='snippetRow';for(const[key,label]of [['label','Nome'],['start','Início'],['end','Fim']]){const field=document.createElement('label');field.textContent=label;const input=document.createElement('input');input.type='text';input.value=snippet[key];input.maxLength=key==='label'?40:14;input.setAttribute('aria-label',label+' do trecho '+snippet.id);input.disabled=!audioReady;input.addEventListener('input',()=>{snippet[key]=input.value});field.appendChild(input);row.appendChild(field);}const remove=document.createElement('button');remove.type='button';remove.textContent='Remover';remove.disabled=!audioReady;remove.addEventListener('click',()=>{if(activeAIRequest)return;snippets=snippets.filter(s=>s.id!==snippet.id);renderSnippets()});row.appendChild(remove);const play=document.createElement('button');play.type='button';play.textContent='Ouvir';play.disabled=!audioReady;play.addEventListener('click',()=>previewSnippet(snippet.id));row.appendChild(play);const separate=document.createElement('button');separate.type='button';separate.textContent='Separar e analisar guitarra';separate.disabled=!audioReady;separate.addEventListener('click',()=>separateGuitarSnippet(snippet.id,separate));row.appendChild(separate);area.appendChild(row)}}
 $('addSnippet').addEventListener('click',()=>{if(activeAIRequest)return;if(snippets.length>=6){setStatus($('audioStatus'),'Máximo de 6 trechos por análise.','bad');return;}snippets.push({id:nextSnippetId++,label:'Trecho '+(snippets.length+1),start:'',end:''});renderSnippets();});
 function parseTimestamp(text){if(typeof text!=='string'||!text.trim())throw new Error('Tempo não pode ficar vazio.');const raw=text.trim();if(!/^\d+(?::\d{1,2}){0,2}(?:\.\d{1,3})?$/.test(raw))throw new Error('Use segundos, mm:ss ou hh:mm:ss.');const parts=raw.split(':').map(Number);if(parts.length>1&&parts.slice(1).some(v=>v>=60))throw new Error('Minutos/segundos devem ser menores que 60.');const seconds=parts.reduce((total,value)=>total*60+value,0);if(!Number.isFinite(seconds))throw new Error('Tempo inválido.');return seconds;}
 function validateSnippets(duration){if(snippets.length<1||snippets.length>6)throw new Error('Defina de 1 a 6 trechos.');return snippets.map(s=>{const label=s.label.trim();if(!label||label.length>40)throw new Error('Nome do trecho inválido.');const start=parseTimestamp(s.start),end=parseTimestamp(s.end);if(end<=start)throw new Error('Fim deve ser posterior ao início: '+label);if(end>duration+0.01)throw new Error('Trecho ultrapassa a duração do áudio: '+label);return {id:s.id,label,start_seconds:start,end_seconds:end};});}
@@ -2052,16 +2135,18 @@ let lastLocalAnalysis=null,lastLearningMatch=null;
 async function separateGuitarSnippet(id,button){
  if(activeAIRequest)return;let request;
  try{
-  requireSupportedHardware();const file=$('audioFile').files?.[0];if(!file)throw new Error('Selecione um MP3 ou WAV.');
+  requireSupportedHardware();const file=$('audioFile').files?.[0];if(!file)throw new Error('Nenhum áudio foi selecionado. Baixe um MP3/WAV no celular e escolha-o em Downloads, Música ou Áudio.');
+  await window.AutoPresetLocalAudio.validateFile(file);
   const snippet=snippets.find(item=>item.id===id);if(!snippet)throw new Error('Trecho não encontrado.');
   const start=parseTimestamp(snippet.start),end=parseTimestamp(snippet.end),duration=$('previewAudio').duration;
   if(!Number.isFinite(duration)||end>duration+0.01||end<=start)throw new Error('Confira o início e o fim do trecho.');
   if(end-start>45)throw new Error('Cada trecho pode ter no máximo 45 segundos.');
   const controller=new AbortController();request={controller,reason:null};activeAIRequest=request;
   $('previewAudio').pause();$('mainAppWorkspace').disabled=true;$('pedalboard').disabled=true;$('guitarType').disabled=true;lockAudioInputs(true);$('cancelAI').disabled=false;button.disabled=true;
-  request.timeout=setTimeout(()=>{request.reason='timeout';controller.abort()},240000);
+  // Downloads de 136 MB em rede móvel e a inferência local podem ultrapassar 4 min.
+  request.timeout=setTimeout(()=>{request.reason='timeout';controller.abort()},900000);
   const initialDraft=persistableDraft(snapshotDraft('Antes da análise'));
-  setStatus($('audioStatus'),'Preparando o áudio no aparelho…');
+  setStatus($('audioStatus'),'Iniciando análise local. A primeira execução baixa o modelo (aprox. 136 MB); mantenha esta tela aberta…');
   const result=await window.AutoPresetLocalAudio.separate({file,startSeconds:start,endSeconds:end,signal:controller.signal,onProgress:message=>setStatus($('audioStatus'),message)});
   if(controller.signal.aborted)throw new DOMException('Cancelado','AbortError');
   if(guitarStemUrl)URL.revokeObjectURL(guitarStemUrl);guitarStemUrl=URL.createObjectURL(result.blob);
@@ -2069,14 +2154,14 @@ async function separateGuitarSnippet(id,button){
   const typedReference=$('ytUrl').value.trim();
   if(!typedReference)$('ytUrl').value='Trecho '+snippet.label+' · '+start.toFixed(1)+'–'+end.toFixed(1)+' s';
   const reference=typedReference||$('ytUrl').value;
-  lastLocalAnalysis={features:result.features,reference,snippet:{...snippet},initialDraft};
+  lastLocalAnalysis={features:result.features,reference,snippet:{...snippet},initialDraft};$('applyAudioSuggestion').disabled=false;$('audioSuggestionStatus').textContent='Análise local concluída. Ouça a guitarra isolada; depois monte um preset inicial para revisar.';$('audioSuggestionStatus').className='status good';
   $('audioMetrics').textContent='RMS '+result.features.rms_db+' dBFS · Centroide '+result.features.spectral_centroid_hz+' Hz · Rolloff 85% '+result.features.spectral_rolloff_85_hz+' Hz · ZCR '+result.features.zero_crossing_rate;
   $('learningPanel').hidden=false;$('learningTested').checked=false;$('learningNote').value='';$('applyLearningExample').disabled=true;lastLearningMatch=null;
   const match=await window.AutoPresetLearning.bestMatch(result.features);
   if(match){lastLearningMatch=match;$('applyLearningExample').disabled=false;$('learningSummary').textContent='Existe um exemplo corrigido parecido (“'+match.record.reference+'”, nota '+match.record.rating+'/5). Você decide se quer usá-lo como base.';}
   else $('learningSummary').textContent='Ainda não há correções de áudio salvas neste aparelho. Faça o primeiro ajuste manual, teste na MK‑300 e salve o resultado para criar o primeiro exemplo.';
   setStatus($('audioStatus'),'Guitarra destacada por '+result.model+'. As medições e o áudio ficaram no aparelho. Revise a faixa antes de criar ou reutilizar um preset.','good');
- }catch(error){setStatus($('audioStatus'),error.name==='AbortError'?(request?.reason==='timeout'?'Tempo limite excedido; tente um trecho menor.':'Separação cancelada.'):'Falha na separação: '+error.message,'bad');}
+ }catch(error){setStatus($('audioStatus'),error.name==='AbortError'?(request?.reason==='timeout'?'A análise passou de 15 minutos e foi interrompida. Confira a conexão, tente um trecho menor ou libere memória no celular.':'Separação cancelada.'):'Falha na separação: '+error.message,'bad');}
  finally{if(request){clearTimeout(request.timeout);activeAIRequest=null;$('mainAppWorkspace').disabled=$('pedalboard').value!=='mk300';$('pedalboard').disabled=false;$('guitarType').disabled=false;$('cancelAI').disabled=true;lockAudioInputs(false);button.disabled=false;}}
 }
 $('serviceStatus').textContent='Análise local pronta. O modelo de 136 MB só é baixado quando você iniciar a primeira separação; nenhuma chave de API é usada.';
@@ -2175,9 +2260,10 @@ function showPresetAudit(){
  }
 }
 $('checkPreset').addEventListener('click',showPresetAudit);
-$('previewAudio').addEventListener('loadedmetadata',()=>{$('audioInfo').textContent='Duração: '+$('previewAudio').duration.toFixed(1)+' s. Marque os trechos usando o player.';});
+$('previewAudio').addEventListener('loadedmetadata',()=>{const duration=$('previewAudio').duration;if(!Number.isFinite(duration)||duration<=0)return;audioReady=true;$('audioInfo').textContent='Áudio pronto: '+$('audioFile').files[0].name+' · '+duration.toFixed(1)+' s. Escolha até 45 s e toque em Separar e analisar guitarra.';if(snippets.length===1&&snippets[0].label==='Base'&&snippets[0].start==='0:10'&&snippets[0].end==='0:40'&&duration<40){snippets[0].start='0:00';snippets[0].end=Math.min(30,Math.floor(duration*10)/10).toFixed(1);}renderSnippets();});
+$('previewAudio').addEventListener('error',()=>{if(!$('audioFile').files?.length)return;audioReady=false;renderSnippets();$('audioInfo').textContent='O navegador não conseguiu abrir este arquivo. Use um MP3 ou WAV válido baixado no celular.';setStatus($('audioStatus'),'Não foi possível decodificar o arquivo de áudio selecionado.','bad');});
 $('previewAudio').addEventListener('timeupdate',()=>{if(previewStop!==null&&$('previewAudio').currentTime>=previewStop){$('previewAudio').pause();previewStop=null;}});
-$('audioFile').addEventListener('change',()=>{if(previewUrl)URL.revokeObjectURL(previewUrl);if(guitarStemUrl){URL.revokeObjectURL(guitarStemUrl);guitarStemUrl=null;}$('guitarStemPreview').removeAttribute('src');$('separationOutput').hidden=true;const file=$('audioFile').files?.[0];previewStop=null;if(!file){$('previewAudio').removeAttribute('src');return;}previewUrl=URL.createObjectURL(file);$('previewAudio').src=previewUrl;$('audioInfo').textContent=file.name+' · '+(file.size/1024/1024).toFixed(2)+' MiB';});
+$('audioFile').addEventListener('change',async()=>{const token=++audioSelectionToken;if(previewUrl)URL.revokeObjectURL(previewUrl);if(guitarStemUrl){URL.revokeObjectURL(guitarStemUrl);guitarStemUrl=null;}$('guitarStemPreview').removeAttribute('src');$('separationOutput').hidden=true;$('learningPanel').hidden=true;$('applyAudioSuggestion').disabled=true;$('audioSuggestionStatus').textContent='Aguardando uma nova análise de áudio.';$('audioSuggestionStatus').className='status';lastLocalAnalysis=null;lastLearningMatch=null;audioReady=false;renderSnippets();previewStop=null;const file=$('audioFile').files?.[0];$('previewAudio').pause();$('previewAudio').removeAttribute('src');$('previewAudio').load();if(!file){$('audioInfo').textContent='Nenhum arquivo foi selecionado. Escolha um MP3/WAV salvo no celular para começar.';setStatus($('audioStatus'),'Análise não iniciada: falta selecionar o arquivo de áudio.','warn');return;}try{await window.AutoPresetLocalAudio.validateFile(file);if(token!==audioSelectionToken)return;previewUrl=URL.createObjectURL(file);$('previewAudio').src=previewUrl;$('audioInfo').textContent='Arquivo reconhecido: '+file.name+' · '+(file.size/1024/1024).toFixed(2)+' MiB. Lendo duração…';setStatus($('audioStatus'),'Arquivo recebido. Lendo áudio…');}catch(error){if(token!==audioSelectionToken)return;$('audioFile').value='';$('audioInfo').textContent=error.message;setStatus($('audioStatus'),error.message,'bad');}});
 function previewSnippet(id){const snippet=snippets.find(s=>s.id===id);if(!snippet||!$('audioFile').files?.length){setStatus($('audioStatus'),'Selecione um áudio para ouvir o trecho.','bad');return;}try{const start=parseTimestamp(snippet.start),end=parseTimestamp(snippet.end);if(end<=start||end>$('previewAudio').duration)throw new Error('Intervalo inválido para prévia.');$('previewAudio').currentTime=start;previewStop=end;const play=$('previewAudio').play();if(play?.catch)play.catch(()=>setStatus($('audioStatus'),'Toque no player para permitir a reprodução.','bad'));}catch(e){setStatus($('audioStatus'),e.message,'bad');}}
 $('inspectNam').addEventListener('change',async event=>{try{requireSupportedHardware();const file=event.target.files?.[0];if(!file)return;if(!/\.nam$/i.test(file.name)||file.size>8*1024*1024)throw new Error('Selecione um .nam de até 8 MiB.');const data=JSON.parse(await file.text());if(!data||typeof data.architecture!=='string'||!data.config||(!Array.isArray(data.weights)&&data.architecture!=='SlimmableContainer'))throw new Error('Estrutura NAM não reconhecida.');const type=data.metadata?.gear_type;const kind=type==='amp_cab'?'amp_cab':type==='amp'?'amp_only':'unknown';$('namLabel').value=String(data.metadata?.name||file.name).slice(0,120);$('namKind').value=kind;$('namInstalled').checked=false;const models=data.config.submodels;const description=data.architecture==='SlimmableContainer'&&Array.isArray(models)?'container com '+models.length+' submodelos':data.architecture;$('namInspection').textContent='Arquivo: '+file.name+' | '+description+' | versão '+String(data.version||'?')+' | '+String(data.sample_rate||'?')+' Hz | metadado de captura: '+String(type||'ausente')+'. Isso não comprova compatibilidade A2/A2-Lite. Confirme no M-EFCS. Modelo lido apenas localmente; não enviado à IA.';refreshUI();scheduleAutosave();}catch(e){setStatus($('namInspection'),e.message,'bad')}finally{event.target.value='';}});
 $('mainAppWorkspace').addEventListener('input',()=>{if(!currentOrigin.includes('ajustes manuais'))currentOrigin+=' · ajustes manuais';$('originBadge').textContent=currentOrigin;scheduleAutosave();$('auditStatus').textContent='Parâmetros alterados; use Verificar preset antes de exportar.';});

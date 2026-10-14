@@ -14,6 +14,7 @@ assert.match(html, /navigator\.serviceWorker\.register\(['"]\.\/sw\.js['"]\)/);
 assert.match(serviceWorker, /addEventListener\(['"]install['"]/);
 assert.match(serviceWorker, /addEventListener\(['"]fetch['"]/);
 assert.match(serviceWorker, /key\.startsWith\(['"]autopreset-studio-shell-['"]\)/, 'atualizações não devem apagar o cache do modelo de áudio');
+assert.match(serviceWorker, /CACHE_NAME\s*=\s*['"]autopreset-studio-shell-v3['"]/, 'a atualização invalida o HTML PWA anterior sem limpar o cache do modelo');
 
 for (const [filename, expectedSize] of [['autopreset-192.png', 192], ['autopreset-512.png', 512]]) {
   const image = fs.readFileSync(path.join(appRoot, 'icons', filename));

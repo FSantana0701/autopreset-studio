@@ -118,6 +118,16 @@ class BrowserCompatibilityTests(unittest.TestCase):
         self.assertEqual(self.page.locator('#presetTabs .presetTab').count(), 1)
         self.assertEqual(self.page.evaluate('Array.from(compilePreset())'), original['bytes'])
 
+    def test_audio_picker_explains_missing_file_and_rejects_invalid_format(self):
+        self.page.locator('#enterStudio').click()
+        self.assertIn('Nenhum áudio selecionado', self.page.locator('#audioInfo').inner_text())
+        self.assertTrue(self.page.get_by_role('button', name='Separar e analisar guitarra').is_disabled())
+        self.page.locator('#audioFile').set_input_files({
+            'name': 'notas.txt', 'mimeType': 'text/plain', 'buffer': b'not an audio file'
+        })
+        self.page.wait_for_function("document.querySelector('#audioInfo').textContent.includes('Formato não aceito')")
+        self.assertIn('Formato não aceito', self.page.locator('#audioStatus').inner_text())
+
 
 if __name__ == '__main__':
     unittest.main()
