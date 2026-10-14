@@ -110,5 +110,92 @@
       return { features, blob: clipWav(buffer, startSeconds, endSeconds), method: 'Web Audio nativa · mixagem completa' };
     } finally { try { await decoder.close(); } catch {} }
   }
-  root.AutoPresetAudioHeuristics = Object.freeze({ analyze, measure, toneHints, validateFile, describeError, clipWav, MAX_AUDIO_BYTES, MAX_CLIP_SECONDS, MAX_DECODE_SECONDS });
+  // Only the bounded recording is decoded; the source file stays in the HTML player.
+  async function analyzeRecording({ blob, signal, onProgress }) {
+    checkAbort(signal);
+    if (!(blob instanceof Blob) || !blob.size || blob.size > MAX_AUDIO_BYTES) throw new Error('Gravação vazia ou grande demais.');
+    const Context = root.AudioContext || root.webkitAudioContext;
+    if (!Context) throw new Error('Este navegador não oferece Web Audio.');
+    const decoder = new Context();
+    try {
+      onProgress?.('Decodificando somente o trecho gravado…');
+      const buffer = await abortable(decoder.decodeAudioData(await blob.arrayBuffer()), signal);
+      checkAbort(signal);
+      if (buffer.duration > MAX_CLIP_SECONDS + 0.5) throw new Error('A gravação ultrapassou 45 segundos.');
+      return { features: measure(buffer), blob: clipWav(buffer, 0, buffer.duration), method: 'MediaRecorder · trecho gravado em tempo real' };
+    } finally { try { await decoder.close(); } catch {} }
+  }
+
+  function recordRange({ audio, startTime, endTime, signal }) {
+    checkAbort(signal);
+    const capture = audio.captureStream || audio.mozCaptureStream;
+    if (!capture || !root.MediaRecorder) throw new Error('Este navegador não suporta captura nativa do player. Tente um navegador compatível.');
+    if (!Number.isFinite(startTime) || !Number.isFinite(endTime) || startTime < 0 || endTime <= startTime || endTime > audio.duration || endTime - startTime > MAX_CLIP_SECONDS) throw new Error('Selecione um intervalo válido de até 45 segundos.');
+    return new Promise((resolve, reject) => {
+      let stream, recorder, timer, watchdog, failure, stopping = false;
+      const chunks = [];
+      let bytes = 0;
+      const finish = error => {
+        if (stopping) return;
+        stopping = true; failure = error;
+        clearInterval(timer); clearTimeout(watchdog);
+        if (recorder && recorder.state !== 'inactive') recorder.stop();
+        else complete();
+      };
+      const complete = () => {
+        clearInterval(timer); clearTimeout(watchdog);
+        audio.removeEventListener('seeked', begin);
+        audio.removeEventListener('seeking', interrupted);
+        audio.removeEventListener('pause', interrupted);
+        audio.removeEventListener('ratechange', interrupted);
+        audio.removeEventListener('error', interrupted);
+        audio.removeEventListener('ended', ended);
+        signal?.removeEventListener('abort', abort);
+        root.document?.removeEventListener('visibilitychange', visibility);
+        audio.pause();
+        stream?.getTracks().forEach(track => track.stop());
+        const blob = new Blob(chunks, { type: recorder?.mimeType || chunks[0]?.type || '' });
+        chunks.length = 0;
+        if (failure) reject(failure);
+        else if (!blob.size) reject(new Error('O player não produziu áudio para gravar.'));
+        else resolve(blob);
+      };
+      const abort = () => finish(new DOMException('Gravação cancelada.', 'AbortError'));
+      const interrupted = () => finish(new Error('Gravação interrompida. Mantenha o player tocando sem alterar a posição ou velocidade.'));
+      const visibility = () => { if (root.document.hidden) interrupted(); };
+      const ended = () => audio.currentTime >= endTime - 0.02 ? finish() : interrupted();
+      const begin = () => {
+        if (stopping) return;
+        try {
+          stream = capture.call(audio);
+          if (!stream.getAudioTracks().length) throw new Error('A captura do player não oferece uma faixa de áudio.');
+          const mimeType = ['audio/webm;codecs=opus', 'audio/ogg;codecs=opus', 'audio/mp4'].find(type => root.MediaRecorder.isTypeSupported(type));
+          recorder = new root.MediaRecorder(stream, mimeType ? { mimeType } : undefined);
+          recorder.ondataavailable = event => {
+            if (!event.data.size) return;
+            bytes += event.data.size;
+            if (bytes > MAX_AUDIO_BYTES) { failure = new Error('A gravação excedeu o limite de memória.'); finish(failure); return; }
+            chunks.push(event.data);
+          };
+          recorder.onstop = complete;
+          recorder.onerror = event => finish(event.error || new Error('Falha ao gravar áudio.'));
+          audio.addEventListener('seeking', interrupted);
+          audio.addEventListener('pause', interrupted);
+          audio.addEventListener('ratechange', interrupted);
+          audio.addEventListener('error', interrupted);
+          audio.addEventListener('ended', ended);
+          recorder.start(250);
+          timer = setInterval(() => { if (audio.currentTime >= endTime) finish(); }, 10);
+          audio.play().catch(finish);
+        } catch (error) { finish(error); }
+      };
+      audio.pause(); audio.playbackRate = 1;
+      signal?.addEventListener('abort', abort, { once: true });
+      root.document?.addEventListener('visibilitychange', visibility);
+      watchdog = setTimeout(() => finish(new Error('A reprodução travou ou demorou demais. Tente novamente.')), (endTime - startTime + 15) * 1000);
+      if (Math.abs(audio.currentTime - startTime) < 0.001 && !audio.seeking) begin();
+      else { audio.addEventListener('seeked', begin, { once: true }); audio.currentTime = startTime; }
+    });
+  }
+  root.AutoPresetAudioHeuristics = Object.freeze({ analyze, analyzeRecording, recordRange, measure, toneHints, validateFile, describeError, clipWav, MAX_AUDIO_BYTES, MAX_CLIP_SECONDS, MAX_DECODE_SECONDS });
 })(typeof window !== 'undefined' ? window : globalThis);
