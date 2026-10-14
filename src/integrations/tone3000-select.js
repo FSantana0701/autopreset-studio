@@ -109,6 +109,10 @@
   function status(message, kind) {
     const node = root.document.getElementById('tone3000Status');
     if (!node) return;
+    if (typeof root.setStatus === 'function') {
+      root.setStatus(node, message, kind);
+      return;
+    }
     node.textContent = message;
     node.className = 'status' + (kind ? ' ' + kind : '');
   }
@@ -162,9 +166,9 @@
 
   function clientId() {
     const input = root.document.getElementById('tone3000ClientId');
-    const value = String(input?.value || root.localStorage.getItem(CLIENT_KEY) || '').trim();
+    const value = String(input?.value || '').trim();
     if (!value || value.length > 200 || /\s/.test(value)) throw new Error('Informe a publishable key do TONE3000. Não use a secret key.');
-    root.localStorage.setItem(CLIENT_KEY, value);
+    try { root.localStorage.setItem(CLIENT_KEY, value); } catch {}
     return value;
   }
 
@@ -223,9 +227,14 @@
     const returnedState = url.searchParams.get('state');
     const toneId = url.searchParams.get('tone_id');
     const error = url.searchParams.get('error_description') || url.searchParams.get('error');
-    if (!code && !returnedState && !error) return;
+    const canceled = url.searchParams.get('canceled') === 'true';
+    if (!code && !returnedState && !error && !canceled) return;
     const savedRaw = root.sessionStorage.getItem(FLOW_KEY);
     root.history.replaceState(null, '', cleanRedirectUrl(root.location));
+    if (canceled) {
+      root.sessionStorage.removeItem(FLOW_KEY);
+      throw new Error('Seleção TONE3000 cancelada. Você pode tentar novamente quando quiser.');
+    }
     if (error) throw new Error('Seleção TONE3000 cancelada ou recusada: ' + error);
     if (!savedRaw) throw new Error('Sessão OAuth não encontrada. Reabra o seletor TONE3000.');
     const saved = JSON.parse(savedRaw);
@@ -280,7 +289,7 @@
     anchor.download = safeName(detail.name || detail.title || model.name || selectedTone?.title);
     anchor.textContent = 'Baixar novamente ' + anchor.download;
     anchor.className = 'downloadFallback';
-    root.document.getElementById('tone3000Status').append(root.document.createTextNode(' '), anchor);
+    status('Download iniciado: ' + anchor.download + '. Se não começar automaticamente, use o link abaixo.', 'good');
     anchor.click();
     root.setTimeout(() => root.URL.revokeObjectURL(url), 60000);
 
@@ -300,6 +309,8 @@
     root.document.getElementById('namLabel').dispatchEvent(new root.Event('input', { bubbles: true }));
     const toneUrl = selectedTone?.url || ('https://www.tone3000.com/tones/' + selectedTone?.id);
     status('Arquivo baixado para este dispositivo: ' + anchor.download + '. ' + summarizeTone(selectedTone) + '. Abra a página da captura: ' + toneUrl + '. Importe no M‑EFCS no slot AMP ' + slot.value + ' e confirme abaixo.', 'good');
+    const statusNode = root.document.getElementById('tone3000Status');
+    if (statusNode) statusNode.append(root.document.createTextNode(' '), anchor);
   }
 
   function init() {
