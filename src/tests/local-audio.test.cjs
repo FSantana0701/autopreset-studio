@@ -13,6 +13,12 @@ assert.equal(local.STEM_GUITAR, 4, 'faixa de guitarra é a quinta saída do mode
 assert.equal(local.SEGMENT, 343980, 'modelo recebe segmentos fixos de 7,8 s a 44,1 kHz');
 assert.deepEqual(Array.from(local.executionProviders(false)), ['wasm']);
 assert.deepEqual(Array.from(local.executionProviders(true)), ['webgpu', 'wasm']);
+assert.deepEqual(Array.from(local.candidateProviders(true, true)), ['webgpu', 'webgl', 'wasm']);
+assert.deepEqual(Array.from(local.candidateProviders(false, true)), ['webgl', 'wasm']);
+assert.deepEqual(Array.from(local.candidateProviders(false, false)), ['wasm']);
+assert.equal(local.ESTIMATED_PEAK_RAM_MB, 1100);
+assert.match(local.describeError({}), /sem detalhes/);
+assert.equal(local.describeError({ message: 'aborted' }), 'aborted');
 
 function namedBlob(bytes, name) {
   const file = new Blob([bytes]);
@@ -24,6 +30,10 @@ function namedBlob(bytes, name) {
   assert.equal(await local.hasWebGPU(), false, 'sem GPU web, usa o modo WASM compatível');
   context.navigator = { gpu: { requestAdapter: async () => ({}) } };
   assert.equal(await local.hasWebGPU(), true, 'detecta WebGPU antes de escolher o runtime');
+  context.document = { createElement: () => ({ getContext: kind => kind === 'webgl2' ? {} : null }) };
+  assert.equal(local.hasWebGL(), true, 'detecta WebGL como alternativa gráfica');
+  context.document = { createElement: () => ({ getContext: () => null }) };
+  assert.equal(local.hasWebGL(), false, 'não anuncia WebGL quando indisponível');
   const wavHeader = new Uint8Array(12);
   wavHeader.set([82, 73, 70, 70], 0); // RIFF
   wavHeader.set([87, 65, 86, 69], 8); // WAVE
