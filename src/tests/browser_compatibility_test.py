@@ -121,12 +121,45 @@ class BrowserCompatibilityTests(unittest.TestCase):
     def test_audio_picker_explains_missing_file_and_rejects_invalid_format(self):
         self.page.locator('#enterStudio').click()
         self.assertIn('Nenhum áudio selecionado', self.page.locator('#audioInfo').inner_text())
-        self.assertTrue(self.page.get_by_role('button', name='Separar e analisar guitarra').is_disabled())
+        self.assertTrue(self.page.get_by_role('button', name='Analisar trecho da mixagem').is_disabled())
         self.page.locator('#audioFile').set_input_files({
             'name': 'notas.txt', 'mimeType': 'text/plain', 'buffer': b'not an audio file'
         })
         self.page.wait_for_function("document.querySelector('#audioInfo').textContent.includes('Formato não aceito')")
         self.assertIn('Formato não aceito', self.page.locator('#audioStatus').inner_text())
+
+    def test_raw_mix_analysis_plays_and_uses_no_model_or_network(self):
+        import io, wave, math, struct
+        data=io.BytesIO()
+        with wave.open(data,'wb') as wav:
+            wav.setnchannels(2);wav.setsampwidth(2);wav.setframerate(44100)
+            samples=bytearray()
+            for i in range(44100*2):
+                value=round(12000*math.sin(2*math.pi*440*i/44100))
+                samples.extend(struct.pack('<hh',value,-value))
+            wav.writeframes(samples)
+        self.page.set_viewport_size({'width':360,'height':800})
+        requests=[]
+        self.page.on('request',lambda request:requests.append(request.url))
+        self.page.locator('#enterStudio').click()
+        self.page.locator('#audioFile').set_input_files({'name':'diagnostic-mix.wav','mimeType':'audio/wav','buffer':data.getvalue()})
+        self.page.wait_for_function('audioReady')
+        self.page.get_by_label('Início do trecho 1',exact=True).fill('0')
+        self.page.get_by_label('Fim do trecho 1',exact=True).fill('1')
+        self.page.get_by_role('button',name='Analisar trecho da mixagem').click()
+        self.page.wait_for_function('lastLocalAnalysis !== null && activeAIRequest === null')
+        features=self.page.evaluate('lastLocalAnalysis.features')
+        self.assertEqual(features['audio_source'],'full_mix')
+        self.assertAlmostEqual(features['rms'],12000/32768/math.sqrt(2),delta=0.001)
+        self.assertAlmostEqual(features['crest_factor'],math.sqrt(2),delta=0.01)
+        self.assertFalse(self.page.locator('#separationOutput').is_hidden())
+        self.page.locator('#guitarStemPreview').evaluate('(audio)=>audio.play()')
+        self.page.wait_for_function("document.querySelector('#guitarStemPreview').currentTime>0.05")
+        self.assertTrue(all(url.startswith('blob:') for url in requests),requests)
+        self.page.locator('#applyAudioSuggestion').click()
+        self.assertEqual(self.page.evaluate('compilePreset().length'),448)
+        self.assertIn('banda inteira',self.page.locator('#audioSuggestionStatus').inner_text())
+        self.assertLessEqual(self.page.evaluate('document.documentElement.scrollWidth'),360)
 
 
 if __name__ == '__main__':
