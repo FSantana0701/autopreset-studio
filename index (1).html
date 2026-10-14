@@ -201,6 +201,22 @@ body { background:radial-gradient(ellipse at 8% 0%, #42301c 0, transparent 34%),
   </div>
   <div id="screenStudio" hidden>
   <div class="actions"><button id="leaveStudio" type="button">← Voltar ao Setup</button></div>
+  <section id="audioCropperSection" class="card" aria-labelledby="cropperTitle">
+    <h2 id="cropperTitle">Cortador de áudio · gravação em tempo real</h2>
+    <p class="hint">Escolha uma faixa longa, ouça e marque até 45 segundos. Mantenha esta tela aberta durante a gravação. Somente o trecho gravado será analisado no aparelho.</p>
+    <fieldset id="cropperInputs" style="border:0;padding:0;min-width:0">
+      <label for="cropperFile">Arquivo de áudio salvo no aparelho</label>
+      <input id="cropperFile" type="file" accept="audio/*">
+      <audio id="cropperAudio" controls preload="metadata" style="width:100%;margin-top:12px"></audio>
+      <div class="actions">
+        <button id="cropperStart" type="button" class="secondary">Capturar Início</button>
+        <button id="cropperEnd" type="button" class="secondary">Capturar Fim</button>
+        <button id="cropperRecord" type="button">Gravar e Analisar Trecho</button>
+      </div>
+    </fieldset>
+    <p id="cropperRange" class="meta">Início: — · Fim: —</p>
+    <p id="cropperStatus" class="status" role="status" aria-live="polite"></p>
+  </section>
   <section class="card" style="border-color:var(--accent)"><h2>Análise leve da mixagem</h2>
     <p class="hint stepHelp">1. Salve um MP3/WAV no celular (por exemplo, baixe-o do Drive). 2. Toque em <b>Escolher arquivo</b> e selecione-o em Downloads, Música ou Áudio. 3. Marque um trecho e toque em <b>Analisar trecho da mixagem</b>. RMS, ZCR e fator de crista são medidos diretamente no trecho original. A banda inteira influencia as métricas; não há guitarra isolada. O áudio fica no aparelho. Arquivos acima de 5 minutos devem ser recortados antes de importar.</p>
     <fieldset id="audioInputs" style="border:0;padding:0;min-width:0"><div class="field"><label for="audioFile">Arquivo MP3 ou WAV salvo no celular · até 25 MiB</label><input id="audioFile" type="file" accept="audio/*,.mp3,.wav" aria-describedby="audioInfo"><p class="hint">Se o seletor abrir uma pasta vazia, toque no menu ☰ e procure em Downloads, Música ou Áudio. Arquivos que ainda estão no Drive precisam ser baixados primeiro. A análise aceita somente .mp3 e .wav.</p></div><audio id="previewAudio" controls preload="metadata" style="width:100%;margin-top:12px"></audio><p id="audioInfo" class="hint" role="status" aria-live="polite">Nenhum áudio selecionado. A análise não começa até você escolher um arquivo.</p><h3>Trechos · segundos ou mm:ss (máximo 45 s)</h3><div id="snippets"></div><button id="addSnippet" type="button">+ Adicionar trecho</button></fieldset>
@@ -935,7 +951,94 @@ class MK300PresetHandler {
       return { features, blob: clipWav(buffer, startSeconds, endSeconds), method: 'Web Audio nativa · mixagem completa' };
     } finally { try { await decoder.close(); } catch {} }
   }
-  root.AutoPresetAudioHeuristics = Object.freeze({ analyze, measure, toneHints, validateFile, describeError, clipWav, MAX_AUDIO_BYTES, MAX_CLIP_SECONDS, MAX_DECODE_SECONDS });
+  // Only the bounded recording is decoded; the source file stays in the HTML player.
+  async function analyzeRecording({ blob, signal, onProgress }) {
+    checkAbort(signal);
+    if (!(blob instanceof Blob) || !blob.size || blob.size > MAX_AUDIO_BYTES) throw new Error('Gravação vazia ou grande demais.');
+    const Context = root.AudioContext || root.webkitAudioContext;
+    if (!Context) throw new Error('Este navegador não oferece Web Audio.');
+    const decoder = new Context();
+    try {
+      onProgress?.('Decodificando somente o trecho gravado…');
+      const buffer = await abortable(decoder.decodeAudioData(await blob.arrayBuffer()), signal);
+      checkAbort(signal);
+      if (buffer.duration > MAX_CLIP_SECONDS + 0.5) throw new Error('A gravação ultrapassou 45 segundos.');
+      return { features: measure(buffer), blob: clipWav(buffer, 0, buffer.duration), method: 'MediaRecorder · trecho gravado em tempo real' };
+    } finally { try { await decoder.close(); } catch {} }
+  }
+
+  function recordRange({ audio, startTime, endTime, signal }) {
+    checkAbort(signal);
+    const capture = audio.captureStream || audio.mozCaptureStream;
+    if (!capture || !root.MediaRecorder) throw new Error('Este navegador não suporta captura nativa do player. Tente um navegador compatível.');
+    if (!Number.isFinite(startTime) || !Number.isFinite(endTime) || startTime < 0 || endTime <= startTime || endTime > audio.duration || endTime - startTime > MAX_CLIP_SECONDS) throw new Error('Selecione um intervalo válido de até 45 segundos.');
+    return new Promise((resolve, reject) => {
+      let stream, recorder, timer, watchdog, failure, stopping = false;
+      const chunks = [];
+      let bytes = 0;
+      const finish = error => {
+        if (stopping) return;
+        stopping = true; failure = error;
+        clearInterval(timer); clearTimeout(watchdog);
+        if (recorder && recorder.state !== 'inactive') recorder.stop();
+        else complete();
+      };
+      const complete = () => {
+        clearInterval(timer); clearTimeout(watchdog);
+        audio.removeEventListener('seeked', begin);
+        audio.removeEventListener('seeking', interrupted);
+        audio.removeEventListener('pause', interrupted);
+        audio.removeEventListener('ratechange', interrupted);
+        audio.removeEventListener('error', interrupted);
+        audio.removeEventListener('ended', ended);
+        signal?.removeEventListener('abort', abort);
+        root.document?.removeEventListener('visibilitychange', visibility);
+        audio.pause();
+        stream?.getTracks().forEach(track => track.stop());
+        const blob = new Blob(chunks, { type: recorder?.mimeType || chunks[0]?.type || '' });
+        chunks.length = 0;
+        if (failure) reject(failure);
+        else if (!blob.size) reject(new Error('O player não produziu áudio para gravar.'));
+        else resolve(blob);
+      };
+      const abort = () => finish(new DOMException('Gravação cancelada.', 'AbortError'));
+      const interrupted = () => finish(new Error('Gravação interrompida. Mantenha o player tocando sem alterar a posição ou velocidade.'));
+      const visibility = () => { if (root.document.hidden) interrupted(); };
+      const ended = () => audio.currentTime >= endTime - 0.02 ? finish() : interrupted();
+      const begin = () => {
+        if (stopping) return;
+        try {
+          stream = capture.call(audio);
+          if (!stream.getAudioTracks().length) throw new Error('A captura do player não oferece uma faixa de áudio.');
+          const mimeType = ['audio/webm;codecs=opus', 'audio/ogg;codecs=opus', 'audio/mp4'].find(type => root.MediaRecorder.isTypeSupported(type));
+          recorder = new root.MediaRecorder(stream, mimeType ? { mimeType } : undefined);
+          recorder.ondataavailable = event => {
+            if (!event.data.size) return;
+            bytes += event.data.size;
+            if (bytes > MAX_AUDIO_BYTES) { failure = new Error('A gravação excedeu o limite de memória.'); finish(failure); return; }
+            chunks.push(event.data);
+          };
+          recorder.onstop = complete;
+          recorder.onerror = event => finish(event.error || new Error('Falha ao gravar áudio.'));
+          audio.addEventListener('seeking', interrupted);
+          audio.addEventListener('pause', interrupted);
+          audio.addEventListener('ratechange', interrupted);
+          audio.addEventListener('error', interrupted);
+          audio.addEventListener('ended', ended);
+          recorder.start(250);
+          timer = setInterval(() => { if (audio.currentTime >= endTime) finish(); }, 10);
+          audio.play().catch(finish);
+        } catch (error) { finish(error); }
+      };
+      audio.pause(); audio.playbackRate = 1;
+      signal?.addEventListener('abort', abort, { once: true });
+      root.document?.addEventListener('visibilitychange', visibility);
+      watchdog = setTimeout(() => finish(new Error('A reprodução travou ou demorou demais. Tente novamente.')), (endTime - startTime + 15) * 1000);
+      if (Math.abs(audio.currentTime - startTime) < 0.001 && !audio.seeking) begin();
+      else { audio.addEventListener('seeked', begin, { once: true }); audio.currentTime = startTime; }
+    });
+  }
+  root.AutoPresetAudioHeuristics = Object.freeze({ analyze, analyzeRecording, recordRange, measure, toneHints, validateFile, describeError, clipWav, MAX_AUDIO_BYTES, MAX_CLIP_SECONDS, MAX_DECODE_SECONDS });
 })(typeof window !== 'undefined' ? window : globalThis);
 
 </script>
@@ -1913,23 +2016,30 @@ function validateSnippets(duration){if(snippets.length<1||snippets.length>6)thro
 function audioDuration(file,signal){return new Promise((resolve,reject)=>{const element=new Audio();const url=URL.createObjectURL(file);let settled=false;const finish=(error,duration)=>{if(settled)return;settled=true;clearTimeout(timer);signal.removeEventListener('abort',abort);element.onloadedmetadata=null;element.onerror=null;element.src='';URL.revokeObjectURL(url);error?reject(error):resolve(duration);};const abort=()=>finish(new DOMException('Cancelado','AbortError'));const timer=setTimeout(()=>finish(new Error('Não foi possível ler a duração do áudio em 10 segundos.')),10000);signal.addEventListener('abort',abort,{once:true});element.preload='metadata';element.onloadedmetadata=()=>{if(!Number.isFinite(element.duration)||element.duration<=0)finish(new Error('Áudio sem duração válida.'));else finish(null,element.duration);};element.onerror=()=>finish(new Error('O navegador não conseguiu ler este MP3/WAV.'));if(signal.aborted){abort();return;}element.src=url;});}
 function detectAudioMime(bytes,name){const ascii=(a,b)=>String.fromCharCode(...bytes.slice(a,b));if(/\.wav$/i.test(name)&&ascii(0,4)==='RIFF'&&ascii(8,12)==='WAVE')return 'audio/wav';if(/\.mp3$/i.test(name)&&(ascii(0,3)==='ID3'||bytes[0]===255&&(bytes[1]&224)===224))return 'audio/mpeg';throw new Error('Arquivo não corresponde a um MP3/WAV reconhecido.');}
 function bytesToBase64(bytes){const chunks=[];for(let i=0;i<bytes.length;i+=32768)chunks.push(String.fromCharCode(...bytes.subarray(i,i+32768)));return btoa(chunks.join(''));}
-function lockAudioInputs(busy){$('audioInputs').disabled=busy;}
+function lockAudioInputs(busy){$('audioInputs').disabled=busy;$('cropperInputs').disabled=busy;$('cropperAudio').controls=!busy;}
 let lastLocalAnalysis=null,lastLearningMatch=null;
-async function analyzeAudioSnippet(id,button){
+async function analyzeAudioSnippet(id,button,crop=null){
  if(activeAIRequest)return;let request;
  try{
-  requireSupportedHardware();const file=$('audioFile').files?.[0];if(!file)throw new Error('Nenhum áudio foi selecionado. Baixe um MP3/WAV no celular e escolha-o em Downloads, Música ou Áudio.');
-  await window.AutoPresetAudioHeuristics.validateFile(file);
-  const snippet=snippets.find(item=>item.id===id);if(!snippet)throw new Error('Trecho não encontrado.');
-  const start=parseTimestamp(snippet.start),end=parseTimestamp(snippet.end),duration=$('previewAudio').duration;
+  requireSupportedHardware();const file=crop?$('cropperFile').files?.[0]:$('audioFile').files?.[0];if(!file)throw new Error('Nenhum áudio foi selecionado. Baixe um MP3/WAV no celular e escolha-o em Downloads, Música ou Áudio.');
+  if(!crop)await window.AutoPresetAudioHeuristics.validateFile(file);
+  const snippet=crop||snippets.find(item=>item.id===id);if(!snippet)throw new Error('Trecho não encontrado.');
+  const start=crop?Number(crop.start):parseTimestamp(snippet.start),end=crop?Number(crop.end):parseTimestamp(snippet.end),duration=$(crop?'cropperAudio':'previewAudio').duration;
   if(!Number.isFinite(duration)||end>duration+0.01||end<=start)throw new Error('Confira o início e o fim do trecho.');
   if(end-start>45)throw new Error('Cada trecho pode ter no máximo 45 segundos.');
   const controller=new AbortController();request={controller,reason:null};activeAIRequest=request;
   $('previewAudio').pause();$('mainAppWorkspace').disabled=true;$('pedalboard').disabled=true;$('guitarType').disabled=true;lockAudioInputs(true);$('cancelAI').disabled=false;button.disabled=true;
-  request.timeout=setTimeout(()=>{request.reason='timeout';controller.abort()},30000);
+  request.timeout=setTimeout(()=>{request.reason='timeout';controller.abort()},crop?(end-start+45)*1000:30000);
   const initialDraft=persistableDraft(snapshotDraft('Antes da análise'));
   setStatus($('audioStatus'),'Medindo o trecho da mixagem localmente, sem modelos…');
-  const result=await window.AutoPresetAudioHeuristics.analyze({file,startSeconds:start,endSeconds:end,durationSeconds:duration,signal:controller.signal,onProgress:message=>setStatus($('audioStatus'),message)});
+  const onProgress=message=>setStatus($('audioStatus'),message);
+  let result;
+  if(crop){
+    setStatus($('cropperStatus'),'Gravando o trecho em tempo real… Use Cancelar operação para interromper.');
+    const blob=await window.AutoPresetAudioHeuristics.recordRange({audio:$('cropperAudio'),startTime:start,endTime:end,signal:controller.signal});
+    result=await window.AutoPresetAudioHeuristics.analyzeRecording({blob,signal:controller.signal,onProgress});
+    setStatus($('cropperStatus'),'Trecho gravado e analisado. Veja os resultados abaixo.','good');
+  }else result=await window.AutoPresetAudioHeuristics.analyze({file,startSeconds:start,endSeconds:end,durationSeconds:duration,signal:controller.signal,onProgress});
   if(controller.signal.aborted)throw new DOMException('Cancelado','AbortError');
   if(guitarStemUrl)URL.revokeObjectURL(guitarStemUrl);guitarStemUrl=URL.createObjectURL(result.blob);
   $('guitarStemPreview').src=guitarStemUrl;$('downloadGuitarStem').href=guitarStemUrl;$('separationOutput').hidden=false;
@@ -1943,9 +2053,31 @@ async function analyzeAudioSnippet(id,button){
   if(match){lastLearningMatch=match;$('applyLearningExample').disabled=false;$('learningSummary').textContent='Existe um exemplo corrigido parecido (“'+match.record.reference+'”, nota '+match.record.rating+'/5). Você decide se quer usá-lo como base.';}
   else $('learningSummary').textContent='Ainda não há correções de áudio salvas neste aparelho. Faça o primeiro ajuste manual, teste na MK‑300 e salve o resultado para criar o primeiro exemplo.';
   setStatus($('audioStatus'),'Mixagem medida com '+result.method+'. Nenhum instrumento foi separado. As métricas da banda inteira orientam uma sugestão de baixa confiança; revise manualmente.','good');
- }catch(error){const detail=window.AutoPresetAudioHeuristics?.describeError(error)||((typeof error==='string'&&error)||error?.message)||'erro inesperado sem detalhes';setStatus($('audioStatus'),error?.name==='AbortError'?(request?.reason==='timeout'?'A leitura do áudio excedeu 30 segundos. Recorte o arquivo e tente novamente.':'Análise cancelada.'):'Falha na análise: '+detail,'bad');}
+ }catch(error){if(crop)setStatus($('cropperStatus'),error.message,'bad');const detail=window.AutoPresetAudioHeuristics?.describeError(error)||((typeof error==='string'&&error)||error?.message)||'erro inesperado sem detalhes';setStatus($('audioStatus'),error?.name==='AbortError'?(request?.reason==='timeout'?(crop?'A gravação ou análise excedeu o tempo limite. Tente novamente.':'A leitura do áudio excedeu 30 segundos. Recorte o arquivo e tente novamente.'):'Análise cancelada.'):'Falha na análise: '+detail,'bad');}
  finally{if(request){clearTimeout(request.timeout);activeAIRequest=null;$('mainAppWorkspace').disabled=$('pedalboard').value!=='mk300';$('pedalboard').disabled=false;$('guitarType').disabled=false;$('cancelAI').disabled=true;lockAudioInputs(false);button.disabled=false;}}
 }
+let cropperUrl=null,cropStart=null,cropEnd=null;
+function updateCropperRange(){
+ $('cropperRange').textContent='Início: '+(cropStart===null?'—':cropStart.toFixed(2)+' s')+' · Fim: '+(cropEnd===null?'—':cropEnd.toFixed(2)+' s');
+}
+$('cropperFile').addEventListener('change',()=>{
+ const audio=$('cropperAudio');audio.pause();audio.removeAttribute('src');audio.load();
+ if(cropperUrl)URL.revokeObjectURL(cropperUrl);cropperUrl=null;cropStart=cropEnd=null;updateCropperRange();
+ const file=$('cropperFile').files?.[0];
+ if(file){cropperUrl=URL.createObjectURL(file);audio.src=cropperUrl;}
+ setStatus($('cropperStatus'),'Ouça a faixa e capture o início e o fim do trecho.');
+});
+for(const [id,isStart]of [['cropperStart',true],['cropperEnd',false]])$(id).addEventListener('click',()=>{
+ const audio=$('cropperAudio');
+ if(!Number.isFinite(audio.duration)||audio.duration<=0){setStatus($('cropperStatus'),'Escolha um áudio e aguarde a duração.','bad');return;}
+ if(isStart)cropStart=audio.currentTime;else cropEnd=audio.currentTime;updateCropperRange();
+});
+$('cropperAudio').addEventListener('error',()=>setStatus($('cropperStatus'),'O navegador não conseguiu abrir este áudio.','bad'));
+$('cropperRecord').addEventListener('click',()=>{
+ if(cropStart===null||cropEnd===null){setStatus($('cropperStatus'),'Capture Início e Fim antes de gravar.','bad');return;}
+ analyzeAudioSnippet(null,$('cropperRecord'),{label:'Gravação',start:String(cropStart),end:String(cropEnd)});
+});
+window.addEventListener('beforeunload',()=>{if(cropperUrl)URL.revokeObjectURL(cropperUrl);});
 $('serviceStatus').textContent='Análise nativa da mixagem pronta. Sem modelos, separação, downloads ou chave de API.';
 renderSnippets();
 
