@@ -1,8 +1,8 @@
 {
   "id": "./",
-  "name": "AutoPreset Studio · MK-300",
+  "name": "AutoPreset Studio V30 · M-VAVE MK-300 V75",
   "short_name": "AutoPreset",
-  "description": "Análise local de guitarra e criação de presets MK-300.",
+  "description": "PWA offline-first para M-VAVE MK-300 V75: análise local de áudio e presets .dzh de 448 bytes.",
   "lang": "pt-BR",
   "start_url": "./",
   "scope": "./",

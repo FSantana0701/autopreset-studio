@@ -36,3 +36,5 @@ jobs:
         run: python -m unittest discover -s src/tests -p audio_service_test.py -v
       - name: Browser compatibility tests
         run: python -m unittest discover -s src/tests -p browser_compatibility_test.py -v
+      - name: PWA offline and responsive browser tests
+        run: python -m unittest discover -s src/tests -p pwa_browser_test.py -v

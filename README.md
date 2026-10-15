@@ -1,6 +1,16 @@
 # AutoPreset Studio V30
 
-Ferramenta responsiva de palco para preparar, revisar e exportar presets da **M‑VAVE MK‑300 (firmware v73)**. O AutoPreset Studio combina análise leve de áudio no navegador, edição manual e um compilador binário que preserva os dados originais do preset-base.
+Ferramenta responsiva de palco para preparar, revisar e exportar presets da **M-VAVE MK-300 V75**. O AutoPreset Studio combina análise leve de áudio no navegador, edição manual e um compilador binário que preserva os dados originais do preset-base.
+
+## Compatibilidade com Firmware MK-300 V75
+
+A interface e a documentação reconhecem explicitamente a **M-VAVE MK-300 V75**, mantendo o formato `.dzh` de **exatamente 448 bytes** utilizado pelos presets V73/V74/V75. O compilador, os offsets, índices, checksums, tabelas de efeitos e algoritmos de ganho e equalização permanecem inalterados. Identificadores internos `V73` continuam designando essas estruturas válidas; não representam uma limitação do firmware mostrado na interface.
+
+A compatibilidade de formato é sustentada pelos testes binários e diferenciais V73 e pela integridade dos presets de referência. A confirmação do comportamento sonoro e da importação em cada firmware exige teste no equipamento; a PWA não atualiza o firmware nem simula seu processamento interno.
+
+O fluxo com **IRs** preserva o slot, os controles de CAB e os cortes de frequência no preset. Instale o IR correspondente no equipamento pelo software compatível da M-VAVE: o `.dzh` não incorpora o arquivo IR. As melhorias de resposta dinâmica e leitura de IRs atribuídas à V75 pertencem ao firmware e devem ser verificadas na documentação do fabricante e na pedaleira; esta atualização apenas alinha a aplicação a esse fluxo, sem implementar ou comprovar essas melhorias de DSP.
+
+A PWA usa o cache **`shell-v7`**. Ao abrir o app conectado, o navegador instala o Service Worker atualizado, remove caches legados da aplicação e ativa o novo shell. A navegação consulta a rede antes do cache para evitar HTML antigo; sem conexão, usa o shell armazenado. Em uma aba já aberta, recarregue após a atualização para exibir a nova interface. Projetos e exemplos locais são preservados.
 
 ## Recursos principais
 
@@ -41,7 +51,7 @@ O projeto não hospeda nem espelha capturas do TONE3000. A compatibilidade deve 
 
 ## Compilador .dzh
 
-O gerador produz arquivos com **exatamente 448 bytes**, destinados à M‑VAVE MK‑300 com firmware v73. Ele escreve os campos conhecidos nos offsets definidos pelo formato, usa little-endian para valores numéricos e preserva os dados desconhecidos da base. A região reservada dos bytes **330–447** é verificada para garantir que permaneça idêntica à base.
+O gerador produz arquivos com **exatamente 448 bytes**, destinados à M‑VAVE MK‑300 com firmware V75, preservando a estrutura dos presets anteriores. Ele escreve os campos conhecidos nos offsets definidos pelo formato, usa little-endian para valores numéricos e preserva os dados desconhecidos da base. A região reservada dos bytes **330–447** é verificada para garantir que permaneça idêntica à base.
 
 O nome do preset é limitado a 19 bytes UTF‑8. Antes de exportar, use **Verificar preset** para revisar os parâmetros e alertas. A exportação não substitui a validação no M‑EFCS nem o teste com a pedaleira.
 
@@ -100,6 +110,8 @@ node src/tests/audio-cropper.test.cjs
 node src/tests/learning-store.test.cjs
 node src/tests/pwa.test.cjs
 python -m unittest discover -s src/tests -p 'audio_service_test.py' -v
+python -m unittest discover -s src/tests -p 'browser_compatibility_test.py' -v
+python -m unittest discover -s src/tests -p 'pwa_browser_test.py' -v
 ~~~
 
 Os testes automatizados não substituem a validação em um Android real, no M‑EFCS e na pedaleira. Confirme o funcionamento, o nível de saída e a compatibilidade de cada preset no seu equipamento antes de usá-lo ao vivo.
