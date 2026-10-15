@@ -5,9 +5,12 @@ import pwa_browser_test as pwa
 
 class YouTubeTests(pwa.PWABrowserTests):
     def configure_api(self):
-        self.page.locator('#apiBaseUrl').fill('https://api.example.test')
-        self.page.locator('#saveApiBaseUrl').click()
-        self.assertIn('URL salva', self.page.locator('#apiConfigStatus').inner_text())
+        # A previously configured Render endpoint must not override production.
+        self.page.evaluate("localStorage.setItem('AUTO_PRESET_API_URL','https://old-service.onrender.com')")
+        expected='https://autopreset-studio-production.up.railway.app'
+        self.assertEqual(self.page.evaluate('getAutoPresetApi()'),expected)
+        self.assertEqual(self.page.locator('#apiBaseUrl').input_value(),expected)
+        self.assertTrue(self.page.locator('#apiBaseUrl').evaluate('(input)=>input.readOnly'))
 
     def test_request_download_and_editor(self):
         self.page.locator('#enterStudio').click()
@@ -18,6 +21,7 @@ class YouTubeTests(pwa.PWABrowserTests):
         requests = []
 
         def respond(route):
+            self.assertEqual(route.request.url,'https://autopreset-studio-production.up.railway.app/api/v1/analyze-link')
             requests.append(route.request.post_data_json)
             route.fulfill(status=200, content_type='application/json', body=json.dumps({
                 'source': {'title': '<b>Guitar song</b>'},
@@ -37,9 +41,14 @@ class YouTubeTests(pwa.PWABrowserTests):
             self.page.locator('#youtubeDownload').click()
         self.assertEqual(download.value.suggested_filename, 'AutoPreset_Link.dzh')
         self.assertEqual(list(download.value.path().read_bytes()), original)
+        self.assertEqual(download.value.path().stat().st_size,448)
         self.page.locator('#youtubeApply').click()
         self.assertEqual(self.page.evaluate('Array.from(compilePreset())'), original)
         self.assertIn('Parâmetros carregados', self.page.locator('#youtubeStatus').inner_text())
+        self.page.locator('#youtubeUrl').fill('https://invalid.example/video')
+        self.page.locator('#youtubeAnalyze').click()
+        self.assertTrue(self.page.locator('#youtubeDownload').is_disabled(), 'No stale file after a rejected request')
+        self.assertTrue(self.page.locator('#youtubeApply').is_disabled())
 
     def test_validation_errors_and_fallback(self):
         self.page.locator('#enterStudio').click()
@@ -72,3 +81,43 @@ class YouTubeTests(pwa.PWABrowserTests):
             self.assertIn('cortador local', self.page.locator('#youtubeStatus').inner_text())
             self.assertTrue(self.page.locator('#youtubeDownload').is_disabled())
             self.assertFalse(self.page.locator('#cropperInputs').is_disabled())
+
+    def test_railway_waiting_progress_and_timeout(self):
+        self.page.locator('#enterStudio').click()
+        self.configure_api()
+        self.page.clock.install()
+        self.page.locator('#youtubeUrl').fill('https://youtu.be/example')
+        pending=[]
+        self.page.route('**/api/v1/analyze-link',lambda route:pending.append(route))
+        self.page.locator('#youtubeAnalyze').click()
+        self.assertIn('A processar áudio no Railway',self.page.locator('#youtubeProgressLabel').inner_text())
+        self.assertIsNone(self.page.locator('#youtubeProgress').get_attribute('value'))
+        self.page.clock.fast_forward(11000)
+        self.assertIn('A isolar guitarra com Demucs',self.page.locator('#youtubeProgressLabel').inner_text())
+        self.assertIn('Etapas previstas',self.page.locator('#youtubeProgressWrap').inner_text())
+        self.page.clock.fast_forward(300000)
+        self.page.wait_for_function("!document.querySelector('#youtubeInputs').disabled")
+        self.assertIn('5 minutos',self.page.locator('#youtubeStatus').inner_text())
+        self.assertTrue(self.page.locator('#youtubeDownload').is_disabled())
+        self.assertFalse(self.page.locator('#cropperInputs').is_disabled())
+        for route in pending:route.abort()
+
+    def test_invalid_json_and_wrong_binary_sizes(self):
+        import base64
+        self.page.locator('#enterStudio').click()
+        self.page.locator('#youtubeUrl').fill('https://youtu.be/example')
+        valid=self.page.evaluate('Array.from(compilePreset())')
+        bad_chain=bytearray(valid);bad_chain[32]=bad_chain[33]
+        bad_state=bytearray(valid);bad_state[43]=255
+        payloads=['null','[]','<html>Bad gateway</html>']+[
+            json.dumps({'dzh_base64':base64.b64encode(data).decode()})
+            for data in [bytes(447),bytes(449),bad_chain,bad_state]
+        ]
+        for payload in payloads:
+            self.page.unroute('**/api/v1/analyze-link')
+            self.page.route('**/api/v1/analyze-link',lambda route,request,body=payload:route.fulfill(status=200,content_type='application/json',body=body))
+            self.page.locator('#youtubeAnalyze').click()
+            self.page.wait_for_function("!document.querySelector('#youtubeInputs').disabled")
+            self.assertTrue(self.page.locator('#youtubeDownload').is_disabled())
+            self.assertTrue(self.page.locator('#youtubeApply').is_disabled())
+            self.assertIn('cortador local',self.page.locator('#youtubeStatus').inner_text())

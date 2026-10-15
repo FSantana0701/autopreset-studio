@@ -210,13 +210,13 @@ body { background:radial-gradient(ellipse at 8% 0%, #42301c 0, transparent 34%),
   <section class="card" aria-labelledby="youtubeTitle">
     <h2 id="youtubeTitle">Análise IA · YouTube</h2>
     <p class="hint">Envie um link e um trecho de até 45 segundos para a API externa. A análise local continua disponível abaixo.</p>
-    <details class="field" style="margin:12px 0"><summary>Configurar servidor de IA</summary><label for="apiBaseUrl">URL base da API publicada</label><input id="apiBaseUrl" type="url" inputmode="url" placeholder="https://seu-servico.onrender.com" autocomplete="url"><button id="saveApiBaseUrl" type="button" class="secondary">Salvar URL neste dispositivo</button><p id="apiConfigStatus" class="hint" role="status"></p></details>
+    <details class="field" style="margin:12px 0"><summary>Servidor de IA · Railway</summary><label for="apiBaseUrl">URL da API de produção</label><input id="apiBaseUrl" type="url" readonly><p id="apiConfigStatus" class="hint" role="status">Processamento no Railway. Nenhum modelo é carregado no celular.</p></details>
     <fieldset id="youtubeInputs" style="border:0;padding:0;min-width:0">
       <label for="youtubeUrl">URL do vídeo do YouTube</label><input id="youtubeUrl" type="url" placeholder="https://youtu.be/…">
       <div class="grid"><div class="field"><label for="youtubeStart">Início (segundos)</label><input id="youtubeStart" type="number" min="0" step="0.1" value="0"></div><div class="field"><label for="youtubeEnd">Fim (segundos)</label><input id="youtubeEnd" type="number" min="0.1" step="0.1" value="45"></div></div>
       <button id="youtubeAnalyze" type="button">Analisar via IA (YouTube)</button>
     </fieldset>
-    <div id="youtubeProgressWrap" class="api-progress" hidden><span class="api-spinner" aria-hidden="true"></span><progress id="youtubeProgress" max="90" value="0" aria-label="Tempo de análise estimado"></progress><span id="youtubeProgressLabel" aria-live="polite"></span></div>
+    <div id="youtubeProgressWrap" class="api-progress" hidden><span class="api-spinner" aria-hidden="true"></span><progress id="youtubeProgress" aria-label="Aguardando análise no Railway"></progress><span><span id="youtubeProgressLabel" aria-live="polite"></span><small class="hint" style="display:block">Etapas previstas; o servidor não informa a fase em tempo real.</small></span></div>
     <p id="youtubeStatus" class="status" role="status" aria-live="polite"></p>
     <p id="youtubeDiagnosis" class="meta"></p>
     <div class="actions"><button id="youtubeApply" type="button" disabled>Carregar parâmetros para revisão</button><button id="youtubeDownload" type="button" disabled>Baixar Preset .dzh</button></div>
@@ -378,8 +378,7 @@ body { background:radial-gradient(ellipse at 8% 0%, #42301c 0, transparent 34%),
 "use strict";
 const $ = (id) => document.getElementById(id);
 function selectedAIProvider(){return 'claude';}
-let sessionApiUrl='';
-function configuredApiUrl(){try{return String(sessionApiUrl||localStorage.getItem('AUTO_PRESET_API_URL')||window.API_BASE_URL||window.AUTO_PRESET_API||'').trim();}catch{return String(sessionApiUrl||window.API_BASE_URL||window.AUTO_PRESET_API||'').trim();}}
+function configuredApiUrl(){return String(window.API_BASE_URL||window.AUTO_PRESET_API||'').trim();}
 function getAutoPresetApi(){
  const value=configuredApiUrl();
  if(!value)throw new Error('Configure a URL publicada do serviço de IA para usar esta função.');
@@ -389,7 +388,7 @@ function getAutoPresetApi(){
 }
 const apiUrlInput=$('apiBaseUrl');
 apiUrlInput.value=configuredApiUrl();
-$('saveApiBaseUrl').addEventListener('click',()=>{try{const value=apiUrlInput.value.trim();if(!value)throw new Error('Informe a URL HTTPS publicada da API.');const parsed=new URL(value);if(parsed.protocol!=='https:'&&!['localhost','127.0.0.1','[::1]'].includes(parsed.hostname))throw new Error('Use uma URL HTTPS (localhost é permitido para testes).');sessionApiUrl=parsed.href.replace(/\/$/,'');try{localStorage.setItem('AUTO_PRESET_API_URL',sessionApiUrl);setStatus($('apiConfigStatus'),'URL salva neste dispositivo.','good');}catch{setStatus($('apiConfigStatus'),'URL ativa nesta sessão; o navegador não permitiu salvá-la permanentemente.','warn');}}catch(error){setStatus($('apiConfigStatus'),error.message,'bad');}});
+
 
 function requireSupportedHardware(){if(activeAIRequest)throw new Error("Aguarde ou cancele a análise IA antes de editar/exportar.");if($('pedalboard').value!=='mk300')throw new Error('Exportação disponível somente para MK-300.');}
 function getGuitarOffset(){const type=$('guitarType').value;return ({jem:{gain:-10,bass:-5},lespaul:{gain:-5,bass:0},strato:{gain:15,bass:5},tele:{gain:15,bass:5},none:{gain:0,bass:0}})[type]||{gain:0,bass:0};}
@@ -1320,7 +1319,8 @@ function youtubePayload(url,start,end){
 async function requestYoutubePreset(payload,signal){
  const response=await fetch(getAutoPresetApi()+'/api/v1/analyze-link',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload),signal});
  if(!response.ok)throw new Error(response.status===400||response.status===422?'O serviço não aceitou o link ou intervalo. Confira os dados.':response.status===503?'Servidor de IA indisponível no momento.':'O serviço não conseguiu concluir a análise (HTTP '+response.status+').');
- const data=await response.json();
+ let data;try{data=await response.json();}catch{throw new Error('O Railway retornou uma resposta JSON inválida.');}
+ if(!data||typeof data!=='object'||Array.isArray(data))throw new Error('O Railway retornou uma resposta inválida.');
  const encoded=data.dzh?.base64??data.preset_base64??data.dzh_base64??data.preset?.base64;
  if(typeof encoded!=='string'||encoded.length>1024)throw new Error('A API retornou um preset inválido.');
  let bytes;try{bytes=Uint8Array.from(atob(encoded),c=>c.charCodeAt(0));validateBaseBytes(bytes);}catch{throw new Error('A API retornou um preset .dzh inválido (esperado: 448 bytes).');}
@@ -1331,20 +1331,20 @@ async function requestYoutubePreset(payload,signal){
 }
 $('youtubeAnalyze').addEventListener('click',async()=>{
  let timeout,progressTimer,startedAt=0;
+ youtubeResult=null;$('youtubeDownload').disabled=true;$('youtubeApply').disabled=true;$('youtubeDiagnosis').textContent='';
  try{
   requireSupportedHardware();
   getAutoPresetApi();
   const payload=youtubePayload($('youtubeUrl').value,$('youtubeStart').value,$('youtubeEnd').value);
-  youtubeResult=null;$('youtubeDownload').disabled=true;$('youtubeApply').disabled=true;$('youtubeDiagnosis').textContent='';
-  $('youtubeInputs').disabled=true;$('youtubeProgressWrap').hidden=false;$('youtubeProgress').value=0;
-  const controller=new AbortController();startedAt=Date.now();timeout=setTimeout(()=>controller.abort(),90000);
-  const updateProgress=()=>{const elapsed=Math.floor((Date.now()-startedAt)/1000);$('youtubeProgress').value=Math.min(90,elapsed);const message=elapsed<10?'A conectar ao servidor de IA…':elapsed<30?'A iniciar servidor na nuvem (Cold Start)… por favor aguarde.':elapsed<50?'Isolando faixa de guitarra com Demucs e gerando preset V75…':'O servidor continua processando… mantenha esta página aberta.';$('youtubeProgressLabel').textContent=message;};
+  $('youtubeInputs').disabled=true;$('youtubeProgressWrap').hidden=false;$('youtubeProgress').removeAttribute('value');
+  const controller=new AbortController();startedAt=Date.now();timeout=setTimeout(()=>controller.abort(),300000);
+  const updateProgress=()=>{const elapsed=Math.floor((Date.now()-startedAt)/1000);const message=elapsed<10?'A processar áudio no Railway…':elapsed<60?'A isolar guitarra com Demucs…':'A aguardar o preset V75 do Railway…';$('youtubeProgressLabel').textContent=message+' ('+elapsed+' s)';};
   updateProgress();progressTimer=setInterval(updateProgress,1000);
   youtubeResult=await requestYoutubePreset(payload,controller.signal);
   $('youtubeDiagnosis').textContent=youtubeResult.title+' · AMP: '+youtubeResult.amp+' · DS: '+youtubeResult.ds;
   $('youtubeDownload').disabled=false;$('youtubeApply').disabled=false;
-  setStatus($('youtubeStatus'),'Preset V75 recebido. Carregue os parâmetros para revisar ou baixe o arquivo.','good');
- }catch(error){const detail=error.name==='AbortError'?'A análise excedeu o limite de 90 segundos.':error instanceof TypeError?'Não foi possível conectar à API. Confira a conexão, a URL do serviço e o CORS.':error.message;setStatus($('youtubeStatus'),detail+' Servidor de IA indisponível no momento. Você pode continuar usando o cortador local abaixo.','warn');}
+  setStatus($('youtubeStatus'),'Preset MK-300 V75 recebido e validado: 448 bytes. Carregue os parâmetros para revisar ou baixe o .dzh.','good');
+ }catch(error){const detail=error.name==='AbortError'?'O Railway não concluiu a análise em 5 minutos. Tente um trecho menor.':error instanceof TypeError?'Não foi possível conectar à API. Confira a conexão, a URL do serviço e o CORS.':error.message;setStatus($('youtubeStatus'),detail+' Servidor de IA indisponível no momento. Você pode continuar usando o cortador local abaixo.','warn');}
  finally{clearTimeout(timeout);clearInterval(progressTimer);$('youtubeInputs').disabled=false;$('youtubeProgressWrap').hidden=true;}
 });
 $('youtubeDownload').addEventListener('click',()=>{if(youtubeResult)downloadBytes(youtubeResult.bytes,'AutoPreset_Link.dzh','application/octet-stream','youtubeStatus','Preset da API pronto para baixar.');});
