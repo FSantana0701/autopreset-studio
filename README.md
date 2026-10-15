@@ -10,7 +10,7 @@ A compatibilidade de formato é sustentada pelos testes binários e diferenciais
 
 O fluxo com **IRs** preserva o slot, os controles de CAB e os cortes de frequência no preset. Instale o IR correspondente no equipamento pelo software compatível da M-VAVE: o `.dzh` não incorpora o arquivo IR. As melhorias de resposta dinâmica e leitura de IRs atribuídas à V75 pertencem ao firmware e devem ser verificadas na documentação do fabricante e na pedaleira; esta atualização apenas alinha a aplicação a esse fluxo, sem implementar ou comprovar essas melhorias de DSP.
 
-A PWA usa o cache **`shell-v10`**. Ao abrir o app conectado, o navegador instala o Service Worker atualizado, remove caches legados da aplicação e ativa o novo shell. A navegação consulta a rede antes do cache para evitar HTML antigo; sem conexão, usa o shell armazenado. Em uma aba já aberta, recarregue após a atualização para exibir a nova interface. Projetos e exemplos locais são preservados.
+A PWA usa o cache **`shell-v11`**. Ao abrir o app conectado, o navegador instala o Service Worker atualizado, remove caches legados da aplicação e ativa o novo shell. A navegação consulta a rede antes do cache para evitar HTML antigo; sem conexão, usa o shell armazenado. Em uma aba já aberta, recarregue após a atualização para exibir a nova interface. Projetos e exemplos locais são preservados.
 
 ## Recursos principais
 
@@ -141,6 +141,14 @@ Os testes automatizados não substituem a validação em um Android real, no M�
 
 A constante `API_BASE_URL` em `src/config.js` aponta para `https://autopreset-studio-production.up.railway.app`. As chamadas de IA usam esse destino de produção; URLs antigas gravadas no navegador não o substituem. O backend deve permitir `https://fsantana0701.github.io` no CORS. Sem serviço, o cortador e a análise local permanecem disponíveis.
 
+Links de vídeo `youtu.be`, `watch`, `shorts`, `embed` e `live` são normalizados para `https://www.youtube.com/watch?v=ID`. Parâmetros de compartilhamento/rastreamento (`si`, `is`, `feature`), playlists, fragmentos e tempos da URL são removidos; o intervalo enviado é sempre o dos campos do formulário.
+
 Os campos Início/Fim aceitam `m:ss` ou `mm:ss` (segundos entre `00` e `59`). Ex.: `02:16` até `02:56` é enviado como `136` e `176` segundos. Intervalos vazios, invertidos, de zero ou maiores que 45 segundos são bloqueados antes do POST.
 
 O cliente envia `POST /api/v1/analyze-link` com `{url, start_seconds, end_seconds, firmware: "v75"}` (intervalo até 45 s). Espera JSON `{title, preset_base64, amp_model?, ds_model?}`; aceita também `video_title`, `dzh_base64` ou `preset.base64`. O preset deve ser um .dzh válido de 448 bytes. Os controles são preenchidos a partir do binário para preservar todos os parâmetros; o download da API mantém o original, e a exportação do editor inclui as revisões. O progresso é indeterminado e os rótulos indicam etapas previstas: o POST não informa a fase real. A interface aguarda até 5 minutos, rejeita JSON/Base64/binário inválidos e só habilita o download depois de validar os 448 bytes. O backend deste checkout não implementa essa rota; a execução de yt-dlp/Demucs pertence ao Railway.
+
+### Diagnóstico de conexão Railway
+
+O POST envia `Content-Type: application/json` e `Accept: application/json`. Em falhas, o DevTools registra `[API Fetch Error]:` com o erro capturado. Um `TypeError: Failed to fetch` não distingue sozinho CORS, DNS, TLS ou indisponibilidade; a URL compartilhada no corpo também não determina o preflight. No painel Network, confira `OPTIONS` e `POST /api/v1/analyze-link`.
+
+O backend deve autorizar a origem `https://fsantana0701.github.io`, o método `POST` e os cabeçalhos JSON no preflight, inclusive nas respostas de erro. A configuração CORS é responsabilidade do serviço Railway; `mode: no-cors` não resolve a leitura do JSON. A consulta de diagnóstico `OPTIONS` feita deste ambiente foi bloqueada pelo proxy com CONNECT 403, antes de alcançar o Railway; isso não comprova falha no CORS de produção.

@@ -1440,13 +1440,13 @@ window.AUTO_PRESET_API = API_BASE_URL;
 "use strict";
 const $ = (id) => document.getElementById(id);
 function selectedAIProvider(){return 'claude';}
-function configuredApiUrl(){return String(window.API_BASE_URL||window.AUTO_PRESET_API||'').trim();}
+function configuredApiUrl(){return API_BASE_URL;}
 function getAutoPresetApi(){
  const value=configuredApiUrl();
  if(!value)throw new Error('Configure a URL publicada do serviço de IA para usar esta função.');
  let base;try{base=new URL(value);}catch{throw new Error('A URL do serviço de IA é inválida.');}
  if(base.protocol!=='https:'&&!['localhost','127.0.0.1','[::1]'].includes(base.hostname))throw new Error('O serviço do AutoPreset precisa usar HTTPS.');
- return base.href.replace(/\/$/,'');
+ return base.href.replace(/\/+$/,'');
 }
 const apiUrlInput=$('apiBaseUrl');
 apiUrlInput.value=configuredApiUrl();
@@ -2379,16 +2379,27 @@ function youtubeTimeToSeconds(value){
  if(!Number.isSafeInteger(seconds))throw new Error('O horário informado é grande demais. Use minutos e segundos válidos.');
  return seconds;
 }
+function sanitizeYoutubeUrl(value){
+ let parsed;try{parsed=new URL(value);}catch{throw new Error('Informe um link válido do YouTube.');}
+ const hosts=['youtube.com','www.youtube.com','m.youtube.com','music.youtube.com','youtu.be','www.youtu.be'];
+ if(!['https:','http:'].includes(parsed.protocol)||!hosts.includes(parsed.hostname)||parsed.username||parsed.password)throw new Error('Informe um link válido do YouTube.');
+ let id;
+ if(['youtu.be','www.youtu.be'].includes(parsed.hostname))id=parsed.pathname.match(/^\/([a-zA-Z0-9_-]{11})\/?$/)?.[1];
+ else if(['/watch','/watch/'].includes(parsed.pathname))id=parsed.searchParams.get('v');
+ else id=parsed.pathname.match(/^\/(?:shorts|embed|live)\/([a-zA-Z0-9_-]{11})\/?$/)?.[1];
+ if(!id||!/^[a-zA-Z0-9_-]{11}$/.test(id))throw new Error('Informe um link de vídeo válido do YouTube.');
+ // Only the video ID is retained; sharing/tracking, playlists and URL timestamps are discarded.
+ return 'https://www.youtube.com/watch?v='+id;
+}
 function youtubePayload(url,start,end){
- let parsed;try{parsed=new URL(url);}catch{throw new Error('Informe um link válido do YouTube.');}
- if(!['https:','http:'].includes(parsed.protocol)||!['youtube.com','www.youtube.com','m.youtube.com','music.youtube.com','youtu.be'].includes(parsed.hostname))throw new Error('Informe um link válido do YouTube.');
+ const cleanUrl=sanitizeYoutubeUrl(url);
  const startSeconds=youtubeTimeToSeconds(start),endSeconds=youtubeTimeToSeconds(end);
  if(endSeconds<=startSeconds)throw new Error('O fim deve ser posterior ao início. Escolha um trecho de até 45 segundos.');
  if(endSeconds-startSeconds>45)throw new Error('O trecho escolhido ultrapassa 45 segundos. Aproxime o fim do início.');
- return {url:parsed.href,start_seconds:startSeconds,end_seconds:endSeconds,firmware:'v75'};
+ return {url:cleanUrl,start_seconds:startSeconds,end_seconds:endSeconds,firmware:'v75'};
 }
 async function requestYoutubePreset(payload,signal){
- const response=await fetch(getAutoPresetApi()+'/api/v1/analyze-link',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload),signal});
+ const response=await fetch(getAutoPresetApi()+'/api/v1/analyze-link',{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json'},body:JSON.stringify(payload),signal});
  if(!response.ok)throw new Error(response.status===400||response.status===422?'O serviço não aceitou o link ou intervalo. Confira os dados.':response.status===503?'Servidor de IA indisponível no momento.':'O serviço não conseguiu concluir a análise (HTTP '+response.status+').');
  let data;try{data=await response.json();}catch{throw new Error('O Railway retornou uma resposta JSON inválida.');}
  if(!data||typeof data!=='object'||Array.isArray(data))throw new Error('O Railway retornou uma resposta inválida.');
@@ -2415,7 +2426,7 @@ $('youtubeAnalyze').addEventListener('click',async()=>{
   $('youtubeDiagnosis').textContent=youtubeResult.title+' · AMP: '+youtubeResult.amp+' · DS: '+youtubeResult.ds;
   $('youtubeDownload').disabled=false;$('youtubeApply').disabled=false;
   setStatus($('youtubeStatus'),'Preset MK-300 V75 recebido e validado: 448 bytes. Carregue os parâmetros para revisar ou baixe o .dzh.','good');
- }catch(error){const detail=error.name==='AbortError'?'O Railway não concluiu a análise em 5 minutos. Tente um trecho menor.':error instanceof TypeError?'Não foi possível conectar à API. Confira a conexão, a URL do serviço e o CORS.':error.message;setStatus($('youtubeStatus'),detail+(requestStarted?' Servidor de IA indisponível no momento. Você pode continuar usando o cortador local abaixo.':' Nenhuma solicitação foi enviada. O cortador local continua disponível abaixo.'),'warn');}
+ }catch(err){console.error('[API Fetch Error]:',err);const detail=err.name==='AbortError'?'O Railway não concluiu a análise em 5 minutos. Tente um trecho menor.':err instanceof TypeError?'Não foi possível conectar à API. Confira a conexão, a URL do serviço e o CORS.':err.message;setStatus($('youtubeStatus'),detail+(requestStarted?' Servidor de IA indisponível no momento. Você pode continuar usando o cortador local abaixo.':' Nenhuma solicitação foi enviada. O cortador local continua disponível abaixo.'),'warn');}
  finally{clearTimeout(timeout);clearInterval(progressTimer);$('youtubeInputs').disabled=false;$('youtubeProgressWrap').hidden=true;}
 });
 $('youtubeDownload').addEventListener('click',()=>{if(youtubeResult)downloadBytes(youtubeResult.bytes,'AutoPreset_Link.dzh','application/octet-stream','youtubeStatus','Preset da API pronto para baixar.');});
