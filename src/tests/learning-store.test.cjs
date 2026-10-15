@@ -32,6 +32,13 @@ const draft = { label: 'Correção do usuário', fields: { ampGain: '42' }, stat
   const mixRecord=(await learning.list()).find(item=>item.reference==='Mixagem');
   assert.equal(mixRecord.features.audio_source,'full_mix');
   await learning.remove(mixRecord.id);
+  const spectral={...mix,feature_version:3,spectral_flatness:0.1,spectral_centroid_hz:2000,spectral_rolloff_85_hz:5000,spectral_flux:0.2,harmonic_energy_ratio:0.3};
+  const saved=await learning.save({reference:'DSP',features:spectral,draft});
+  assert.equal(saved.features.feature_version,3);
+  assert.equal(saved.features.spectral_flatness,0.1);
+  assert.ok(learning.distance(spectral,{...spectral,spectral_flatness:0.8})>0);
+  assert.ok(Number.isFinite(learning.distance(spectral,mix)),'old RMS/ZCR/crest examples remain comparable');
+  await learning.remove(saved.id);
   const exported = JSON.parse(await learning.exportJson());
   assert.equal(exported.format, 'AutoPresetLearning');
   assert.equal(exported.examples.length, 1);

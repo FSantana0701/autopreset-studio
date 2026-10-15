@@ -43,6 +43,25 @@ O analisador trabalha com a **mixagem completa**. RMS, ZCR e fator de crista nã
 
 A análise local não precisa de chave de API. Funções de provedores externos, quando usadas, dependem de internet e das credenciais configuradas pelo próprio usuário.
 
+## DSP espectral local
+
+O trecho do Estúdio de Preparação alimenta uma FFT radix-2 nativa de 2048 pontos com janela Hann e até cerca de 50 quadros por segundo. A análise reutiliza os vetores de trabalho, soma a potência dos canais sem cancelar estéreo em oposição de fase e cede tempo à interface entre lotes, permitindo cancelamento. Para até 45 segundos, os vetores temporários de DSP ocupam menos de 320 KiB; esse valor exclui o buffer PCM decodificado, o WAV de saída e o overhead do navegador. Nenhuma cópia PCM da faixa inteira é criada pelo DSP.
+
+As métricas combinam SFM (média geométrica/aritmética da potência), centroide, rolloff de 85% da energia, fluxo de magnitudes normalizadas, fator de crista, ZCR e energia harmônica. A autocorrelação da envoltória de ataques a aproximadamente 200 Hz procura repetições entre 80 e 1200 ms; um ajuste logarítmico da cauda produz um indicador de decaimento. Trechos sem evidência suficiente não alteram Delay ou Reverb. Os exemplos locais antigos continuam compatíveis; novos exemplos também armazenam métricas espectrais para comparação.
+
+O matcher usa somente IDs e nomes existentes no catálogo preservado para V75:
+
+| Hipótese | AMP | DS | Referência de CAB |
+|---|---|---|---|
+| Clean | 1J120_CL | 2TS8 (desligado) | 69FenDeluX |
+| Crunch | 34OR_CRUNCH | 2TS8 | 10MAR1960_412 |
+| Hi-Gain | 67EHV5150_DS | 11RAT | 63EAGLProV30s |
+| Fuzz | 34OR_CRUNCH | 39BIG-MUFF | 36Recto_112 |
+
+Brilho elevado também seleciona referências 63EAGLProV30s ou 77J120Rolnd, conforme a classe. Gain, Bass, Middle, Treble e Pres recebem sugestões cruzadas; o EQ usa as seis bandas reais de Guitar EQ 6. O GATE usa o Threshold assinado de Soft Gate ou Threshold/Release de Pro Gate para ataques mais marcados. AI Gate não expõe Threshold/Decay nesse catálogo, e Soft Gate não tem Decay; nenhum campo binário é inventado. Os cortes de CAB são recomendados em Hz, mas seus valores brutos são preservados até existir uma conversão calibrada. Confirme o IR instalado no slot de referência. Em modo NAM, AMP e CAB são preservados.
+
+As classificações Clean/Crunch/Hi-Gain/Fuzz são **hipóteses de baixa confiança**, não identificação exata de pedais ou amplificadores. Bateria, ruído e compressão da mixagem alteram as métricas; ritmo pode parecer delay, e sustain pode parecer reverb. A precisão matemática dos descritores não comprova a precisão do diagnóstico musical. Revise e teste as sugestões na pedaleira. O compilador e o formato `.dzh` de 448 bytes permanecem inalterados.
+
 ## Capturas NAM A2
 
 O seletor conecta ao TONE3000 por meio do fluxo de autorização do serviço. O usuário escolhe uma variante **A2-Lite**, confirma o slot e baixa o arquivo .nam para importá-lo no M‑EFCS/M‑Efect compatível.
@@ -107,6 +126,7 @@ node src/tests/claude-adapter.test.cjs
 node src/tests/tone3000-select.test.cjs
 node src/tests/audio-heuristic-analyzer.test.cjs
 node src/tests/audio-cropper.test.cjs
+node src/tests/spectral-dsp.test.cjs
 node src/tests/learning-store.test.cjs
 node src/tests/pwa.test.cjs
 python -m unittest discover -s src/tests -p 'audio_service_test.py' -v

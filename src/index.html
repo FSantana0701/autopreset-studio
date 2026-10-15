@@ -193,7 +193,7 @@ body { background:radial-gradient(ellipse at 8% 0%, #42301c 0, transparent 34%),
     <div class="grid"><div class="field"><label for="pedalboard">Pedaleira</label><select id="pedalboard"><option value="mk300" selected>M-VAVE MK-300 V75</option><option value="valeton">Valeton GP-100 · não implementado</option><option value="cuvave">Cuvave Cube Baby · não implementado</option><option value="zoom">Zoom G1X Four · não implementado</option><option value="boss">Boss GT-1 · não implementado</option></select></div>
     <div class="field"><label for="guitarType">Referência de captação</label><select id="guitarType"><option value="none">Sem ajuste de captação</option><option value="jem" selected>JEM / Superstrato · hipótese de saída alta</option><option value="lespaul">Les Paul · hipótese de humbuckers clássicos</option><option value="strato">Stratocaster · hipótese de single coils</option><option value="tele">Telecaster · hipótese de single coils</option></select></div></div>
     <p class="hint">O nome da guitarra não determina a saída dos captadores. Ajustes são heurísticos: JEM −10 de Gain / −5 de Bass; Les Paul −5 / 0; single coils +15 / +5, em pontos da escala 0–100. Só se aplicam ao clicar em Sugerir Timbre; importações mantêm os valores gravados.</p>
-    <div class="field"><label>Assistente local</label><p id="serviceStatus" class="hint" role="status">Pronto para medir RMS, ZCR e fator de crista da mixagem no aparelho. Sem download de modelo ou envio de áudio.</p></div>
+    <div class="field"><label>Assistente local</label><p id="serviceStatus" class="hint" role="status">Pronto para medir espectro, transientes e dinâmica da mixagem no aparelho. Sem download de modelo ou envio de áudio.</p></div>
     <div class="actions"><button id="installPwa" type="button" class="secondary" hidden>Instalar AutoPreset no celular</button></div>
     <div class="actions"><button id="recoverProject" type="button" hidden>Recuperar rascunho deste navegador</button></div>
     <div class="actions"><button id="enterStudio" type="button">Entrar no Estúdio →</button></div><div id="setupStatus" class="status" aria-live="polite"></div>
@@ -219,7 +219,7 @@ body { background:radial-gradient(ellipse at 8% 0%, #42301c 0, transparent 34%),
     <p id="cropperStatus" class="status" role="status" aria-live="polite"></p>
   </section>
   <section class="card" style="border-color:var(--accent)"><h2>Análise leve da mixagem</h2>
-    <p class="hint stepHelp">1. Salve um MP3/WAV no celular (por exemplo, baixe-o do Drive). 2. Toque em <b>Escolher arquivo</b> e selecione-o em Downloads, Música ou Áudio. 3. Marque um trecho e toque em <b>Analisar trecho da mixagem</b>. RMS, ZCR e fator de crista são medidos diretamente no trecho original. A banda inteira influencia as métricas; não há guitarra isolada. O áudio fica no aparelho. Arquivos acima de 5 minutos devem ser recortados antes de importar.</p>
+    <p class="hint stepHelp">1. Salve um MP3/WAV no celular (por exemplo, baixe-o do Drive). 2. Toque em <b>Escolher arquivo</b> e selecione-o em Downloads, Música ou Áudio. 3. Marque um trecho e toque em <b>Analisar trecho da mixagem</b>. SFM, centroide, rolloff, fluxo espectral, RMS, ZCR e fator de crista são medidos no trecho original. A banda inteira influencia as métricas; não há guitarra isolada. O áudio fica no aparelho. Arquivos acima de 5 minutos devem ser recortados antes de importar.</p>
     <fieldset id="audioInputs" style="border:0;padding:0;min-width:0"><div class="field"><label for="audioFile">Arquivo MP3 ou WAV salvo no celular · até 25 MiB</label><input id="audioFile" type="file" accept="audio/*,.mp3,.wav" aria-describedby="audioInfo"><p class="hint">Se o seletor abrir uma pasta vazia, toque no menu ☰ e procure em Downloads, Música ou Áudio. Arquivos que ainda estão no Drive precisam ser baixados primeiro. A análise aceita somente .mp3 e .wav.</p></div><audio id="previewAudio" controls preload="metadata" style="width:100%;margin-top:12px"></audio><p id="audioInfo" class="hint" role="status" aria-live="polite">Nenhum áudio selecionado. A análise não começa até você escolher um arquivo.</p><h3>Trechos · segundos ou mm:ss (máximo 45 s)</h3><div id="snippets"></div><button id="addSnippet" type="button">+ Adicionar trecho</button></fieldset>
     <div class="actions"><button id="cancelAI" type="button" disabled>Cancelar operação</button></div><div id="audioStatus" class="status" aria-live="polite"></div>
     <section id="separationOutput" class="card" hidden><h3>Mixagem original · trecho analisado</h3><audio id="guitarStemPreview" controls preload="metadata" style="width:100%"></audio><p id="audioMetrics" class="meta"></p><p><a id="downloadGuitarStem" class="downloadFallback" download="mix-clip.wav">Baixar trecho original (.wav)</a></p><p class="hint">As métricas incluem bateria, voz, baixo e guitarra. Elas não identificam o timbre da guitarra nem reconhecem artista. A sugestão é um ponto de partida de baixa confiança; ouça e ajuste manualmente.</p><div class="actions"><button id="applyAudioSuggestion" type="button" disabled>Montar preset inicial com este áudio</button></div><p id="audioSuggestionStatus" class="status" aria-live="polite">Depois que a análise terminar, você pode aplicar uma sugestão offline e revisar os controles antes de exportar.</p></section>
@@ -1131,19 +1131,51 @@ function applyOfflineProfile(profile, reference, prefix='Perfil local'){
  commitSingleDraft(prefix+' · '+profile.label);
  return 'Perfil '+profile.label+' aplicado como ponto de partida. Referência: '+reference+'. Ajustes heurísticos de captação: Gain '+offset.gain+' / Bass '+offset.bass+'.'+(gateMovedBeforeDrive?' Gate foi colocado antes do DS.':'');
 }
+function applySpectralSuggestion(features){
+ requireSupportedHardware();
+ const hints=window.AutoPresetAudioHeuristics.matchPreset(features);
+ for(const setting of hints.settings){
+  const range=parameterRange(setting.block,setting.name,setting.model);
+  if(setting.value<range.min||setting.value>range.max)throw new Error('Sugestão fora da faixa: '+setting.name);
+ }
+ const before=snapshotDraft('Antes da sugestão espectral');
+ try{
+  const pickup=getGuitarOffset(),nam=$('namMode').checked;
+  if(!nam){
+   $('amp').value=String(hints.amp);$('ampGain').value=String(Math.max(0,Math.min(100,hints.ampGain+pickup.gain)));
+   $('ampLevel').value='50';$('bass').value=String(Math.max(0,Math.min(100,hints.bass+pickup.bass)));
+   $('middle').value=String(hints.middle);$('treble').value=String(hints.treble);$('ampOn').checked=true;
+   $('cabSlot').value=String(hints.cabSlot);$('cabOn').checked=true;
+  }
+  $('drive').value=String(hints.drive);$('driveGain').value=String(hints.driveGain);$('dsLevel').value='50';$('dsOn').checked=hints.dsOn;
+  $('gateModel').value=String(hints.gate);$('eqModel').value=String(hints.eq);additionalStates[2]=true;additionalStates[6]=true;
+  for(const blockId of [2,3,6]){
+   const model=selectedParameterModel(blockId),defaults=PARAMETER_BLOCKS[blockId].models[model].defaults;
+   if(defaults)defaults.forEach((value,i)=>{parameterValues[parameterKey(blockId,model,i)]=value;});
+  }
+  for(const setting of hints.settings){if(nam&&setting.block===4)continue;parameterValues[parameterKey(setting.block,setting.model,setting.knob)]=setting.value;}
+  if(hints.delay_time_ms!==null){
+   $('delay').value=String(hints.delay);$('time').value=String(hints.delay_time_ms);$('fb').value='20';$('mix').value=String(hints.delay_mix);$('dlyOn').checked=true;
+   parameterValues[parameterKey(8,hints.delay,DLY_SYNC[hints.delay])]=0;
+  }
+  if(hints.reverb_decay!==null){
+   $('revModel').value=String(hints.reverb);$('revP0').value=String(hints.reverb_decay);$('revP1').value=String(hints.reverb_mix);
+   $('revP2').value='80';$('revP3').value='80';$('revP4').value='40';$('revOn').checked=true;
+  }
+  currentOrigin='DSP espectral local · hipótese '+hints.classification+' · baixa confiança';
+  syncCurrentParameterAliases();refreshUI();
+  compilePreset();commitSingleDraft('DSP · '+hints.classification);
+  return hints.classification+' estimado · confiança '+hints.confidence+'. A banda inteira influencia a análise. '+
+   (nam?'AMP e CAB mantidos no modo NAM. ':'AMP '+hints.models.amp+' · DS '+hints.models.ds+' · CAB referência '+hints.models.cab+' (confirme o IR instalado). ')+
+   'GATE '+hints.models.gate+' · EQ '+hints.models.eq+'. Cortes CAB sugeridos: '+hints.cab_low_cut_hz+'–'+hints.cab_high_cut_hz+' Hz; valores brutos preservados por falta de calibração. '+
+   (hints.delay_time_ms===null?'Sem repetição confiável; delay preservado. ':'Repetição aproximada: '+hints.delay_time_ms+' ms (pode ser ritmo). ')+
+   (hints.reverb_decay===null?'Sem cauda confiável; reverb preservado.':'Reverb estimado pela cauda; sustain também influencia.');
+ }catch(error){restoreDraft(before);throw error;}
+}
 $('applyAudioSuggestion').addEventListener('click',()=>{
  try{
   if(!lastLocalAnalysis)throw new Error('Analise primeiro um trecho de áudio.');
-  const reference=$('ytUrl').value.trim()||$('ytUrlLocal').value.trim()||'Mixagem medida localmente';
-  const profile=profiles.find(item=>item.match.test(reference))||fallbackProfile;
-  const hints=window.AutoPresetAudioHeuristics.toneHints(lastLocalAnalysis.features);
-  const message=applyOfflineProfile(profile,reference,'Sugestão a partir do áudio');
-  const pickup=getGuitarOffset();
-  $('bass').value=String(Math.max(0,Math.min(100,hints.bass+pickup.bass)));
-  $('middle').value=String(hints.middle);
-  $('treble').value=String(hints.treble);
-  syncCurrentParameterAliases();refreshUI();commitSingleDraft('Áudio · '+profile.label);
-  $('audioSuggestionStatus').textContent=message+' A heurística de ZCR da banda inteira ajustou Bass '+$('bass').value+', Middle '+$('middle').value+' e Treble '+$('treble').value+'. Isso é uma heurística inicial; ouça e corrija o preset.';
+  $('audioSuggestionStatus').textContent=applySpectralSuggestion(lastLocalAnalysis.features);
   $('audioSuggestionStatus').className='status warn';
  }catch(error){$('audioSuggestionStatus').textContent=error.message;$('audioSuggestionStatus').className='status bad';}
 });
@@ -1243,7 +1275,7 @@ async function analyzeAudioSnippet(id,button,crop=null){
   if(!typedReference)$('ytUrl').value='Trecho '+snippet.label+' · '+start.toFixed(1)+'–'+end.toFixed(1)+' s';
   const reference=typedReference||$('ytUrl').value;
   lastLocalAnalysis={features:result.features,reference,snippet:{...snippet},initialDraft};$('applyAudioSuggestion').disabled=false;$('audioSuggestionStatus').textContent='Análise local concluída. Ouça o trecho da mixagem original; depois monte um preset inicial para revisar.';$('audioSuggestionStatus').className='status good';
-  $('audioMetrics').textContent='RMS '+result.features.rms_db.toFixed(2)+' dBFS · ZCR '+result.features.zero_crossing_rate.toFixed(5)+' · Fator de crista '+result.features.crest_factor_db.toFixed(2)+' dB · Mixagem completa';
+  $('audioMetrics').textContent='SFM '+result.features.spectral_flatness.toFixed(4)+' · Centroide '+result.features.spectral_centroid_hz.toFixed(0)+' Hz · Rolloff 85% '+result.features.spectral_rolloff_85_hz.toFixed(0)+' Hz · Fluxo '+result.features.spectral_flux.toFixed(3)+' · Repetição '+(result.features.delay_time_ms===null?'inconclusiva':result.features.delay_time_ms+' ms')+' · RMS '+result.features.rms_db.toFixed(2)+' dBFS · ZCR '+result.features.zero_crossing_rate.toFixed(5)+' · Fator de crista '+result.features.crest_factor_db.toFixed(2)+' dB · Mixagem completa';
   $('learningPanel').hidden=false;$('learningTested').checked=false;$('learningNote').value='';$('applyLearningExample').disabled=true;lastLearningMatch=null;
   const match=await window.AutoPresetLearning.bestMatch(result.features);
   if(match){lastLearningMatch=match;$('applyLearningExample').disabled=false;$('learningSummary').textContent='Existe um exemplo corrigido parecido (“'+match.record.reference+'”, nota '+match.record.rating+'/5). Você decide se quer usá-lo como base.';}
@@ -1274,7 +1306,7 @@ $('cropperRecord').addEventListener('click',()=>{
  analyzeAudioSnippet(null,$('cropperRecord'),{label:'Gravação',start:String(cropStart),end:String(cropEnd)});
 });
 window.addEventListener('beforeunload',()=>{if(cropperUrl)URL.revokeObjectURL(cropperUrl);});
-$('serviceStatus').textContent='Análise nativa da mixagem pronta. Sem modelos, separação, downloads ou chave de API.';
+$('serviceStatus').textContent='DSP espectral da mixagem pronto. Sem modelos, separação, downloads ou chave de API.';
 renderSnippets();
 
 

@@ -161,6 +161,77 @@ class BrowserCompatibilityTests(unittest.TestCase):
         self.assertIn('banda inteira',self.page.locator('#audioSuggestionStatus').inner_text())
         self.assertLessEqual(self.page.evaluate('document.documentElement.scrollWidth'),360)
 
+    def test_spectral_plan_compiles_exact_parameters_and_preserves_reserved_bytes(self):
+        result = self.page.evaluate('''async old => {
+            importShared(encodeShare(new Uint8Array(old)));
+            const before=compilePreset(), rate=16000;
+            const samples=Float32Array.from({length:rate*2},(_,i)=>0.4*Math.sign(Math.sin(2*Math.PI*220*i/rate)));
+            const features=await AutoPresetAudioHeuristics.extractFeatures({sampleRate:rate,numberOfChannels:1,length:samples.length,duration:2,getChannelData:()=>samples});
+            const plan=AutoPresetAudioHeuristics.matchPreset(features);
+            const oldDelay={model:$('delay').value,time:$('time').value,active:$('dlyOn').checked};
+            const cuts=[$('cabLow').value,$('cabHigh').value];
+            $('ytUrl').value='Clean jazz reference must not override measured DSP';
+            const message=applySpectralSuggestion(features), bytes=compilePreset(),view=new DataView(bytes.buffer,bytes.byteOffset,bytes.byteLength);
+            return {length:bytes.length,amp:bytes[0x3A],ds:bytes[0x39],cab:bytes[0x3B],gate:bytes[0x38],eq:bytes[0x3C],
+                expected:{amp:plan.amp,ds:plan.drive,cab:plan.cabSlot-1,gate:plan.gate,eq:plan.eq},
+                presence:view.getInt16(knobOffset(4,6),true),expectedPresence:plan.presence,
+                threshold:view.getInt16(knobOffset(2,PARAMETER_BLOCKS[2].models[plan.gate].knobs.indexOf('Thd')),true),
+                expectedThreshold:plan.gate_threshold_db,
+                reserved:Array.from(bytes.slice(330)),oldReserved:Array.from(before.slice(330)),
+                oldDelay,newDelay:{model:$('delay').value,time:$('time').value,active:$('dlyOn').checked},
+                cuts,newCuts:[$('cabLow').value,$('cabHigh').value],classification:plan.classification,message};
+        }''', LEGACY['bytes'])
+        self.assertEqual(result['length'],448)
+        for key in ['amp','ds','cab','gate','eq']:
+            self.assertEqual(result[key],result['expected'][key])
+        self.assertEqual(result['presence'],result['expectedPresence'])
+        self.assertEqual(result['threshold'],result['expectedThreshold'])
+        self.assertEqual(result['reserved'],result['oldReserved'])
+        self.assertEqual(result['oldDelay'],result['newDelay'])
+        self.assertEqual(result['cuts'],result['newCuts'])
+        self.assertEqual(result['classification'],'Hi-Gain')
+
+    def test_spectral_suggestion_keeps_nam_and_integrated_cab(self):
+        result = self.page.evaluate('''async () => {
+            $('namMode').checked=true;$('namSlot').value='5';$('namLabel').value='Installed capture';
+            $('namKind').value='amp_cab';$('namInstalled').checked=true;refreshUI();
+            const old={amp:$('amp').value,gain:$('ampGain').value,cab:$('cabSlot').value};
+            const samples=Float32Array.from({length:16000},(_,i)=>0.4*Math.sin(2*Math.PI*440*i/16000));
+            const features=await AutoPresetAudioHeuristics.extractFeatures({sampleRate:16000,numberOfChannels:1,length:16000,duration:1,getChannelData:()=>samples});
+            applySpectralSuggestion(features);
+            return {old,current:{amp:$('amp').value,gain:$('ampGain').value,cab:$('cabSlot').value},nam:$('namMode').checked,cabOn:$('cabOn').checked,size:compilePreset().length};
+        }''')
+        self.assertEqual(result['old'],result['current'])
+        self.assertTrue(result['nam'])
+        self.assertFalse(result['cabOn'])
+        self.assertEqual(result['size'],448)
+
+    def test_spectral_repetition_and_decay_are_written_to_real_knobs(self):
+        result = self.page.evaluate('''async () => {
+            const rate=16000;
+            const analyze=async fn=>{
+                const data=Float32Array.from({length:rate*2},(_,i)=>fn(i/rate));
+                return AutoPresetAudioHeuristics.extractFeatures({sampleRate:rate,numberOfChannels:1,length:data.length,duration:2,getChannelData:()=>data});
+            };
+            const pulses=await analyze(t=>t%0.25<0.02?0.4*Math.sin(2*Math.PI*440*t):0);
+            const plan=AutoPresetAudioHeuristics.matchPreset(pulses);
+            applySpectralSuggestion(pulses);
+            let bytes=compilePreset(),view=new DataView(bytes.buffer,bytes.byteOffset,bytes.byteLength);
+            const delay={time:view.getInt16(knobOffset(8,0),true),sync:view.getInt16(knobOffset(8,DLY_SYNC[bytes[62]]),true),active:bytes[0x2B+8],release:view.getInt16(knobOffset(2,1),true),expectedRelease:plan.gate_release_percent};
+            const tail=await analyze(t=>t<0.05?0:0.4*Math.exp(-(t-0.05)*6)*Math.sin(2*Math.PI*440*t));
+            const tailPlan=AutoPresetAudioHeuristics.matchPreset(tail);
+            applySpectralSuggestion(tail);
+            bytes=compilePreset();view=new DataView(bytes.buffer,bytes.byteOffset,bytes.byteLength);
+            return {delay,reverb:{decay:view.getInt16(knobOffset(9,0),true),mix:view.getInt16(knobOffset(9,1),true),expectedDecay:tailPlan.reverb_decay,expectedMix:tailPlan.reverb_mix},size:bytes.length};
+        }''')
+        self.assertEqual(result['delay']['time'],250)
+        self.assertEqual(result['delay']['sync'],0)
+        self.assertEqual(result['delay']['active'],1)
+        self.assertEqual(result['delay']['release'],result['delay']['expectedRelease'])
+        self.assertEqual(result['reverb']['decay'],result['reverb']['expectedDecay'])
+        self.assertEqual(result['reverb']['mix'],result['reverb']['expectedMix'])
+        self.assertEqual(result['size'],448)
+
 
 if __name__ == '__main__':
     unittest.main()

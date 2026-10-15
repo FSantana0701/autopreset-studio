@@ -193,7 +193,7 @@ body { background:radial-gradient(ellipse at 8% 0%, #42301c 0, transparent 34%),
     <div class="grid"><div class="field"><label for="pedalboard">Pedaleira</label><select id="pedalboard"><option value="mk300" selected>M-VAVE MK-300 V75</option><option value="valeton">Valeton GP-100 · não implementado</option><option value="cuvave">Cuvave Cube Baby · não implementado</option><option value="zoom">Zoom G1X Four · não implementado</option><option value="boss">Boss GT-1 · não implementado</option></select></div>
     <div class="field"><label for="guitarType">Referência de captação</label><select id="guitarType"><option value="none">Sem ajuste de captação</option><option value="jem" selected>JEM / Superstrato · hipótese de saída alta</option><option value="lespaul">Les Paul · hipótese de humbuckers clássicos</option><option value="strato">Stratocaster · hipótese de single coils</option><option value="tele">Telecaster · hipótese de single coils</option></select></div></div>
     <p class="hint">O nome da guitarra não determina a saída dos captadores. Ajustes são heurísticos: JEM −10 de Gain / −5 de Bass; Les Paul −5 / 0; single coils +15 / +5, em pontos da escala 0–100. Só se aplicam ao clicar em Sugerir Timbre; importações mantêm os valores gravados.</p>
-    <div class="field"><label>Assistente local</label><p id="serviceStatus" class="hint" role="status">Pronto para medir RMS, ZCR e fator de crista da mixagem no aparelho. Sem download de modelo ou envio de áudio.</p></div>
+    <div class="field"><label>Assistente local</label><p id="serviceStatus" class="hint" role="status">Pronto para medir espectro, transientes e dinâmica da mixagem no aparelho. Sem download de modelo ou envio de áudio.</p></div>
     <div class="actions"><button id="installPwa" type="button" class="secondary" hidden>Instalar AutoPreset no celular</button></div>
     <div class="actions"><button id="recoverProject" type="button" hidden>Recuperar rascunho deste navegador</button></div>
     <div class="actions"><button id="enterStudio" type="button">Entrar no Estúdio →</button></div><div id="setupStatus" class="status" aria-live="polite"></div>
@@ -219,7 +219,7 @@ body { background:radial-gradient(ellipse at 8% 0%, #42301c 0, transparent 34%),
     <p id="cropperStatus" class="status" role="status" aria-live="polite"></p>
   </section>
   <section class="card" style="border-color:var(--accent)"><h2>Análise leve da mixagem</h2>
-    <p class="hint stepHelp">1. Salve um MP3/WAV no celular (por exemplo, baixe-o do Drive). 2. Toque em <b>Escolher arquivo</b> e selecione-o em Downloads, Música ou Áudio. 3. Marque um trecho e toque em <b>Analisar trecho da mixagem</b>. RMS, ZCR e fator de crista são medidos diretamente no trecho original. A banda inteira influencia as métricas; não há guitarra isolada. O áudio fica no aparelho. Arquivos acima de 5 minutos devem ser recortados antes de importar.</p>
+    <p class="hint stepHelp">1. Salve um MP3/WAV no celular (por exemplo, baixe-o do Drive). 2. Toque em <b>Escolher arquivo</b> e selecione-o em Downloads, Música ou Áudio. 3. Marque um trecho e toque em <b>Analisar trecho da mixagem</b>. SFM, centroide, rolloff, fluxo espectral, RMS, ZCR e fator de crista são medidos no trecho original. A banda inteira influencia as métricas; não há guitarra isolada. O áudio fica no aparelho. Arquivos acima de 5 minutos devem ser recortados antes de importar.</p>
     <fieldset id="audioInputs" style="border:0;padding:0;min-width:0"><div class="field"><label for="audioFile">Arquivo MP3 ou WAV salvo no celular · até 25 MiB</label><input id="audioFile" type="file" accept="audio/*,.mp3,.wav" aria-describedby="audioInfo"><p class="hint">Se o seletor abrir uma pasta vazia, toque no menu ☰ e procure em Downloads, Música ou Áudio. Arquivos que ainda estão no Drive precisam ser baixados primeiro. A análise aceita somente .mp3 e .wav.</p></div><audio id="previewAudio" controls preload="metadata" style="width:100%;margin-top:12px"></audio><p id="audioInfo" class="hint" role="status" aria-live="polite">Nenhum áudio selecionado. A análise não começa até você escolher um arquivo.</p><h3>Trechos · segundos ou mm:ss (máximo 45 s)</h3><div id="snippets"></div><button id="addSnippet" type="button">+ Adicionar trecho</button></fieldset>
     <div class="actions"><button id="cancelAI" type="button" disabled>Cancelar operação</button></div><div id="audioStatus" class="status" aria-live="polite"></div>
     <section id="separationOutput" class="card" hidden><h3>Mixagem original · trecho analisado</h3><audio id="guitarStemPreview" controls preload="metadata" style="width:100%"></audio><p id="audioMetrics" class="meta"></p><p><a id="downloadGuitarStem" class="downloadFallback" download="mix-clip.wav">Baixar trecho original (.wav)</a></p><p class="hint">As métricas incluem bateria, voz, baixo e guitarra. Elas não identificam o timbre da guitarra nem reconhecem artista. A sugestão é um ponto de partida de baixa confiança; ouça e ajuste manualmente.</p><div class="actions"><button id="applyAudioSuggestion" type="button" disabled>Montar preset inicial com este áudio</button></div><p id="audioSuggestionStatus" class="status" aria-live="polite">Depois que a análise terminar, você pode aplicar uma sugestão offline e revisar os controles antes de exportar.</p></section>
@@ -859,7 +859,7 @@ class MK300PresetHandler {
     return new Promise((resolve, reject) => {
       const abort = () => reject(new DOMException('Análise cancelada.', 'AbortError'));
       signal.addEventListener('abort', abort, { once: true });
-      promise.then(resolve, reject).finally(() => signal.removeEventListener('abort', abort));
+      promise.then(value => { signal.removeEventListener('abort', abort); resolve(value); }, error => { signal.removeEventListener('abort', abort); reject(error); });
     });
   }
   async function validateFile(file) {
@@ -907,8 +907,261 @@ class MK300PresetHandler {
   function toneHints(features) {
     if (!Number.isFinite(features?.zero_crossing_rate) || !Number.isFinite(features?.rms) || !Number.isFinite(features?.crest_factor_db)) throw new Error('Medições de áudio inválidas.');
     if (features.rms < 1e-5) throw new Error('O trecho está silencioso; escolha outro intervalo.');
+    if (features.feature_version === 3) return spectralHints(features);
     const brightness = Math.max(0, Math.min(1, features.zero_crossing_rate * 10));
     return { bass: Math.round(58 - brightness * 14), middle: 55, treble: Math.round(38 + brightness * 24), brightness };
+  }
+
+  const FFT_SIZE = 2048;
+  const ENVELOPE_HZ = 200;
+  const DSP_MAX_SECONDS = MAX_CLIP_SECONDS + 0.5;
+  const clamp = (value, low, high) => Math.max(low, Math.min(high, value));
+
+  // In-place radix-2 FFT. Reuse the same scratch arrays for every frame/channel.
+  function fft(real, imag) {
+    const n = real.length;
+    for (let i = 1, j = 0; i < n; i++) {
+      let bit = n >> 1;
+      for (; j & bit; bit >>= 1) j ^= bit;
+      j ^= bit;
+      if (i < j) { const r = real[i], v = imag[i]; real[i] = real[j]; imag[i] = imag[j]; real[j] = r; imag[j] = v; }
+    }
+    for (let size = 2; size <= n; size <<= 1) {
+      const angle = -2 * Math.PI / size, wr = Math.cos(angle), wi = Math.sin(angle);
+      for (let start = 0; start < n; start += size) {
+        let tr = 1, ti = 0;
+        for (let j = 0; j < size / 2; j++) {
+          const a = start + j, b = a + size / 2;
+          const br = real[b] * tr - imag[b] * ti, bi = real[b] * ti + imag[b] * tr;
+          real[b] = real[a] - br; imag[b] = imag[a] - bi;
+          real[a] += br; imag[a] += bi;
+          const next = tr * wr - ti * wi;
+          ti = tr * wi + ti * wr; tr = next;
+        }
+      }
+    }
+  }
+
+  // Generator allows the production async runner to yield between bounded chunks.
+  function* spectralFrames(buffer, startSeconds, endSeconds, signal) {
+    const rate = buffer.sampleRate, start = Math.floor(startSeconds * rate), end = Math.min(buffer.length, Math.ceil(endSeconds * rate));
+    if (!Number.isFinite(rate) || rate <= 0 || !Number.isInteger(start) || !Number.isInteger(end) || start < 0 || end <= start || endSeconds > buffer.duration + 0.02 || endSeconds - startSeconds > DSP_MAX_SECONDS || !Number.isInteger(buffer.numberOfChannels) || buffer.numberOfChannels < 1) throw new Error('Trecho espectral inválido; selecione até 45 segundos.');
+    checkAbort(signal);
+    const length = end - start, channels = buffer.numberOfChannels;
+    const envelopeStep = Math.max(1, Math.round(rate / ENVELOPE_HZ));
+    const envelope = new Float64Array(Math.ceil(length / envelopeStep));
+    let squares = 0, peak = 0, crossings = 0;
+    for (let c = 0; c < channels; c++) {
+      const samples = buffer.getChannelData(c);
+      for (let block = start; block < end; block += 32768) {
+        checkAbort(signal);
+        for (let i = block; i < Math.min(end, block + 32768); i++) {
+          const value = samples[i];
+          if (!Number.isFinite(value)) throw new Error('O áudio contém amostras inválidas.');
+          const power = value * value;
+          squares += power; peak = Math.max(peak, Math.abs(value));
+          envelope[Math.floor((i - start) / envelopeStep)] += power;
+          if (i > start && (value >= 0) !== (samples[i - 1] >= 0)) crossings++;
+        }
+        yield;
+      }
+    }
+    for (let i = 0; i < envelope.length; i++) envelope[i] = Math.sqrt(envelope[i] / (channels * Math.min(envelopeStep, length - i * envelopeStep)));
+    const real = new Float64Array(FFT_SIZE), imag = new Float64Array(FFT_SIZE);
+    const window = new Float64Array(FFT_SIZE), power = new Float64Array(FFT_SIZE / 2 + 1), previous = new Float64Array(power.length);
+    for (let i = 0; i < FFT_SIZE; i++) window[i] = 0.5 - 0.5 * Math.cos(2 * Math.PI * i / (FFT_SIZE - 1));
+    const hop = Math.max(FFT_SIZE / 2, Math.round(rate / 50));
+    const bandCenters = [100, 200, 400, 800, 1600, 3200], bandEnergy = new Float64Array(6);
+    const firstBin = Math.max(1, Math.ceil(40 * FFT_SIZE / rate)), lastBin = Math.min(power.length - 1, Math.floor(16000 * FFT_SIZE / rate));
+    let frames = 0, active = 0, weightedCentroid = 0, weightedRolloff = 0, weightedFlatness = 0, weightedHarmonics = 0, energyWeight = 0, fluxSum = 0, fluxPeak = 0, fluxCount = 0, wasActive = false;
+    for (let offset = 0; offset < length; offset += hop) {
+      if (length >= FFT_SIZE && offset + FFT_SIZE > length) break;
+      checkAbort(signal); power.fill(0);
+      const available = Math.min(FFT_SIZE, length - offset);
+      // Incoherent channel powers preserve anti-phase stereo without a mono copy.
+      for (let c = 0; c < channels; c++) {
+        const samples = buffer.getChannelData(c);
+        let mean = 0;
+        for (let i = 0; i < available; i++) mean += samples[start + offset + i];
+        mean /= available; real.fill(0); imag.fill(0);
+        for (let i = 0; i < available; i++) real[i] = (samples[start + offset + i] - mean) * window[i];
+        fft(real, imag);
+        for (let k = firstBin; k <= lastBin; k++) power[k] += (real[k] ** 2 + imag[k] ** 2) / channels;
+      }
+      let total = 0, weighted = 0, logs = 0, peakBin = firstBin;
+      for (let k = firstBin; k <= lastBin; k++) { total += power[k]; weighted += power[k] * k * rate / FFT_SIZE; if (power[k] > power[peakBin]) peakBin = k; }
+      if (total > 1e-10 && lastBin >= firstBin) {
+        const bins = lastBin - firstBin + 1, floor = total / bins * 1e-12;
+        let accumulated = 0, rolloff = 0, norm = 0, harmonics = 0;
+        for (let k = firstBin; k <= lastBin; k++) {
+          logs += Math.log(Math.max(floor, power[k])); accumulated += power[k];
+          if (!rolloff && accumulated >= total * 0.85) rolloff = k * rate / FFT_SIZE;
+          norm += power[k]; if (k > peakBin * 1.5) harmonics += power[k];
+          const hz = k * rate / FFT_SIZE;
+          for (let b = 0; b < 6; b++) if (hz >= bandCenters[b] / Math.SQRT2 && hz < bandCenters[b] * Math.SQRT2) bandEnergy[b] += power[k];
+        }
+        // Flux of L2-normalized magnitudes is insensitive to file loudness.
+        let flux = 0;
+        for (let k = firstBin; k <= lastBin; k++) {
+          const magnitude = Math.sqrt(power[k] / norm), difference = Math.max(0, magnitude - previous[k]);
+          flux += difference * difference; previous[k] = magnitude;
+        }
+        if (wasActive || frames > 0) { flux = Math.sqrt(flux); fluxSum += flux; fluxPeak = Math.max(fluxPeak, flux); fluxCount++; }
+        wasActive = true;
+        weightedCentroid += weighted; weightedHarmonics += harmonics;
+        weightedRolloff += total * rolloff;
+        weightedFlatness += total * clamp(Math.exp(logs / bins) / (total / bins), 0, 1);
+        energyWeight += total; active++;
+      } else { previous.fill(0); wasActive = false; }
+      frames++; yield;
+    }
+    const temporal = yield* temporalMetrics(envelope, rate / envelopeStep, signal);
+    const rms = Math.sqrt(squares / (length * channels)), crest = rms ? peak / rms : 0;
+    const bandTotal = bandEnergy.reduce((a, b) => a + b, 0);
+    return {
+      sample_rate: rate, duration_seconds: length / rate, rms, rms_db: 20 * Math.log10(Math.max(rms, 1e-8)), peak,
+      zero_crossing_rate: crossings / Math.max(1, (length - 1) * channels), crest_factor: crest, crest_factor_db: crest ? 20 * Math.log10(crest) : 0,
+      harmonic_energy_ratio: energyWeight ? weightedHarmonics / energyWeight : 0,
+      spectral_flatness: energyWeight ? weightedFlatness / energyWeight : 0,
+      spectral_centroid_hz: energyWeight ? weightedCentroid / energyWeight : 0,
+      spectral_rolloff_85_hz: energyWeight ? weightedRolloff / energyWeight : 0,
+      spectral_flux: fluxCount ? fluxSum / fluxCount : 0, spectral_flux_peak: fluxPeak,
+      band_energy_ratios: Array.from(bandEnergy, value => bandTotal ? value / bandTotal : 0),
+      spectral_frames: frames, active_spectral_frames: active, fft_size: FFT_SIZE,
+      // Typed-array working storage, excluding the decoded input, WAV output and JS overhead.
+      dsp_workspace_bytes: envelope.byteLength + real.byteLength + imag.byteLength + window.byteLength + power.byteLength + previous.byteLength + bandEnergy.byteLength + temporal.workspace_bytes,
+      ...temporal.features, audio_source: 'full_mix', feature_version: 3
+    };
+  }
+
+  function* temporalMetrics(envelope, rate, signal) {
+    const n = envelope.length, novelty = new Float64Array(n), sorted = new Float64Array(envelope);
+    sorted.sort();
+    const quantile = p => n ? sorted[Math.floor((n - 1) * p)] : 0;
+    const noiseDb = 20 * Math.log10(Math.max(quantile(0.1), 1e-8));
+    let mean = 0, maximum = 0;
+    for (let i = 1; i < n; i++) { novelty[i] = Math.max(0, envelope[i] - envelope[i - 1]); mean += novelty[i]; maximum = Math.max(maximum, envelope[i]); }
+    mean /= Math.max(1, n - 1);
+    let best = 0, bestLag = 0;
+    const correlations = new Float64Array(Math.min(n >> 1, Math.floor(rate * 1.2)) + 1);
+    const minLag = Math.max(1, Math.ceil(rate * 0.08));
+    for (let lag = minLag; lag < correlations.length; lag++) {
+      checkAbort(signal);
+      let dot = 0, left = 0, right = 0;
+      for (let i = lag; i < n; i++) { const a = novelty[i] - mean, b = novelty[i - lag] - mean; dot += a * b; left += a * a; right += b * b; }
+      const correlation = left * right > 1e-16 ? dot / Math.sqrt(left * right) : 0;
+      correlations[lag] = correlation; best = Math.max(best, correlation);
+      if (lag % 16 === 0) yield;
+    }
+    for (let lag = minLag + 1; lag < correlations.length - 1; lag++) {
+      if (correlations[lag] >= Math.max(0.4, best * 0.9) && correlations[lag] > correlations[lag - 1] && correlations[lag] >= correlations[lag + 1]) { bestLag = lag; break; }
+    }
+    // Fit a log-envelope decay after an attack. Sustain/compression can mimic a tail.
+    let decay = 0, decayConfidence = 0, attacks = 0;
+    for (let i = 1; i < n - 1; i++) {
+      if (novelty[i] < Math.max(mean * 4, maximum * 0.08) || novelty[i] < novelty[i - 1] || novelty[i] < novelty[i + 1]) continue;
+      attacks++;
+      let count = 0, sx = 0, sy = 0, sxx = 0, sxy = 0, syy = 0, first = 0, last = 0;
+      for (let j = i + Math.ceil(rate * 0.03); j < Math.min(n, i + rate * 0.8); j++) {
+        if (novelty[j] > Math.max(mean * 4, maximum * 0.08)) break;
+        if (envelope[j] <= maximum * 1e-4) break;
+        const x = (j - i) / rate, y = Math.log(envelope[j]);
+        if (!count) first = y; last = y;
+        count++; sx += x; sy += y; sxx += x * x; sxy += x * y; syy += y * y;
+      }
+      const variance = count * sxx - sx * sx, covariance = count * sxy - sx * sy;
+      if (count >= Math.ceil(rate * 0.08) && variance > 0 && first - last > Math.log(2)) {
+        const slope = covariance / variance, r2 = covariance ** 2 / Math.max(1e-20, variance * (count * syy - sy * sy));
+        const estimate = -Math.log(1000) / slope;
+        if (slope < -1 && r2 > 0.7 && estimate > 0.05 && estimate < 5 && r2 > decayConfidence) { decay = estimate; decayConfidence = r2; }
+      }
+      if (i % 32 === 0) { checkAbort(signal); yield; }
+    }
+    const dynamicRange = 20 * Math.log10(Math.max(maximum, 1e-8) / Math.max(quantile(0.1), 1e-8));
+    if (dynamicRange < 3 || attacks < 2) bestLag = 0;
+    return { workspace_bytes: novelty.byteLength + sorted.byteLength + correlations.byteLength, features: {
+      noise_floor_db: noiseDb, envelope_dynamic_range_db: dynamicRange,
+      transient_rate_hz: attacks / Math.max(1 / rate, n / rate),
+      delay_time_ms: bestLag ? Math.round(bestLag / rate * 1000) : null,
+      delay_confidence: bestLag ? clamp(correlations[bestLag], 0, 1) : 0,
+      decay_proxy_seconds: decay || null, decay_confidence: decayConfidence
+    }};
+  }
+
+  async function extractFeatures(buffer, { startSeconds = 0, endSeconds = buffer.duration, signal, onProgress } = {}) {
+    const iterator = spectralFrames(buffer, startSeconds, endSeconds, signal);
+    let item, iterations = 0;
+    onProgress?.('Extraindo espectro, transientes e autocorrelação do trecho…');
+    do {
+      checkAbort(signal); item = iterator.next();
+      if (++iterations % 16 === 0 && !item.done) await new Promise(resolve => setTimeout(resolve, 0));
+    } while (!item.done);
+    checkAbort(signal); return item.value;
+  }
+
+  function spectralHints(f) {
+    const required = ['sample_rate', 'spectral_flatness', 'spectral_centroid_hz', 'spectral_rolloff_85_hz', 'spectral_flux', 'spectral_flux_peak', 'harmonic_energy_ratio', 'noise_floor_db', 'delay_confidence', 'decay_confidence'];
+    if (required.some(key => !Number.isFinite(f[key])) || !Array.isArray(f.band_energy_ratios) || f.band_energy_ratios.length !== 6 || f.band_energy_ratios.some(x => !Number.isFinite(x) || x < 0)) throw new Error('Medições espectrais inválidas.');
+    if (f.sample_rate <= 0 || f.spectral_flatness < 0 || f.spectral_flatness > 1 || f.spectral_centroid_hz < 0 || f.spectral_rolloff_85_hz < 0 || (f.delay_time_ms !== null && (!Number.isInteger(f.delay_time_ms) || f.delay_time_ms < 80 || f.delay_time_ms > 1200)) || (f.decay_proxy_seconds !== null && (!Number.isFinite(f.decay_proxy_seconds) || f.decay_proxy_seconds <= 0))) throw new Error('Medições espectrais fora da faixa.');
+    const brightness = clamp((f.spectral_centroid_hz / 5000 + f.spectral_rolloff_85_hz / 9000) / 2, 0, 1);
+    const compression = clamp((13 - f.crest_factor_db) / 11, 0, 1);
+    const noise = clamp(Math.sqrt(Math.max(0, f.spectral_flatness)), 0, 1);
+    const crossings = clamp(f.zero_crossing_rate * f.sample_rate / 12000, 0, 1);
+    const distortion = clamp(0.35 * compression + 0.3 * noise + 0.25 * clamp(f.harmonic_energy_ratio * 3, 0, 1) + 0.1 * crossings, 0, 1);
+    const fuzz = noise > 0.55 && compression > 0.65 && crossings > 0.25;
+    const kind = fuzz ? 'Fuzz' : distortion > 0.5 ? 'Hi-Gain' : distortion > 0.36 ? 'Crunch' : 'Clean';
+    const bands = f.band_energy_ratios, bassEnergy = bands[0] + bands[1], middleEnergy = bands[2] + bands[3];
+    return {
+      classification: kind, distortion, brightness, confidence: 'baixa · mixagem completa',
+      ampGain: Math.round(clamp(15 + 75 * distortion, 0, 100)),
+      bass: Math.round(clamp(42 + 25 * bassEnergy, 0, 100)), middle: Math.round(clamp(43 + 24 * middleEnergy, 0, 100)),
+      treble: Math.round(35 + 35 * brightness), presence: Math.round(25 + 40 * brightness),
+      cab_low_cut_hz: Math.round(clamp(60 + 100 * bassEnergy, 60, 160)),
+      cab_high_cut_hz: Math.round(clamp(f.spectral_rolloff_85_hz * 1.2, 3500, 10000)),
+      gate_threshold_db: Math.round(clamp(f.noise_floor_db + 6, -80, -30)),
+      gate_release_percent: Math.round(clamp(70 - f.spectral_flux_peak * 50, 15, 80)),
+      delay_time_ms: f.delay_confidence >= 0.4 ? f.delay_time_ms : null,
+      delay_mix: Math.round(clamp(f.delay_confidence * 24, 0, 24)),
+      reverb_decay: f.decay_proxy_seconds ? Math.round(clamp(f.decay_proxy_seconds / 4 * 100, 0, 100)) : null,
+      reverb_mix: f.decay_proxy_seconds ? Math.round(clamp(f.decay_confidence * 22, 0, 22)) : null,
+      eq_gains_db: bands.map(value => Math.round(clamp(0.8 * Math.log2(Math.max(value, 1e-5) * 6), -3, 3)))
+    };
+  }
+
+  // Exact IDs from the repository catalog; alternate marketing names are not aliases.
+  function matchPreset(features, catalog = root.MK300V73, parameters = root.MK300V73Parameters) {
+    const hints = toneHints(features);
+    if (features.feature_version !== 3 || !features.active_spectral_frames || !catalog || !parameters) throw new Error('Catálogo ou análise espectral indisponível.');
+    const matrix = {
+      Clean: { amp: '1J120_CL', ds: '2TS8', cab: '69FenDeluX', driveGain: 12 },
+      Crunch: { amp: '34OR_CRUNCH', ds: '2TS8', cab: '10MAR1960_412', driveGain: 32 },
+      'Hi-Gain': { amp: '67EHV5150_DS', ds: '11RAT', cab: '63EAGLProV30s', driveGain: 48 },
+      Fuzz: { amp: '34OR_CRUNCH', ds: '39BIG-MUFF', cab: '36Recto_112', driveGain: 68 }
+    };
+    const row = { ...matrix[hints.classification] };
+    if (hints.brightness > 0.6) row.cab = '63EAGLProV30s';
+    else if (hints.classification === 'Clean' && hints.brightness > 0.35) row.cab = '77J120Rolnd';
+    const exact = (list, name) => { const index = list.indexOf(name); if (index < 0) throw new Error('Modelo ausente do catálogo: ' + name); return index; };
+    const amp = exact(catalog.AMP_CATALOG, row.amp), drive = exact(catalog.DS_CATALOG, row.ds);
+    const cabSlot = Number(Object.keys(catalog.CAB_SLOT_NAMES).find(key => catalog.CAB_SLOT_NAMES[key] === row.cab));
+    if (!Number.isInteger(cabSlot) || cabSlot < 1 || cabSlot > 100 || amp > 99) throw new Error('Slot/modelo fora da faixa MK-300.');
+    const gateName = features.spectral_flux_peak > 0.3 && features.crest_factor_db > 8 ? 'Pro Gate' : 'Soft Gate';
+    const gate = exact(catalog.GATE_CATALOG, gateName), eq = exact(catalog.EQ_CATALOG, 'Guitar EQ 6');
+    const parameter = (block, model, name, value) => {
+      const spec = parameters.blocks[block]?.models[model];
+      const knob = spec?.knobs.indexOf(name);
+      if (!Number.isInteger(knob) || knob < 0 || !Number.isInteger(value)) throw new Error('Parâmetro sem mapeamento: ' + name);
+      return { block, model, knob, name, value };
+    };
+    const settings = [parameter(4, amp, 'Pres', hints.presence), parameter(4, amp, 'Reso', 0), parameter(4, amp, 'Bright', 50), ...['Bass', 'Middle', 'Treble', 'Reso', 'Pres', 'Bright'].map((name, i) => parameter(3, drive, name, i === 3 ? 0 : 50)), parameter(2, gate, 'Thd', hints.gate_threshold_db)];
+    if (gateName === 'Pro Gate') settings.push(parameter(2, gate, 'Rel', hints.gate_release_percent));
+    parameters.blocks[6].models[eq].knobs.forEach((name, i) => settings.push(parameter(6, eq, name, hints.eq_gains_db[i])));
+    return { ...hints, amp, drive, cabSlot, gate, eq, driveGain: row.driveGain, settings,
+      dsOn: hints.classification !== 'Clean', ampOn: true,
+      delay: exact(catalog.DLY_CATALOG, 'Clean'), reverb: exact(catalog.REV_CATALOG, 'Room'),
+      models: { amp: row.amp, ds: row.ds, cab: row.cab, gate: gateName, eq: 'Guitar EQ 6' },
+      limitations: 'IDs do catálogo V73 preservado na V75. IRs de usuário podem ocupar outros slots. Cortes CAB em Hz são recomendações: unidades brutas não calibradas. Repetições podem ser ritmo; caudas podem ser sustain.'
+    };
   }
 
   function clipWav(buffer, startSeconds, endSeconds) {
@@ -947,7 +1200,7 @@ class MK300PresetHandler {
       checkAbort(signal);
       if (buffer.duration > MAX_DECODE_SECONDS) throw new Error('Recorte arquivos maiores que 5 minutos antes de importar.');
       onProgress?.('Medindo RMS, ZCR e fator de crista da mixagem…');
-      const features = measure(buffer, startSeconds, endSeconds);
+      const features = await extractFeatures(buffer, { startSeconds, endSeconds, signal, onProgress });
       checkAbort(signal);
       return { features, blob: clipWav(buffer, startSeconds, endSeconds), method: 'Web Audio nativa · mixagem completa' };
     } finally { try { await decoder.close(); } catch {} }
@@ -964,7 +1217,7 @@ class MK300PresetHandler {
       const buffer = await abortable(decoder.decodeAudioData(await blob.arrayBuffer()), signal);
       checkAbort(signal);
       if (buffer.duration > MAX_CLIP_SECONDS + 0.5) throw new Error('A gravação ultrapassou 45 segundos.');
-      return { features: measure(buffer), blob: clipWav(buffer, 0, buffer.duration), method: 'MediaRecorder · trecho gravado em tempo real' };
+      return { features: await extractFeatures(buffer, { signal, onProgress }), blob: clipWav(buffer, 0, buffer.duration), method: 'MediaRecorder · trecho gravado em tempo real' };
     } finally { try { await decoder.close(); } catch {} }
   }
 
@@ -1039,7 +1292,7 @@ class MK300PresetHandler {
       else { audio.addEventListener('seeked', begin, { once: true }); audio.currentTime = startTime; }
     });
   }
-  root.AutoPresetAudioHeuristics = Object.freeze({ analyze, analyzeRecording, recordRange, measure, toneHints, validateFile, describeError, clipWav, MAX_AUDIO_BYTES, MAX_CLIP_SECONDS, MAX_DECODE_SECONDS });
+  root.AutoPresetAudioHeuristics = Object.freeze({ analyze, analyzeRecording, recordRange, measure, extractFeatures, matchPreset, toneHints, validateFile, describeError, clipWav, MAX_AUDIO_BYTES, MAX_CLIP_SECONDS, MAX_DECODE_SECONDS });
 })(typeof window !== 'undefined' ? window : globalThis);
 
 </script>
@@ -1052,15 +1305,17 @@ class MK300PresetHandler {
   const FEATURE_SCALES = Object.freeze({ rms_db: 30, spectral_centroid_hz: 4000, spectral_rolloff_85_hz: 6000, zero_crossing_rate: 0.2 });
 
   const MIX_SCALES = Object.freeze({ rms_db: 30, zero_crossing_rate: 0.2, crest_factor_db: 20 });
+  const SPECTRAL_MIX_SCALES = Object.freeze({ ...MIX_SCALES, spectral_flatness: 1, spectral_centroid_hz: 4000, spectral_rolloff_85_hz: 6000, spectral_flux: 1, harmonic_energy_ratio: 1 });
+  function scalesFor(features) { return features.audio_source === 'full_mix' ? (features.feature_version === 3 ? SPECTRAL_MIX_SCALES : MIX_SCALES) : FEATURE_SCALES; }
   function normalizeRecord(record) {
     if (!record || typeof record !== 'object' || !record.features || !record.draft || typeof record.draft !== 'object') throw new Error('Exemplo de aprendizagem incompleto.');
     const features = {};
-    for (const key of Object.keys(record.features.audio_source === 'full_mix' ? MIX_SCALES : FEATURE_SCALES)) {
+    for (const key of Object.keys(scalesFor(record.features))) {
       const value = Number(record.features[key]);
       if (!Number.isFinite(value)) throw new Error('Medições de áudio inválidas.');
       features[key] = value;
     }
-    if (record.features.audio_source === 'full_mix') { features.audio_source = 'full_mix'; features.feature_version = 2; }
+    if (record.features.audio_source === 'full_mix') { features.audio_source = 'full_mix'; features.feature_version = record.features.feature_version === 3 ? 3 : 2; }
     const now = new Date().toISOString();
     return {
       id: String(record.id || (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : Date.now() + '-' + Math.random().toString(16).slice(2))),
@@ -1078,7 +1333,7 @@ class MK300PresetHandler {
   function distance(a, b) {
     if ((a?.audio_source === 'full_mix') !== (b?.audio_source === 'full_mix')) return Infinity;
     let sum = 0, count = 0;
-    for (const [key, scale] of Object.entries(a?.audio_source === 'full_mix' ? MIX_SCALES : FEATURE_SCALES)) {
+    for (const [key, scale] of Object.entries(a?.feature_version === 3 && b?.feature_version === 3 ? SPECTRAL_MIX_SCALES : a?.audio_source === 'full_mix' ? MIX_SCALES : FEATURE_SCALES)) {
       const left = Number(a?.[key]), right = Number(b?.[key]);
       if (Number.isFinite(left) && Number.isFinite(right)) { sum += ((left - right) / scale) ** 2; count++; }
     }
@@ -1936,19 +2191,51 @@ function applyOfflineProfile(profile, reference, prefix='Perfil local'){
  commitSingleDraft(prefix+' · '+profile.label);
  return 'Perfil '+profile.label+' aplicado como ponto de partida. Referência: '+reference+'. Ajustes heurísticos de captação: Gain '+offset.gain+' / Bass '+offset.bass+'.'+(gateMovedBeforeDrive?' Gate foi colocado antes do DS.':'');
 }
+function applySpectralSuggestion(features){
+ requireSupportedHardware();
+ const hints=window.AutoPresetAudioHeuristics.matchPreset(features);
+ for(const setting of hints.settings){
+  const range=parameterRange(setting.block,setting.name,setting.model);
+  if(setting.value<range.min||setting.value>range.max)throw new Error('Sugestão fora da faixa: '+setting.name);
+ }
+ const before=snapshotDraft('Antes da sugestão espectral');
+ try{
+  const pickup=getGuitarOffset(),nam=$('namMode').checked;
+  if(!nam){
+   $('amp').value=String(hints.amp);$('ampGain').value=String(Math.max(0,Math.min(100,hints.ampGain+pickup.gain)));
+   $('ampLevel').value='50';$('bass').value=String(Math.max(0,Math.min(100,hints.bass+pickup.bass)));
+   $('middle').value=String(hints.middle);$('treble').value=String(hints.treble);$('ampOn').checked=true;
+   $('cabSlot').value=String(hints.cabSlot);$('cabOn').checked=true;
+  }
+  $('drive').value=String(hints.drive);$('driveGain').value=String(hints.driveGain);$('dsLevel').value='50';$('dsOn').checked=hints.dsOn;
+  $('gateModel').value=String(hints.gate);$('eqModel').value=String(hints.eq);additionalStates[2]=true;additionalStates[6]=true;
+  for(const blockId of [2,3,6]){
+   const model=selectedParameterModel(blockId),defaults=PARAMETER_BLOCKS[blockId].models[model].defaults;
+   if(defaults)defaults.forEach((value,i)=>{parameterValues[parameterKey(blockId,model,i)]=value;});
+  }
+  for(const setting of hints.settings){if(nam&&setting.block===4)continue;parameterValues[parameterKey(setting.block,setting.model,setting.knob)]=setting.value;}
+  if(hints.delay_time_ms!==null){
+   $('delay').value=String(hints.delay);$('time').value=String(hints.delay_time_ms);$('fb').value='20';$('mix').value=String(hints.delay_mix);$('dlyOn').checked=true;
+   parameterValues[parameterKey(8,hints.delay,DLY_SYNC[hints.delay])]=0;
+  }
+  if(hints.reverb_decay!==null){
+   $('revModel').value=String(hints.reverb);$('revP0').value=String(hints.reverb_decay);$('revP1').value=String(hints.reverb_mix);
+   $('revP2').value='80';$('revP3').value='80';$('revP4').value='40';$('revOn').checked=true;
+  }
+  currentOrigin='DSP espectral local · hipótese '+hints.classification+' · baixa confiança';
+  syncCurrentParameterAliases();refreshUI();
+  compilePreset();commitSingleDraft('DSP · '+hints.classification);
+  return hints.classification+' estimado · confiança '+hints.confidence+'. A banda inteira influencia a análise. '+
+   (nam?'AMP e CAB mantidos no modo NAM. ':'AMP '+hints.models.amp+' · DS '+hints.models.ds+' · CAB referência '+hints.models.cab+' (confirme o IR instalado). ')+
+   'GATE '+hints.models.gate+' · EQ '+hints.models.eq+'. Cortes CAB sugeridos: '+hints.cab_low_cut_hz+'–'+hints.cab_high_cut_hz+' Hz; valores brutos preservados por falta de calibração. '+
+   (hints.delay_time_ms===null?'Sem repetição confiável; delay preservado. ':'Repetição aproximada: '+hints.delay_time_ms+' ms (pode ser ritmo). ')+
+   (hints.reverb_decay===null?'Sem cauda confiável; reverb preservado.':'Reverb estimado pela cauda; sustain também influencia.');
+ }catch(error){restoreDraft(before);throw error;}
+}
 $('applyAudioSuggestion').addEventListener('click',()=>{
  try{
   if(!lastLocalAnalysis)throw new Error('Analise primeiro um trecho de áudio.');
-  const reference=$('ytUrl').value.trim()||$('ytUrlLocal').value.trim()||'Mixagem medida localmente';
-  const profile=profiles.find(item=>item.match.test(reference))||fallbackProfile;
-  const hints=window.AutoPresetAudioHeuristics.toneHints(lastLocalAnalysis.features);
-  const message=applyOfflineProfile(profile,reference,'Sugestão a partir do áudio');
-  const pickup=getGuitarOffset();
-  $('bass').value=String(Math.max(0,Math.min(100,hints.bass+pickup.bass)));
-  $('middle').value=String(hints.middle);
-  $('treble').value=String(hints.treble);
-  syncCurrentParameterAliases();refreshUI();commitSingleDraft('Áudio · '+profile.label);
-  $('audioSuggestionStatus').textContent=message+' A heurística de ZCR da banda inteira ajustou Bass '+$('bass').value+', Middle '+$('middle').value+' e Treble '+$('treble').value+'. Isso é uma heurística inicial; ouça e corrija o preset.';
+  $('audioSuggestionStatus').textContent=applySpectralSuggestion(lastLocalAnalysis.features);
   $('audioSuggestionStatus').className='status warn';
  }catch(error){$('audioSuggestionStatus').textContent=error.message;$('audioSuggestionStatus').className='status bad';}
 });
@@ -2048,7 +2335,7 @@ async function analyzeAudioSnippet(id,button,crop=null){
   if(!typedReference)$('ytUrl').value='Trecho '+snippet.label+' · '+start.toFixed(1)+'–'+end.toFixed(1)+' s';
   const reference=typedReference||$('ytUrl').value;
   lastLocalAnalysis={features:result.features,reference,snippet:{...snippet},initialDraft};$('applyAudioSuggestion').disabled=false;$('audioSuggestionStatus').textContent='Análise local concluída. Ouça o trecho da mixagem original; depois monte um preset inicial para revisar.';$('audioSuggestionStatus').className='status good';
-  $('audioMetrics').textContent='RMS '+result.features.rms_db.toFixed(2)+' dBFS · ZCR '+result.features.zero_crossing_rate.toFixed(5)+' · Fator de crista '+result.features.crest_factor_db.toFixed(2)+' dB · Mixagem completa';
+  $('audioMetrics').textContent='SFM '+result.features.spectral_flatness.toFixed(4)+' · Centroide '+result.features.spectral_centroid_hz.toFixed(0)+' Hz · Rolloff 85% '+result.features.spectral_rolloff_85_hz.toFixed(0)+' Hz · Fluxo '+result.features.spectral_flux.toFixed(3)+' · Repetição '+(result.features.delay_time_ms===null?'inconclusiva':result.features.delay_time_ms+' ms')+' · RMS '+result.features.rms_db.toFixed(2)+' dBFS · ZCR '+result.features.zero_crossing_rate.toFixed(5)+' · Fator de crista '+result.features.crest_factor_db.toFixed(2)+' dB · Mixagem completa';
   $('learningPanel').hidden=false;$('learningTested').checked=false;$('learningNote').value='';$('applyLearningExample').disabled=true;lastLearningMatch=null;
   const match=await window.AutoPresetLearning.bestMatch(result.features);
   if(match){lastLearningMatch=match;$('applyLearningExample').disabled=false;$('learningSummary').textContent='Existe um exemplo corrigido parecido (“'+match.record.reference+'”, nota '+match.record.rating+'/5). Você decide se quer usá-lo como base.';}
@@ -2079,7 +2366,7 @@ $('cropperRecord').addEventListener('click',()=>{
  analyzeAudioSnippet(null,$('cropperRecord'),{label:'Gravação',start:String(cropStart),end:String(cropEnd)});
 });
 window.addEventListener('beforeunload',()=>{if(cropperUrl)URL.revokeObjectURL(cropperUrl);});
-$('serviceStatus').textContent='Análise nativa da mixagem pronta. Sem modelos, separação, downloads ou chave de API.';
+$('serviceStatus').textContent='DSP espectral da mixagem pronto. Sem modelos, separação, downloads ou chave de API.';
 renderSnippets();
 
 

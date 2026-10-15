@@ -6,15 +6,17 @@
   const FEATURE_SCALES = Object.freeze({ rms_db: 30, spectral_centroid_hz: 4000, spectral_rolloff_85_hz: 6000, zero_crossing_rate: 0.2 });
 
   const MIX_SCALES = Object.freeze({ rms_db: 30, zero_crossing_rate: 0.2, crest_factor_db: 20 });
+  const SPECTRAL_MIX_SCALES = Object.freeze({ ...MIX_SCALES, spectral_flatness: 1, spectral_centroid_hz: 4000, spectral_rolloff_85_hz: 6000, spectral_flux: 1, harmonic_energy_ratio: 1 });
+  function scalesFor(features) { return features.audio_source === 'full_mix' ? (features.feature_version === 3 ? SPECTRAL_MIX_SCALES : MIX_SCALES) : FEATURE_SCALES; }
   function normalizeRecord(record) {
     if (!record || typeof record !== 'object' || !record.features || !record.draft || typeof record.draft !== 'object') throw new Error('Exemplo de aprendizagem incompleto.');
     const features = {};
-    for (const key of Object.keys(record.features.audio_source === 'full_mix' ? MIX_SCALES : FEATURE_SCALES)) {
+    for (const key of Object.keys(scalesFor(record.features))) {
       const value = Number(record.features[key]);
       if (!Number.isFinite(value)) throw new Error('Medições de áudio inválidas.');
       features[key] = value;
     }
-    if (record.features.audio_source === 'full_mix') { features.audio_source = 'full_mix'; features.feature_version = 2; }
+    if (record.features.audio_source === 'full_mix') { features.audio_source = 'full_mix'; features.feature_version = record.features.feature_version === 3 ? 3 : 2; }
     const now = new Date().toISOString();
     return {
       id: String(record.id || (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : Date.now() + '-' + Math.random().toString(16).slice(2))),
@@ -32,7 +34,7 @@
   function distance(a, b) {
     if ((a?.audio_source === 'full_mix') !== (b?.audio_source === 'full_mix')) return Infinity;
     let sum = 0, count = 0;
-    for (const [key, scale] of Object.entries(a?.audio_source === 'full_mix' ? MIX_SCALES : FEATURE_SCALES)) {
+    for (const [key, scale] of Object.entries(a?.feature_version === 3 && b?.feature_version === 3 ? SPECTRAL_MIX_SCALES : a?.audio_source === 'full_mix' ? MIX_SCALES : FEATURE_SCALES)) {
       const left = Number(a?.[key]), right = Number(b?.[key]);
       if (Number.isFinite(left) && Number.isFinite(right)) { sum += ((left - right) / scale) ** 2; count++; }
     }
