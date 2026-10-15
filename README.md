@@ -10,7 +10,7 @@ A compatibilidade de formato é sustentada pelos testes binários e diferenciais
 
 O fluxo com **IRs** preserva o slot, os controles de CAB e os cortes de frequência no preset. Instale o IR correspondente no equipamento pelo software compatível da M-VAVE: o `.dzh` não incorpora o arquivo IR. As melhorias de resposta dinâmica e leitura de IRs atribuídas à V75 pertencem ao firmware e devem ser verificadas na documentação do fabricante e na pedaleira; esta atualização apenas alinha a aplicação a esse fluxo, sem implementar ou comprovar essas melhorias de DSP.
 
-A PWA usa o cache **`shell-v7`**. Ao abrir o app conectado, o navegador instala o Service Worker atualizado, remove caches legados da aplicação e ativa o novo shell. A navegação consulta a rede antes do cache para evitar HTML antigo; sem conexão, usa o shell armazenado. Em uma aba já aberta, recarregue após a atualização para exibir a nova interface. Projetos e exemplos locais são preservados.
+A PWA usa o cache **`shell-v8`**. Ao abrir o app conectado, o navegador instala o Service Worker atualizado, remove caches legados da aplicação e ativa o novo shell. A navegação consulta a rede antes do cache para evitar HTML antigo; sem conexão, usa o shell armazenado. Em uma aba já aberta, recarregue após a atualização para exibir a nova interface. Projetos e exemplos locais são preservados.
 
 ## Recursos principais
 
@@ -132,6 +132,13 @@ node src/tests/pwa.test.cjs
 python -m unittest discover -s src/tests -p 'audio_service_test.py' -v
 python -m unittest discover -s src/tests -p 'browser_compatibility_test.py' -v
 python -m unittest discover -s src/tests -p 'pwa_browser_test.py' -v
+python -m unittest discover -s src/tests -p 'youtube_browser_test.py' -v
 ~~~
 
 Os testes automatizados não substituem a validação em um Android real, no M‑EFCS e na pedaleira. Confirme o funcionamento, o nível de saída e a compatibilidade de cada preset no seu equipamento antes de usá-lo ao vivo.
+
+## API de análise YouTube
+
+Configure `window.API_BASE_URL` ou `window.AUTO_PRESET_API` em `src/config.js` antes do build; o padrão de desenvolvimento é `http://localhost:8000`. Em produção use HTTPS e permita a origem da PWA no CORS do backend. Sem serviço, o cortador local permanece disponível.
+
+O cliente envia `POST /api/v1/analyze-link` com `{url, start_seconds, end_seconds, firmware: "v75"}` (intervalo até 45 s). Espera JSON `{title, preset_base64, amp_model?, ds_model?}`; aceita também `video_title`, `dzh_base64` ou `preset.base64`. O preset deve ser um .dzh válido de 448 bytes. Os controles são preenchidos a partir do binário para preservar todos os parâmetros; o download da API mantém o original, e a exportação do editor inclui as revisões. O progresso é indeterminado: o POST não informa etapas em tempo real. O backend deste checkout não implementa essa rota; configure o serviço externo correspondente.

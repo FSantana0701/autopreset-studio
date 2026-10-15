@@ -1,5 +1,5 @@
 'use strict';
-const CACHE_NAME = 'shell-v7';
+const CACHE_NAME = 'shell-v8';
 const APP_SHELL = ['./', './index.html', './index%20(1).html', './manifest.webmanifest', './icons/autopreset-192.png', './icons/autopreset-512.png'];
 const SCOPE = new URL(self.registration.scope);
 const SHELL_URLS = new Set(APP_SHELL.map(path => new URL(path, SCOPE).href));
@@ -11,7 +11,7 @@ self.addEventListener('install', event => {
 });
 self.addEventListener('activate', event => {
   event.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(key =>
-    key.startsWith('autopreset-studio-shell-') || key.startsWith('autopreset-local-model-')
+    (key.startsWith('shell-v') && key !== CACHE_NAME) || key.startsWith('autopreset-studio-shell-') || key.startsWith('autopreset-local-model-')
   ).map(key => caches.delete(key)))).then(() => self.clients.claim()));
 });
 self.addEventListener('fetch', event => {

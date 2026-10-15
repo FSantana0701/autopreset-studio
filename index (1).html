@@ -202,6 +202,20 @@ body { background:radial-gradient(ellipse at 8% 0%, #42301c 0, transparent 34%),
   </div>
   <div id="screenStudio" hidden>
   <div class="actions"><button id="leaveStudio" type="button">← Voltar ao Setup</button></div>
+  <section class="card" aria-labelledby="youtubeTitle">
+    <h2 id="youtubeTitle">Análise IA · YouTube</h2>
+    <p class="hint">Envie um link e um trecho de até 45 segundos para a API externa. A análise local continua disponível abaixo.</p>
+    <fieldset id="youtubeInputs" style="border:0;padding:0;min-width:0">
+      <label for="youtubeUrl">URL do vídeo do YouTube</label><input id="youtubeUrl" type="url" placeholder="https://youtu.be/…">
+      <div class="grid"><div class="field"><label for="youtubeStart">Início (segundos)</label><input id="youtubeStart" type="number" min="0" step="0.1" value="0"></div><div class="field"><label for="youtubeEnd">Fim (segundos)</label><input id="youtubeEnd" type="number" min="0.1" step="0.1" value="45"></div></div>
+      <button id="youtubeAnalyze" type="button">Analisar via IA (YouTube)</button>
+    </fieldset>
+    <progress id="youtubeProgress" hidden aria-label="Análise IA em andamento"></progress>
+    <p id="youtubeStatus" class="status" role="status" aria-live="polite"></p>
+    <p id="youtubeDiagnosis" class="meta"></p>
+    <div class="actions"><button id="youtubeApply" type="button" disabled>Carregar parâmetros para revisão</button><button id="youtubeDownload" type="button" disabled>Baixar Preset .dzh</button></div>
+    <a href="#audioCropperSection">Usar cortador local</a>
+  </section>
   <section id="audioCropperSection" class="card" aria-labelledby="cropperTitle">
     <h2 id="cropperTitle">Cortador de áudio · gravação em tempo real</h2>
     <p class="hint">Escolha uma faixa longa, ouça e marque até 45 segundos. Mantenha esta tela aberta durante a gravação. Somente o trecho gravado será analisado no aparelho.</p>
@@ -1417,6 +1431,7 @@ window.AUTO_PRESET_API = '';
 <script>
 "use strict";
 const $ = (id) => document.getElementById(id);
+const API_BASE_URL = String(window.API_BASE_URL || window.AUTO_PRESET_API || 'http://localhost:8000').replace(/\/$/, '');
 function selectedAIProvider(){return 'claude';}
 function getAutoPresetApi(){
  const value=String(window.AUTO_PRESET_API||'').trim();
@@ -2344,6 +2359,51 @@ async function analyzeAudioSnippet(id,button,crop=null){
  }catch(error){if(crop)setStatus($('cropperStatus'),error.message,'bad');const detail=window.AutoPresetAudioHeuristics?.describeError(error)||((typeof error==='string'&&error)||error?.message)||'erro inesperado sem detalhes';setStatus($('audioStatus'),error?.name==='AbortError'?(request?.reason==='timeout'?(crop?'A gravação ou análise excedeu o tempo limite. Tente novamente.':'A leitura do áudio excedeu 30 segundos. Recorte o arquivo e tente novamente.'):'Análise cancelada.'):'Falha na análise: '+detail,'bad');}
  finally{if(request){clearTimeout(request.timeout);activeAIRequest=null;$('mainAppWorkspace').disabled=$('pedalboard').value!=='mk300';$('pedalboard').disabled=false;$('guitarType').disabled=false;$('cancelAI').disabled=true;lockAudioInputs(false);button.disabled=false;}}
 }
+// YouTube API contract: {title, preset_base64}; optional amp_model/ds_model labels.
+let youtubeResult=null;
+function youtubePayload(url,start,end){
+ let parsed;try{parsed=new URL(url);}catch{throw new Error('Informe um link válido do YouTube.');}
+ if(!['https:','http:'].includes(parsed.protocol)||!['youtube.com','www.youtube.com','m.youtube.com','music.youtube.com','youtu.be'].includes(parsed.hostname))throw new Error('Informe um link válido do YouTube.');
+ if(start===''||end===''||!Number.isFinite(Number(start))||!Number.isFinite(Number(end))||Number(start)<0||Number(end)<=Number(start)||Number(end)-Number(start)>45)throw new Error('Escolha um intervalo maior que zero e de até 45 segundos.');
+ return {url:parsed.href,start_seconds:Number(start),end_seconds:Number(end),firmware:'v75'};
+}
+async function requestYoutubePreset(payload,signal){
+ const response=await fetch(API_BASE_URL+'/api/v1/analyze-link',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload),signal});
+ if(!response.ok)throw new Error(response.status===400||response.status===422?'O serviço não aceitou o link ou intervalo. Confira os dados.':response.status===503?'O serviço de IA está temporariamente indisponível.':'O serviço não conseguiu concluir a análise (HTTP '+response.status+').');
+ const data=await response.json();
+ const encoded=data.preset_base64??data.dzh_base64??data.preset?.base64;
+ if(typeof encoded!=='string'||encoded.length>1024)throw new Error('A API retornou um preset inválido.');
+ let bytes;try{bytes=Uint8Array.from(atob(encoded),c=>c.charCodeAt(0));validateBaseBytes(bytes);}catch{throw new Error('A API retornou um preset .dzh inválido (esperado: 448 bytes).');}
+ return {bytes,title:String(data.title??data.video_title??'YouTube'),amp:String(data.amp_model??AMP_CATALOG[bytes[58]]??bytes[58]),ds:String(data.ds_model??DS_CATALOG[bytes[57]]??bytes[57])};
+}
+$('youtubeAnalyze').addEventListener('click',async()=>{
+ let timeout;
+ try{
+  requireSupportedHardware();
+  const payload=youtubePayload($('youtubeUrl').value,$('youtubeStart').value,$('youtubeEnd').value);
+  youtubeResult=null;$('youtubeDownload').disabled=true;$('youtubeApply').disabled=true;$('youtubeDiagnosis').textContent='';
+  $('youtubeInputs').disabled=true;$('youtubeProgress').hidden=false;
+  // A single POST does not expose stage events: do not invent measured progress.
+  setStatus($('youtubeStatus'),'Baixando áudio… → Isolando guitarra com IA… → Gerando Preset V75… Aguardando a API.');
+  const controller=new AbortController();timeout=setTimeout(()=>controller.abort(),300000);
+  youtubeResult=await requestYoutubePreset(payload,controller.signal);
+  $('youtubeDiagnosis').textContent=youtubeResult.title+' · AMP: '+youtubeResult.amp+' · DS: '+youtubeResult.ds;
+  $('youtubeDownload').disabled=false;$('youtubeApply').disabled=false;
+  setStatus($('youtubeStatus'),'Preset V75 recebido. Carregue os parâmetros para revisar ou baixe o arquivo.','good');
+ }catch(error){setStatus($('youtubeStatus'),(error.name==='AbortError'?'A análise excedeu o tempo limite.':error instanceof TypeError?'Não foi possível conectar à API. Confira a conexão, a URL do serviço e o CORS.':error.message)+' Você pode continuar usando o cortador local abaixo.','warn');}
+ finally{clearTimeout(timeout);$('youtubeInputs').disabled=false;$('youtubeProgress').hidden=true;}
+});
+$('youtubeDownload').addEventListener('click',()=>{if(youtubeResult)downloadBytes(youtubeResult.bytes,'YouTube_V75.dzh','application/octet-stream','youtubeStatus','Preset da API pronto para baixar.');});
+$('youtubeApply').addEventListener('click',()=>{
+ try{
+  requireSupportedHardware();if(!youtubeResult)return;
+  saveDraft();if(presetDrafts.length>=12)throw new Error('Máximo de 12 presets por projeto.');
+  const bytes=youtubeResult.bytes.slice();validateBaseBytes(bytes);baseLoadSerial++;baseBytes=bytes;
+  populateFromBytes(bytes);loadExtras(bytes);currentOrigin='YouTube · '+youtubeResult.title;$('base').value='';refreshUI();
+  presetDrafts.push(snapshotDraft('YouTube'));activeDraftIndex=presetDrafts.length-1;renderDraftTabs();scheduleAutosave();
+  setStatus($('youtubeStatus'),'Parâmetros carregados em nova aba. Revise os controles e exporte pelo editor para incluir seus ajustes.','good');
+ }catch(error){setStatus($('youtubeStatus'),error.message,'warn');}
+});
 let cropperUrl=null,cropStart=null,cropEnd=null;
 function updateCropperRange(){
  $('cropperRange').textContent='Início: '+(cropStart===null?'—':cropStart.toFixed(2)+' s')+' · Fim: '+(cropEnd===null?'—':cropEnd.toFixed(2)+' s');
