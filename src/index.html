@@ -55,6 +55,7 @@ h3 { margin: 16px 0 8px; font-size: 14px; }
 .field label, label { color: var(--muted); font-size: 13px; }
 input, select, button, textarea { min-width: 0; font: inherit; color: var(--text); }
 input[type="text"], input[type="number"], input[type="password"], input[type="file"], select, textarea { width: 100%; padding: 11px 12px; border: 1px solid #3b4e51; border-radius: 10px; outline: none; background: var(--input); }
+input[type="url"] { width:100%; padding:11px 12px; border:1px solid #3b4e51; border-radius:10px; outline:none; background:var(--input); }
 input:focus, select:focus, textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px #70e0b322; }
 input[type="range"] { width: 100%; accent-color: var(--accent); }
 textarea { min-height: 100px; overflow-wrap: anywhere; }
@@ -76,6 +77,10 @@ button.secondary, .pedalNav button { border: 1px solid var(--line); background: 
 .check { display: flex; align-items: center; gap: 9px; padding: 11px 12px; border: 1px solid #3b4e51; border-radius: 10px; background: var(--input); color: var(--text); font-size: 14px; }
 .check input { width: 18px; height: 18px; margin: 0; accent-color: var(--accent); }
 .meta { padding: 9px 12px; border: 1px solid var(--line); border-radius: 10px; color: var(--muted); font: 12px ui-monospace, SFMono-Regular, Consolas, monospace; }
+.api-progress { display:flex; align-items:center; gap:10px; margin-top:12px; color:var(--muted); }
+.api-progress progress { flex:1; min-width:60px; height:8px; accent-color:var(--accent); }
+.api-spinner { width:18px; height:18px; border:2px solid #546064; border-top-color:var(--accent); border-radius:50%; animation:api-spin .8s linear infinite; }
+@keyframes api-spin { to { transform:rotate(360deg); } }
 .pill, .param-badge { display: inline-block; padding: 2px 8px; border: 1px solid var(--line); border-radius: 999px; background: #18382d; color: var(--accent); font-size: 11px; font-weight: 700; }
 .offsets { display: grid; grid-template-columns: repeat(var(--offset-columns), 1fr); gap: 8px; margin-top: 12px; }
 .offsets div { padding: 9px 10px; border: 1px solid #27383b; border-radius: 9px; background: #101719; color: var(--muted); font-size: 12px; }
@@ -205,12 +210,13 @@ body { background:radial-gradient(ellipse at 8% 0%, #42301c 0, transparent 34%),
   <section class="card" aria-labelledby="youtubeTitle">
     <h2 id="youtubeTitle">Análise IA · YouTube</h2>
     <p class="hint">Envie um link e um trecho de até 45 segundos para a API externa. A análise local continua disponível abaixo.</p>
+    <details class="field" style="margin:12px 0"><summary>Configurar servidor de IA</summary><label for="apiBaseUrl">URL base da API publicada</label><input id="apiBaseUrl" type="url" inputmode="url" placeholder="https://seu-servico.onrender.com" autocomplete="url"><button id="saveApiBaseUrl" type="button" class="secondary">Salvar URL neste dispositivo</button><p id="apiConfigStatus" class="hint" role="status"></p></details>
     <fieldset id="youtubeInputs" style="border:0;padding:0;min-width:0">
       <label for="youtubeUrl">URL do vídeo do YouTube</label><input id="youtubeUrl" type="url" placeholder="https://youtu.be/…">
       <div class="grid"><div class="field"><label for="youtubeStart">Início (segundos)</label><input id="youtubeStart" type="number" min="0" step="0.1" value="0"></div><div class="field"><label for="youtubeEnd">Fim (segundos)</label><input id="youtubeEnd" type="number" min="0.1" step="0.1" value="45"></div></div>
       <button id="youtubeAnalyze" type="button">Analisar via IA (YouTube)</button>
     </fieldset>
-    <progress id="youtubeProgress" hidden aria-label="Análise IA em andamento"></progress>
+    <div id="youtubeProgressWrap" class="api-progress" hidden><span class="api-spinner" aria-hidden="true"></span><progress id="youtubeProgress" max="90" value="0" aria-label="Tempo de análise estimado"></progress><span id="youtubeProgressLabel" aria-live="polite"></span></div>
     <p id="youtubeStatus" class="status" role="status" aria-live="polite"></p>
     <p id="youtubeDiagnosis" class="meta"></p>
     <div class="actions"><button id="youtubeApply" type="button" disabled>Carregar parâmetros para revisão</button><button id="youtubeDownload" type="button" disabled>Baixar Preset .dzh</button></div>
@@ -371,15 +377,19 @@ body { background:radial-gradient(ellipse at 8% 0%, #42301c 0, transparent 34%),
 <script>
 "use strict";
 const $ = (id) => document.getElementById(id);
-const API_BASE_URL = String(window.API_BASE_URL || window.AUTO_PRESET_API || 'http://localhost:8000').replace(/\/$/, '');
 function selectedAIProvider(){return 'claude';}
+let sessionApiUrl='';
+function configuredApiUrl(){try{return String(sessionApiUrl||localStorage.getItem('AUTO_PRESET_API_URL')||window.API_BASE_URL||window.AUTO_PRESET_API||'').trim();}catch{return String(sessionApiUrl||window.API_BASE_URL||window.AUTO_PRESET_API||'').trim();}}
 function getAutoPresetApi(){
- const value=String(window.AUTO_PRESET_API||'').trim();
- if(!value)throw new Error('O serviço do AutoPreset ainda não foi conectado pelo administrador.');
- const base=new URL(value,window.location.href);
+ const value=configuredApiUrl();
+ if(!value)throw new Error('Configure a URL publicada do serviço de IA para usar esta função.');
+ let base;try{base=new URL(value);}catch{throw new Error('A URL do serviço de IA é inválida.');}
  if(base.protocol!=='https:'&&!['localhost','127.0.0.1','[::1]'].includes(base.hostname))throw new Error('O serviço do AutoPreset precisa usar HTTPS.');
  return base.href.replace(/\/$/,'');
 }
+const apiUrlInput=$('apiBaseUrl');
+apiUrlInput.value=configuredApiUrl();
+$('saveApiBaseUrl').addEventListener('click',()=>{try{const value=apiUrlInput.value.trim();if(!value)throw new Error('Informe a URL HTTPS publicada da API.');const parsed=new URL(value);if(parsed.protocol!=='https:'&&!['localhost','127.0.0.1','[::1]'].includes(parsed.hostname))throw new Error('Use uma URL HTTPS (localhost é permitido para testes).');sessionApiUrl=parsed.href.replace(/\/$/,'');try{localStorage.setItem('AUTO_PRESET_API_URL',sessionApiUrl);setStatus($('apiConfigStatus'),'URL salva neste dispositivo.','good');}catch{setStatus($('apiConfigStatus'),'URL ativa nesta sessão; o navegador não permitiu salvá-la permanentemente.','warn');}}catch(error){setStatus($('apiConfigStatus'),error.message,'bad');}});
 
 function requireSupportedHardware(){if(activeAIRequest)throw new Error("Aguarde ou cancele a análise IA antes de editar/exportar.");if($('pedalboard').value!=='mk300')throw new Error('Exportação disponível somente para MK-300.');}
 function getGuitarOffset(){const type=$('guitarType').value;return ({jem:{gain:-10,bass:-5},lespaul:{gain:-5,bass:0},strato:{gain:15,bass:5},tele:{gain:15,bass:5},none:{gain:0,bass:0}})[type]||{gain:0,bass:0};}
@@ -1299,7 +1309,7 @@ async function analyzeAudioSnippet(id,button,crop=null){
  }catch(error){if(crop)setStatus($('cropperStatus'),error.message,'bad');const detail=window.AutoPresetAudioHeuristics?.describeError(error)||((typeof error==='string'&&error)||error?.message)||'erro inesperado sem detalhes';setStatus($('audioStatus'),error?.name==='AbortError'?(request?.reason==='timeout'?(crop?'A gravação ou análise excedeu o tempo limite. Tente novamente.':'A leitura do áudio excedeu 30 segundos. Recorte o arquivo e tente novamente.'):'Análise cancelada.'):'Falha na análise: '+detail,'bad');}
  finally{if(request){clearTimeout(request.timeout);activeAIRequest=null;$('mainAppWorkspace').disabled=$('pedalboard').value!=='mk300';$('pedalboard').disabled=false;$('guitarType').disabled=false;$('cancelAI').disabled=true;lockAudioInputs(false);button.disabled=false;}}
 }
-// YouTube API contract: {title, preset_base64}; optional amp_model/ds_model labels.
+// Aceita o contrato atual {source, diagnosis, preset, dzh:{base64}} e os formatos anteriores.
 let youtubeResult=null;
 function youtubePayload(url,start,end){
  let parsed;try{parsed=new URL(url);}catch{throw new Error('Informe um link válido do YouTube.');}
@@ -1308,32 +1318,36 @@ function youtubePayload(url,start,end){
  return {url:parsed.href,start_seconds:Number(start),end_seconds:Number(end),firmware:'v75'};
 }
 async function requestYoutubePreset(payload,signal){
- const response=await fetch(API_BASE_URL+'/api/v1/analyze-link',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload),signal});
- if(!response.ok)throw new Error(response.status===400||response.status===422?'O serviço não aceitou o link ou intervalo. Confira os dados.':response.status===503?'O serviço de IA está temporariamente indisponível.':'O serviço não conseguiu concluir a análise (HTTP '+response.status+').');
+ const response=await fetch(getAutoPresetApi()+'/api/v1/analyze-link',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload),signal});
+ if(!response.ok)throw new Error(response.status===400||response.status===422?'O serviço não aceitou o link ou intervalo. Confira os dados.':response.status===503?'Servidor de IA indisponível no momento.':'O serviço não conseguiu concluir a análise (HTTP '+response.status+').');
  const data=await response.json();
- const encoded=data.preset_base64??data.dzh_base64??data.preset?.base64;
+ const encoded=data.dzh?.base64??data.preset_base64??data.dzh_base64??data.preset?.base64;
  if(typeof encoded!=='string'||encoded.length>1024)throw new Error('A API retornou um preset inválido.');
  let bytes;try{bytes=Uint8Array.from(atob(encoded),c=>c.charCodeAt(0));validateBaseBytes(bytes);}catch{throw new Error('A API retornou um preset .dzh inválido (esperado: 448 bytes).');}
- return {bytes,title:String(data.title??data.video_title??'YouTube'),amp:String(data.amp_model??AMP_CATALOG[bytes[58]]??bytes[58]),ds:String(data.ds_model??DS_CATALOG[bytes[57]]??bytes[57])};
+ const selected=data.diagnosis?.selected_models||{};
+ const amp=selected.AMP?.name??data.preset?.models?.AMP?.name??data.amp_model;
+ const ds=selected.DS?.name??data.preset?.models?.DS?.name??data.ds_model;
+ return {bytes,title:String(data.source?.title??data.title??data.video_title??'YouTube'),amp:String(amp??AMP_CATALOG[bytes[58]]??bytes[58]),ds:String(ds??DS_CATALOG[bytes[57]]??bytes[57]),diagnosis:data.diagnosis??null,preset:data.preset??null};
 }
 $('youtubeAnalyze').addEventListener('click',async()=>{
- let timeout;
+ let timeout,progressTimer,startedAt=0;
  try{
   requireSupportedHardware();
+  getAutoPresetApi();
   const payload=youtubePayload($('youtubeUrl').value,$('youtubeStart').value,$('youtubeEnd').value);
   youtubeResult=null;$('youtubeDownload').disabled=true;$('youtubeApply').disabled=true;$('youtubeDiagnosis').textContent='';
-  $('youtubeInputs').disabled=true;$('youtubeProgress').hidden=false;
-  // A single POST does not expose stage events: do not invent measured progress.
-  setStatus($('youtubeStatus'),'Baixando áudio… → Isolando guitarra com IA… → Gerando Preset V75… Aguardando a API.');
-  const controller=new AbortController();timeout=setTimeout(()=>controller.abort(),300000);
+  $('youtubeInputs').disabled=true;$('youtubeProgressWrap').hidden=false;$('youtubeProgress').value=0;
+  const controller=new AbortController();startedAt=Date.now();timeout=setTimeout(()=>controller.abort(),90000);
+  const updateProgress=()=>{const elapsed=Math.floor((Date.now()-startedAt)/1000);$('youtubeProgress').value=Math.min(90,elapsed);const message=elapsed<10?'A conectar ao servidor de IA…':elapsed<30?'A iniciar servidor na nuvem (Cold Start)… por favor aguarde.':elapsed<50?'Isolando faixa de guitarra com Demucs e gerando preset V75…':'O servidor continua processando… mantenha esta página aberta.';$('youtubeProgressLabel').textContent=message;};
+  updateProgress();progressTimer=setInterval(updateProgress,1000);
   youtubeResult=await requestYoutubePreset(payload,controller.signal);
   $('youtubeDiagnosis').textContent=youtubeResult.title+' · AMP: '+youtubeResult.amp+' · DS: '+youtubeResult.ds;
   $('youtubeDownload').disabled=false;$('youtubeApply').disabled=false;
   setStatus($('youtubeStatus'),'Preset V75 recebido. Carregue os parâmetros para revisar ou baixe o arquivo.','good');
- }catch(error){setStatus($('youtubeStatus'),(error.name==='AbortError'?'A análise excedeu o tempo limite.':error instanceof TypeError?'Não foi possível conectar à API. Confira a conexão, a URL do serviço e o CORS.':error.message)+' Você pode continuar usando o cortador local abaixo.','warn');}
- finally{clearTimeout(timeout);$('youtubeInputs').disabled=false;$('youtubeProgress').hidden=true;}
+ }catch(error){const detail=error.name==='AbortError'?'A análise excedeu o limite de 90 segundos.':error instanceof TypeError?'Não foi possível conectar à API. Confira a conexão, a URL do serviço e o CORS.':error.message;setStatus($('youtubeStatus'),detail+' Servidor de IA indisponível no momento. Você pode continuar usando o cortador local abaixo.','warn');}
+ finally{clearTimeout(timeout);clearInterval(progressTimer);$('youtubeInputs').disabled=false;$('youtubeProgressWrap').hidden=true;}
 });
-$('youtubeDownload').addEventListener('click',()=>{if(youtubeResult)downloadBytes(youtubeResult.bytes,'YouTube_V75.dzh','application/octet-stream','youtubeStatus','Preset da API pronto para baixar.');});
+$('youtubeDownload').addEventListener('click',()=>{if(youtubeResult)downloadBytes(youtubeResult.bytes,'AutoPreset_Link.dzh','application/octet-stream','youtubeStatus','Preset da API pronto para baixar.');});
 $('youtubeApply').addEventListener('click',()=>{
  try{
   requireSupportedHardware();if(!youtubeResult)return;

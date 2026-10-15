@@ -4,8 +4,14 @@ import pwa_browser_test as pwa
 
 
 class YouTubeTests(pwa.PWABrowserTests):
+    def configure_api(self):
+        self.page.locator('#apiBaseUrl').fill('https://api.example.test')
+        self.page.locator('#saveApiBaseUrl').click()
+        self.assertIn('URL salva', self.page.locator('#apiConfigStatus').inner_text())
+
     def test_request_download_and_editor(self):
         self.page.locator('#enterStudio').click()
+        self.configure_api()
         self.page.locator('#youtubeUrl').fill('https://youtu.be/example')
         original = self.page.evaluate('Array.from(compilePreset())')
         encoded = self.page.evaluate('btoa(String.fromCharCode(...compilePreset()))')
@@ -14,8 +20,10 @@ class YouTubeTests(pwa.PWABrowserTests):
         def respond(route):
             requests.append(route.request.post_data_json)
             route.fulfill(status=200, content_type='application/json', body=json.dumps({
-                'title': '<b>Guitar song</b>', 'preset_base64': encoded,
-                'amp_model': 'Test AMP', 'ds_model': 'Test DS'}))
+                'source': {'title': '<b>Guitar song</b>'},
+                'diagnosis': {'selected_models': {'AMP': {'name': 'Test AMP'}, 'DS': {'name': 'Test DS'}}},
+                'preset': {'models': {'AMP': {'name': 'Test AMP'}, 'DS': {'name': 'Test DS'}}},
+                'dzh': {'base64': encoded, 'size_bytes': 448}}))
 
         self.page.route('**/api/v1/analyze-link', respond)
         self.page.locator('#youtubeAnalyze').click()
@@ -27,6 +35,7 @@ class YouTubeTests(pwa.PWABrowserTests):
         self.assertEqual(self.page.locator('#youtubeDiagnosis b').count(), 0)
         with self.page.expect_download() as download:
             self.page.locator('#youtubeDownload').click()
+        self.assertEqual(download.value.suggested_filename, 'AutoPreset_Link.dzh')
         self.assertEqual(list(download.value.path().read_bytes()), original)
         self.page.locator('#youtubeApply').click()
         self.assertEqual(self.page.evaluate('Array.from(compilePreset())'), original)
@@ -34,6 +43,7 @@ class YouTubeTests(pwa.PWABrowserTests):
 
     def test_validation_errors_and_fallback(self):
         self.page.locator('#enterStudio').click()
+        self.configure_api()
         self.page.locator('#youtubeUrl').fill('https://youtu.be/example')
         requests = []
         self.page.route('**/api/v1/analyze-link', lambda route: (requests.append(True), route.abort()))

@@ -10,7 +10,7 @@ A compatibilidade de formato é sustentada pelos testes binários e diferenciais
 
 O fluxo com **IRs** preserva o slot, os controles de CAB e os cortes de frequência no preset. Instale o IR correspondente no equipamento pelo software compatível da M-VAVE: o `.dzh` não incorpora o arquivo IR. As melhorias de resposta dinâmica e leitura de IRs atribuídas à V75 pertencem ao firmware e devem ser verificadas na documentação do fabricante e na pedaleira; esta atualização apenas alinha a aplicação a esse fluxo, sem implementar ou comprovar essas melhorias de DSP.
 
-A PWA usa o cache **`shell-v8`**. Ao abrir o app conectado, o navegador instala o Service Worker atualizado, remove caches legados da aplicação e ativa o novo shell. A navegação consulta a rede antes do cache para evitar HTML antigo; sem conexão, usa o shell armazenado. Em uma aba já aberta, recarregue após a atualização para exibir a nova interface. Projetos e exemplos locais são preservados.
+A PWA usa o cache **`shell-v9`**. Ao abrir o app conectado, o navegador instala o Service Worker atualizado, remove caches legados da aplicação e ativa o novo shell. A navegação consulta a rede antes do cache para evitar HTML antigo; sem conexão, usa o shell armazenado. Em uma aba já aberta, recarregue após a atualização para exibir a nova interface. Projetos e exemplos locais são preservados.
 
 ## Recursos principais
 

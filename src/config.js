@@ -1,3 +1,3 @@
-// Endpoint público do serviço. Nunca coloque credenciais neste arquivo.
-// Exemplo após publicar a API: https://seu-space.hf.space
+// Opcional: URL pública do backend. Também pode ser configurada na interface.
+// Nunca coloque credenciais neste arquivo.
 window.AUTO_PRESET_API = '';
