@@ -213,7 +213,8 @@ body { background:radial-gradient(ellipse at 8% 0%, #42301c 0, transparent 34%),
     <details class="field" style="margin:12px 0"><summary>Servidor de IA · Railway</summary><label for="apiBaseUrl">URL da API de produção</label><input id="apiBaseUrl" type="url" readonly><p id="apiConfigStatus" class="hint" role="status">Processamento no Railway. Nenhum modelo é carregado no celular.</p></details>
     <fieldset id="youtubeInputs" style="border:0;padding:0;min-width:0">
       <label for="youtubeUrl">URL do vídeo do YouTube</label><input id="youtubeUrl" type="url" placeholder="https://youtu.be/…">
-      <div class="grid"><div class="field"><label for="youtubeStart">Início (segundos)</label><input id="youtubeStart" type="number" min="0" step="0.1" value="0"></div><div class="field"><label for="youtubeEnd">Fim (segundos)</label><input id="youtubeEnd" type="number" min="0.1" step="0.1" value="45"></div></div>
+      <div class="grid"><div class="field"><label for="youtubeStart">Início (mm:ss)</label><input id="youtubeStart" type="text" placeholder="01:30" value="00:00" maxlength="12" pattern="[0-9]+:[0-5][0-9]" autocomplete="off" spellcheck="false" aria-describedby="youtubeIntervalHelp"></div><div class="field"><label for="youtubeEnd">Fim (mm:ss)</label><input id="youtubeEnd" type="text" placeholder="02:00" value="00:45" maxlength="12" pattern="[0-9]+:[0-5][0-9]" autocomplete="off" spellcheck="false" aria-describedby="youtubeIntervalHelp"></div></div>
+      <p id="youtubeIntervalHelp" class="hint">Use m:ss ou mm:ss. Ex.: 01:30 até 02:00 = 30 segundos. O fim deve ser posterior ao início e o trecho pode ter no máximo <b>45 segundos</b>.</p>
       <button id="youtubeAnalyze" type="button">Analisar via IA (YouTube)</button>
     </fieldset>
     <div id="youtubeProgressWrap" class="api-progress" hidden><span class="api-spinner" aria-hidden="true"></span><progress id="youtubeProgress" aria-label="Aguardando análise no Railway"></progress><span><span id="youtubeProgressLabel" aria-live="polite"></span><small class="hint" style="display:block">Etapas previstas; o servidor não informa a fase em tempo real.</small></span></div>
@@ -2371,11 +2372,20 @@ async function analyzeAudioSnippet(id,button,crop=null){
 }
 // Aceita o contrato atual {source, diagnosis, preset, dzh:{base64}} e os formatos anteriores.
 let youtubeResult=null;
+function youtubeTimeToSeconds(value){
+ const match=typeof value==='string'&&value.trim().match(/^(\d+):([0-5]\d)$/);
+ if(!match)throw new Error('Informe início e fim em mm:ss (ex.: 02:16), com segundos entre 00 e 59.');
+ const seconds=Number(match[1])*60+Number(match[2]);
+ if(!Number.isSafeInteger(seconds))throw new Error('O horário informado é grande demais. Use minutos e segundos válidos.');
+ return seconds;
+}
 function youtubePayload(url,start,end){
  let parsed;try{parsed=new URL(url);}catch{throw new Error('Informe um link válido do YouTube.');}
  if(!['https:','http:'].includes(parsed.protocol)||!['youtube.com','www.youtube.com','m.youtube.com','music.youtube.com','youtu.be'].includes(parsed.hostname))throw new Error('Informe um link válido do YouTube.');
- if(start===''||end===''||!Number.isFinite(Number(start))||!Number.isFinite(Number(end))||Number(start)<0||Number(end)<=Number(start)||Number(end)-Number(start)>45)throw new Error('Escolha um intervalo maior que zero e de até 45 segundos.');
- return {url:parsed.href,start_seconds:Number(start),end_seconds:Number(end),firmware:'v75'};
+ const startSeconds=youtubeTimeToSeconds(start),endSeconds=youtubeTimeToSeconds(end);
+ if(endSeconds<=startSeconds)throw new Error('O fim deve ser posterior ao início. Escolha um trecho de até 45 segundos.');
+ if(endSeconds-startSeconds>45)throw new Error('O trecho escolhido ultrapassa 45 segundos. Aproxime o fim do início.');
+ return {url:parsed.href,start_seconds:startSeconds,end_seconds:endSeconds,firmware:'v75'};
 }
 async function requestYoutubePreset(payload,signal){
  const response=await fetch(getAutoPresetApi()+'/api/v1/analyze-link',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload),signal});
@@ -2391,7 +2401,7 @@ async function requestYoutubePreset(payload,signal){
  return {bytes,title:String(data.source?.title??data.title??data.video_title??'YouTube'),amp:String(amp??AMP_CATALOG[bytes[58]]??bytes[58]),ds:String(ds??DS_CATALOG[bytes[57]]??bytes[57]),diagnosis:data.diagnosis??null,preset:data.preset??null};
 }
 $('youtubeAnalyze').addEventListener('click',async()=>{
- let timeout,progressTimer,startedAt=0;
+ let timeout,progressTimer,startedAt=0,requestStarted=false;
  youtubeResult=null;$('youtubeDownload').disabled=true;$('youtubeApply').disabled=true;$('youtubeDiagnosis').textContent='';
  try{
   requireSupportedHardware();
@@ -2401,11 +2411,11 @@ $('youtubeAnalyze').addEventListener('click',async()=>{
   const controller=new AbortController();startedAt=Date.now();timeout=setTimeout(()=>controller.abort(),300000);
   const updateProgress=()=>{const elapsed=Math.floor((Date.now()-startedAt)/1000);const message=elapsed<10?'A processar áudio no Railway…':elapsed<60?'A isolar guitarra com Demucs…':'A aguardar o preset V75 do Railway…';$('youtubeProgressLabel').textContent=message+' ('+elapsed+' s)';};
   updateProgress();progressTimer=setInterval(updateProgress,1000);
-  youtubeResult=await requestYoutubePreset(payload,controller.signal);
+  requestStarted=true;youtubeResult=await requestYoutubePreset(payload,controller.signal);
   $('youtubeDiagnosis').textContent=youtubeResult.title+' · AMP: '+youtubeResult.amp+' · DS: '+youtubeResult.ds;
   $('youtubeDownload').disabled=false;$('youtubeApply').disabled=false;
   setStatus($('youtubeStatus'),'Preset MK-300 V75 recebido e validado: 448 bytes. Carregue os parâmetros para revisar ou baixe o .dzh.','good');
- }catch(error){const detail=error.name==='AbortError'?'O Railway não concluiu a análise em 5 minutos. Tente um trecho menor.':error instanceof TypeError?'Não foi possível conectar à API. Confira a conexão, a URL do serviço e o CORS.':error.message;setStatus($('youtubeStatus'),detail+' Servidor de IA indisponível no momento. Você pode continuar usando o cortador local abaixo.','warn');}
+ }catch(error){const detail=error.name==='AbortError'?'O Railway não concluiu a análise em 5 minutos. Tente um trecho menor.':error instanceof TypeError?'Não foi possível conectar à API. Confira a conexão, a URL do serviço e o CORS.':error.message;setStatus($('youtubeStatus'),detail+(requestStarted?' Servidor de IA indisponível no momento. Você pode continuar usando o cortador local abaixo.':' Nenhuma solicitação foi enviada. O cortador local continua disponível abaixo.'),'warn');}
  finally{clearTimeout(timeout);clearInterval(progressTimer);$('youtubeInputs').disabled=false;$('youtubeProgressWrap').hidden=true;}
 });
 $('youtubeDownload').addEventListener('click',()=>{if(youtubeResult)downloadBytes(youtubeResult.bytes,'AutoPreset_Link.dzh','application/octet-stream','youtubeStatus','Preset da API pronto para baixar.');});

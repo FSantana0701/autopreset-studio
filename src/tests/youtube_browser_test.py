@@ -56,17 +56,21 @@ class YouTubeTests(pwa.PWABrowserTests):
         self.page.locator('#youtubeUrl').fill('https://youtu.be/example')
         requests = []
         self.page.route('**/api/v1/analyze-link', lambda route: (requests.append(True), route.abort()))
-        for start, end, url in [('0', '46', 'https://youtu.be/example'),
-                                ('5', '5', 'https://youtu.be/example'),
-                                ('0', '10', 'https://evil.example/video')]:
+        for start, end, url in [('00:00', '00:46', 'https://youtu.be/example'),
+                                ('00:05', '00:05', 'https://youtu.be/example'),
+                                ('01:01', '00:59', 'https://youtu.be/example'),
+                                ('1:60', '02:00', 'https://youtu.be/example'),
+                                ('', '00:30', 'https://youtu.be/example'),
+                                ('00:00', '00:10', 'https://evil.example/video')]:
             self.page.locator('#youtubeStart').fill(start)
             self.page.locator('#youtubeEnd').fill(end)
             self.page.locator('#youtubeUrl').fill(url)
             self.page.locator('#youtubeAnalyze').click()
             self.assertIn('cortador local', self.page.locator('#youtubeStatus').inner_text())
         self.assertEqual(requests, [])
-        self.page.locator('#youtubeStart').fill('0')
-        self.page.locator('#youtubeEnd').fill('45')
+        self.assertNotIn('Servidor de IA indisponível',self.page.locator('#youtubeStatus').inner_text())
+        self.page.locator('#youtubeStart').fill('00:00')
+        self.page.locator('#youtubeEnd').fill('00:45')
         self.page.locator('#youtubeUrl').fill('https://youtu.be/example')
         for status in [400, 503, 200, None]:
             self.page.unroute('**/api/v1/analyze-link')
@@ -121,3 +125,23 @@ class YouTubeTests(pwa.PWABrowserTests):
             self.assertTrue(self.page.locator('#youtubeDownload').is_disabled())
             self.assertTrue(self.page.locator('#youtubeApply').is_disabled())
             self.assertIn('cortador local',self.page.locator('#youtubeStatus').inner_text())
+
+    def test_minute_inputs_are_converted_before_post(self):
+        self.page.locator('#enterStudio').click()
+        self.page.locator('#youtubeUrl').fill('https://youtu.be/example')
+        self.assertIn('45 segundos',self.page.locator('#youtubeIntervalHelp').inner_text())
+        encoded=self.page.evaluate('btoa(String.fromCharCode(...compilePreset()))')
+        requests=[]
+        def respond(route):
+            requests.append(route.request.post_data_json)
+            route.fulfill(status=200,content_type='application/json',body=json.dumps({'preset_base64':encoded}))
+        self.page.route('**/api/v1/analyze-link',respond)
+        for start,end,expected in [('02:16','02:56',(136,176)),('0:59','01:44',(59,104)),('1:30','02:00',(90,120))]:
+            self.page.get_by_label('Início (mm:ss)',exact=True).fill(start)
+            self.page.get_by_label('Fim (mm:ss)',exact=True).fill(end)
+            self.page.locator('#youtubeAnalyze').click()
+            self.page.wait_for_function("!document.querySelector('#youtubeDownload').disabled")
+            payload=requests[-1]
+            self.assertEqual((payload['start_seconds'],payload['end_seconds']),expected)
+            self.assertIsInstance(payload['start_seconds'],int)
+            self.assertIsInstance(payload['end_seconds'],int)

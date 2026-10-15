@@ -54,7 +54,7 @@ class PWABrowserTests(unittest.TestCase):
 
     def test_scope_offline_shell_and_icons(self):
         self.assertEqual(self.page.evaluate('(async()=> (await navigator.serviceWorker.ready).scope)()'), self.url)
-        self.assertIn('shell-v9', self.page.evaluate('caches.keys()'))
+        self.assertIn('shell-v10', self.page.evaluate('caches.keys()'))
         self.context.set_offline(True)
         self.page.reload()
         self.assertIn('M-VAVE MK-300 V75', self.page.locator('.brand').inner_text())
