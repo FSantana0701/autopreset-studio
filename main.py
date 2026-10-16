@@ -11,7 +11,7 @@ for key in ('OPENBLAS_NUM_THREADS','OMP_NUM_THREADS','MKL_NUM_THREADS','NUMBA_NU
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, FileResponse
+from fastapi.responses import JSONResponse, FileResponse, Response
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 from starlette.background import BackgroundTask
 from typing import Literal
@@ -19,9 +19,16 @@ from services.errors import ServiceError
 from services.youtube import canonical_url, validate_interval, extract_clip
 
 app = FastAPI(title='AutoPreset HPSS API', version='1.0.0')
+# Browser Origin contains only scheme + host, never the Pages project path.
+# Always retain production origins even when Railway overrides CORS_ORIGINS.
+CORS_ORIGINS = list(dict.fromkeys([
+    'https://fsantana0701.github.io',
+    'https://fsantana0701.github.io/autopreset-studio',
+    *[s.strip() for s in os.getenv('CORS_ORIGINS','http://localhost:8000,http://127.0.0.1:8000').split(',') if s.strip()],
+]))
 app.add_middleware(CORSMiddleware,
-    allow_origins=[s.strip() for s in os.getenv('CORS_ORIGINS','https://fsantana0701.github.io,http://localhost:8000,http://127.0.0.1:8000').split(',') if s.strip()],
-    allow_methods=['GET','POST'], allow_headers=['Content-Type','Accept'])
+    allow_origins=CORS_ORIGINS, allow_credentials=True,
+    allow_methods=['*'], allow_headers=['*'])
 processing = threading.Lock()
 
 
@@ -42,6 +49,13 @@ class LinkRequest(BaseModel):
 @app.exception_handler(ServiceError)
 async def service_error(request: Request, exc: ServiceError):
     return JSONResponse(status_code=exc.status, content={'detail':str(exc),'code':exc.code})
+
+
+@app.options('/api/v1/analyze-link', include_in_schema=False)
+def analyze_link_options():
+    # CORSMiddleware handles browser preflights and adds access-control headers.
+    # Explicitly support OPTIONS probes without preflight headers as well.
+    return Response(status_code=200)
 
 
 @app.get('/health')

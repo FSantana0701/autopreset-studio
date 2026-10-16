@@ -1,0 +1,8 @@
+{
+  "name": "autopreset-studio",
+  "private": true,
+  "scripts": {
+    "build": "node src/build-standalone.cjs",
+    "test": "node --test mk300-binary.test.cjs \"mk300-binary.test (1).cjs\" src/tests/*.test.cjs"
+  }
+}

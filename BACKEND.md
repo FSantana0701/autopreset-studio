@@ -31,7 +31,12 @@ simultâneo (503 `busy` permite nova tentativa). WAVs temporários são removido
 O cliente desconectar não interrompe imediatamente o processamento síncrono;
 a extração tem timeout e o DSP opera apenas no trecho limitado.
 `CORS_ORIGINS` é uma lista de origens separadas por vírgula, sem barra final;
-padrão: GitHub Pages do projeto e localhost:8000. Nenhuma chave de IA é usada.
+as duas entradas GitHub Pages (com e sem caminho do projeto) são sempre
+preservadas, mesmo quando essa variável está definida no Railway. O navegador
+envia apenas a origem sem caminho. Origens locais de porta 8000 são padrão.
+CORS permite credenciais, todos os métodos e headers para as origens permitidas.
+O middleware responde preflight; OPTIONS explícito sem headers também retorna 200.
+Nenhuma chave de IA é usada.
 
 ## Limites e interpretação
 
@@ -101,6 +106,11 @@ local existente. Nenhum áudio é enviado a serviços de IA; a única origem ext
 ## Validação reproduzível
 
 ```sh
+python -m pip install -r src/tests/requirements.txt
+CHROMIUM_PATH=/usr/bin/chromium python -m pytest -q
+npm test
+npm run build
+# Checks individuais e diagnóstico de memória:
 python -m unittest discover -s tests/backend -v
 python tests/backend/memory_probe.py 45
 node src/build-standalone.cjs
