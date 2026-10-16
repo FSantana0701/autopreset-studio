@@ -1338,7 +1338,7 @@ function youtubePayload(url,start,end){
  return {url:cleanUrl,start_seconds:startSeconds,end_seconds:endSeconds,firmware:'v75'};
 }
 async function requestYoutubePreset(payload,signal){
- const response=await fetch(getAutoPresetApi()+'/api/v1/analyze-link',{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json'},body:JSON.stringify(payload),signal});
+ const response=await fetch(new URL('/api/v1/analyze-link',API_BASE_URL).href,{method:'POST',mode:'cors',credentials:'omit',headers:{'Content-Type':'application/json','Accept':'application/json'},body:JSON.stringify(payload),signal});
  if(!response.ok){
   let failure;try{failure=await response.json();}catch{}
   if(response.status===422&&(failure==='DOWNLOAD_BLOCKED'||failure?.detail==='DOWNLOAD_BLOCKED'||failure?.code==='DOWNLOAD_BLOCKED'||failure?.message==='DOWNLOAD_BLOCKED')){
@@ -1371,7 +1371,7 @@ $('youtubeAnalyze').addEventListener('click',async()=>{
   $('youtubeDiagnosis').textContent=youtubeResult.title+' · AMP: '+youtubeResult.amp+' · DS: '+youtubeResult.ds;
   $('youtubeDownload').disabled=false;$('youtubeApply').disabled=false;
   setStatus($('youtubeStatus'),'Preset MK-300 V75 recebido e validado: 448 bytes. Carregue os parâmetros para revisar ou baixe o .dzh.','good');
- }catch(err){console.error('[API Fetch Error]:',err);const detail=err.name==='AbortError'?'O Railway não concluiu a análise em 5 minutos. Tente um trecho menor.':err instanceof TypeError?'Não foi possível conectar à API. Confira a conexão, a URL do serviço e o CORS.':err.message;setStatus($('youtubeStatus'),detail+(err.code==='DOWNLOAD_BLOCKED'?'':requestStarted?' Servidor de IA indisponível no momento. Você pode continuar usando o cortador local abaixo.':' Nenhuma solicitação foi enviada. O cortador local continua disponível abaixo.'),'warn');}
+ }catch(err){console.error('[API Fetch Error]:',err);console.dir(err);const originalMessage=err.message||String(err);const detail=err.name==='AbortError'?'O Railway não concluiu a análise em 5 minutos. Tente um trecho menor. '+originalMessage:err instanceof TypeError?'Não foi possível conectar à API. Confira a conexão, a URL do serviço e o CORS. Erro original: '+originalMessage:originalMessage;setStatus($('youtubeStatus'),detail+(err.code==='DOWNLOAD_BLOCKED'?'':requestStarted?' Servidor de IA indisponível no momento. Você pode continuar usando o cortador local abaixo.':' Nenhuma solicitação foi enviada. O cortador local continua disponível abaixo.'),'warn');}
  finally{clearTimeout(timeout);clearInterval(progressTimer);$('youtubeInputs').disabled=false;$('youtubeProgressWrap').hidden=true;}
 });
 $('youtubeDownload').addEventListener('click',()=>{if(youtubeResult)downloadBytes(youtubeResult.bytes,'AutoPreset_Link.dzh','application/octet-stream','youtubeStatus','Preset da API pronto para baixar.');});

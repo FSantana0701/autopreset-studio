@@ -200,6 +200,10 @@ class HTTPTests(unittest.TestCase):
         response = self.request('/api/v1/analyze-link',method='OPTIONS',headers={'Origin':'https://fsantana0701.github.io','Access-Control-Request-Method':'POST','Access-Control-Request-Headers':'content-type,accept'})
         self.assertEqual(response.status,200)
         self.assertEqual(response.headers['Access-Control-Allow-Origin'],'https://fsantana0701.github.io')
+        self.assertIn('POST',response.headers['Access-Control-Allow-Methods'])
+        allowed={h.strip().lower() for h in response.headers['Access-Control-Allow-Headers'].split(',')}
+        self.assertTrue({'content-type','accept'} <= allowed)
+        self.assertEqual(response.geturl(),self.base+'/api/v1/analyze-link')
 
     def test_invalid_interval_before_network(self):
         with patch('main.extract_clip') as extract:

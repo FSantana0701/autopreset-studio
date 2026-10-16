@@ -3,7 +3,7 @@
 O Dockerfile da **raiz** inicia `main:app`, porta `${PORT:-7860}`, um worker.
 Configure no Railway: diretório raiz `/`, builder Dockerfile, healthcheck `/health`.
 Remova eventuais comandos/paths antigos que iniciem `audio-service/` ou Demucs.
-A PWA usa `shell-v12`, informa análise harmônica e mostra fallback local para
+A PWA usa `shell-v13`, informa análise harmônica e mostra fallback local para
 `DOWNLOAD_BLOCKED`. A API retorna `separation.method=HPSS` e `guitar_isolated=false`.
 
 ## Desenvolvimento

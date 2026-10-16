@@ -199,6 +199,7 @@ class YouTubeTests(pwa.PWABrowserTests):
     def test_network_error_logs_original_fetch_error(self):
         self.page.locator('#enterStudio').click()
         errors=[]
+        self.page.evaluate("() => {window.fetchErrorDirs=[];const originalDir=console.dir.bind(console);console.dir=(err)=>{window.fetchErrorDirs.push({name:err.name,message:err.message});originalDir(err);};}")
         self.page.on('console',lambda message:errors.append(message.text) if message.type=='error' else None)
         self.page.route('**/api/v1/analyze-link',lambda route:route.abort())
         self.page.locator('#youtubeUrl').fill('https://youtu.be/z3JhXn_onsw?si=tracking')
@@ -207,5 +208,10 @@ class YouTubeTests(pwa.PWABrowserTests):
         self.page.locator('#youtubeAnalyze').click()
         self.page.wait_for_function("!document.querySelector('#youtubeInputs').disabled")
         self.assertIn('Não foi possível conectar',self.page.locator('#youtubeStatus').inner_text())
+        logged=self.page.evaluate('window.fetchErrorDirs')
+        self.assertEqual(len(logged),1)
+        self.assertEqual(logged[0]['name'],'TypeError')
+        self.assertTrue(logged[0]['message'])
+        self.assertIn(logged[0]['message'],self.page.locator('#youtubeStatus').inner_text())
         self.assertTrue(any('[API Fetch Error]:' in message and 'TypeError' in message for message in errors),errors)
         self.assertTrue(self.page.locator('#youtubeDownload').is_disabled())
