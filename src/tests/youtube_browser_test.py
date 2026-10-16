@@ -52,6 +52,27 @@ class YouTubeTests(pwa.PWABrowserTests):
         self.assertTrue(self.page.locator('#youtubeDownload').is_disabled(), 'No stale file after a rejected request')
         self.assertTrue(self.page.locator('#youtubeApply').is_disabled())
 
+    def test_download_blocked_mobile_local_fallback(self):
+        self.page.set_viewport_size({'width':390,'height':844})
+        self.page.locator('#enterStudio').click()
+        self.configure_api()
+        self.page.locator('#youtubeUrl').fill('https://youtu.be/z3JhXn_onsw?si=shared')
+        for payload in ({'detail':'DOWNLOAD_BLOCKED','code':'DOWNLOAD_BLOCKED'},
+                        {'message':'DOWNLOAD_BLOCKED'}, 'DOWNLOAD_BLOCKED'):
+            self.page.unroute('**/api/v1/analyze-link')
+            self.page.route('**/api/v1/analyze-link',lambda route,request,body=payload:route.fulfill(
+                status=422, content_type='application/json',body=json.dumps(body)))
+            self.page.locator('#youtubeAnalyze').click()
+            self.page.wait_for_function("!document.getElementById('youtubeInputs').disabled")
+            self.page.wait_for_function("document.getElementById('youtubeStatus').textContent.includes('O YouTube bloqueou o download automático')")
+            self.assertEqual('O YouTube bloqueou o download automático na nuvem. Use o Cortador Local abaixo para enviar o arquivo diretamente.', self.page.locator('#youtubeStatus').inner_text())
+            self.assertTrue(self.page.locator('#youtubeDownload').is_disabled())
+            self.assertTrue(self.page.locator('#youtubeApply').is_disabled())
+        self.page.route('**/api/v1/analyze-link',lambda route:route.fulfill(status=422,content_type='text/plain',body='invalid'))
+        self.page.locator('#youtubeAnalyze').click()
+        self.page.wait_for_function("!document.getElementById('youtubeInputs').disabled")
+        self.page.wait_for_function("document.getElementById('youtubeStatus').textContent.includes('não aceitou')")
+
     def test_validation_errors_and_fallback(self):
         self.page.locator('#enterStudio').click()
         self.configure_api()
@@ -99,7 +120,7 @@ class YouTubeTests(pwa.PWABrowserTests):
         self.assertIn('A processar áudio no Railway',self.page.locator('#youtubeProgressLabel').inner_text())
         self.assertIsNone(self.page.locator('#youtubeProgress').get_attribute('value'))
         self.page.clock.fast_forward(11000)
-        self.assertIn('A isolar guitarra com Demucs',self.page.locator('#youtubeProgressLabel').inner_text())
+        self.assertIn('A analisar componentes harmônicos',self.page.locator('#youtubeProgressLabel').inner_text())
         self.assertIn('Etapas previstas',self.page.locator('#youtubeProgressWrap').inner_text())
         self.page.clock.fast_forward(300000)
         self.page.wait_for_function("!document.querySelector('#youtubeInputs').disabled")

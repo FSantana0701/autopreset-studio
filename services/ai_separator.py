@@ -1,14 +1,14 @@
 """HPSS is not guitar isolation: voices/bass/keys remain in the harmonic component."""
 from pathlib import Path
-SAMPLE_RATE = 16000
-BLOCK_FRAMES = SAMPLE_RATE * 4
+import gc
+from .spectral import BLOCK_SECONDS, SAMPLE_RATE, hpss
+BLOCK_FRAMES = SAMPLE_RATE * BLOCK_SECONDS
 HALO = 4096
 
 
 def separate_harmonic(source: Path, target: Path) -> dict:
     import numpy as np
     import soundfile as sf
-    import librosa
     from .errors import ServiceError
 
     with sf.SoundFile(source) as audio:
@@ -28,9 +28,10 @@ def separate_harmonic(source: Path, target: Path) -> dict:
                 if np.max(np.abs(signal)) < 1e-7:
                     harmonic = signal
                 else:
-                    harmonic, percussive = librosa.effects.hpss(
-                        signal, n_fft=1024, hop_length=256, kernel_size=(17,17), margin=(2,2))
-                    del percussive
+                    harmonic = hpss(signal)
+                    gc.collect()  # HPSS scratch arrays are now out of scope.
                 output.write(harmonic[start-left:start-left+count])
+                del data, signal, harmonic
+                gc.collect()
     return {"method": "HPSS", "guitar_isolated": False,
             "warning": "Componente harmônica aproximada: pode conter guitarra, voz, baixo e teclados."}

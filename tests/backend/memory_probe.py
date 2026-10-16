@@ -9,7 +9,20 @@ import json
 import resource
 import tempfile
 import time
-from test_backend import fixture
+import uvicorn  # Account for the production server imports as well.
+
+
+def fixture(path, seconds):
+    import numpy as np
+    import soundfile as sf
+    # Generate diagnostics in 2 s chunks, without allocating a full-length track.
+    with sf.SoundFile(path,'w',samplerate=16000,channels=1,subtype='PCM_16') as output:
+        for start in range(0,seconds*16000,32000):
+            samples = np.arange(start,min(start+32000,seconds*16000),dtype='float32')
+            y = .3*np.sin(samples*(2*np.pi*220/16000))
+            y[(samples.astype('int64')%4000)==0] += .5
+            output.write(y)
+
 
 started = time.monotonic()
 seconds = int(sys.argv[1]) if len(sys.argv)>1 else 45
@@ -19,5 +32,6 @@ with tempfile.TemporaryDirectory() as directory:
     result = main.build_analysis(work/'clip.wav',work)
     peak = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss/1024
     print(json.dumps({'synthetic_seconds':seconds,'process_peak_mib':round(peak,2),
-        'under_150_mb':peak*1024*1024<=150000000,'dzh_bytes':result['size_bytes'],
+        'under_100_mb':peak*1024*1024<=100000000,
+        'librosa_imported':'librosa' in sys.modules, 'numba_imported':'numba' in sys.modules,'dzh_bytes':result['size_bytes'],
         'torch_imported':'torch' in sys.modules,'elapsed_seconds':round(time.monotonic()-started,2)}))

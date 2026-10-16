@@ -3,8 +3,8 @@
 O Dockerfile da **raiz** inicia `main:app`, porta `${PORT:-7860}`, um worker.
 Configure no Railway: diretório raiz `/`, builder Dockerfile, healthcheck `/health`.
 Remova eventuais comandos/paths antigos que iniciem `audio-service/` ou Demucs.
-A PWA em `src/` permanece intacta. Seu texto atual de progresso ainda menciona
-Demucs; esta API retorna `separation.method=HPSS` e `guitar_isolated=false`.
+A PWA usa `shell-v12`, informa análise harmônica e mostra fallback local para
+`DOWNLOAD_BLOCKED`. A API retorna `separation.method=HPSS` e `guitar_isolated=false`.
 
 ## Desenvolvimento
 
@@ -35,7 +35,7 @@ padrão: GitHub Pages do projeto e localhost:8000. Nenhuma chave de IA é usada.
 
 ## Limites e interpretação
 
-HPSS usa blocos de 4 s com contexto, 16 kHz, float32. Separa sons harmônicos dos
+HPSS usa blocos de 2 s com contexto, 16 kHz, float32. Separa sons harmônicos dos
 percussivos, **não uma guitarra exclusiva**. Voz, baixo e teclados permanecem.
 MFCC13, centroide, rolloff85, flatness/SFM, ZCR, RMS e crest são calculados do
 WAV harmônico. O mapeador usa distância por cosseno contra três vetores
@@ -51,26 +51,52 @@ MK-300 física.
 
 Não há torch, torchaudio ou Demucs nas dependências deste backend. O diretório
 `audio-service/` é legado independente e não é copiado/instalado pelo Dockerfile
-novo. Librosa instala dependências transitivas como Numba e scikit-learn.
-Desativar JIT quebrou a importação de librosa/Numba neste ambiente e não é usado.
+novo. A pipeline de produção executa STFT, máscara HPSS (medianas 17, margem 2),
+mel Slaney e DCT-II/MFCC13 diretamente em NumPy. Não importa librosa, SciPy ou
+Numba. Librosa/SciPy permanecem nas dependências para compatibilidade e comparação
+numérica dos testes; seu custo de instalação não implica carga no processo.
 
-**A meta de 150 MB não foi cumprida:** medição em processo novo, com FastAPI,
-HPSS e DSP de 45 s sintéticos: pico RSS de **256,15 MiB** (aprox. 269 MB),
-5,07 s com caches de compilação já disponíveis. O primeiro uso pode consumir
-mais. Na imagem Docker nova, com cache frio, o mesmo diagnóstico consumiu
-**435,15 MiB** de pico RSS e levou 18,14 s. `/health` foi validado também com
-`PORT=7861`. A medição não inclui processos yt-dlp/FFmpeg nem overhead do container;
-não representa limite garantido de produção. Comece com 1 GiB e monitore
-no Railway. Um teto rígido de 150 MB exige substituir/reduzir a stack solicitada
-ou validar outras versões, não apenas retirar PyTorch. Não configure 150 MB
-esperando funcionamento comprovado.
+A leitura continua via SoundFile em blocos, sem `librosa.load()` nem buffer da
+música inteira. O separador converte estéreo para um canal dominante por bloco
+(evita cancelamento de fase); o analisador recebe WAV **mono, 16 kHz**. O buffer
+STFT rejeita mais de 30 s; os blocos de separação têm apenas cerca de 2,5 s com
+contexto. Portanto o intervalo solicitado de até 45 s é preservado, sem truncar
+a análise aos primeiros 30 s. Arrays temporários são liberados e `gc.collect()`
+é chamado após HPSS e MFCC e ao fim dos blocos.
+
+Medição em processo novo com imports de FastAPI/Uvicorn e análise HPSS/DSP real
+de **45 s sintéticos**, até geração dos 448 bytes:
+
+| Ambiente | Pico RSS | Tempo |
+| --- | ---: | ---: |
+| Cloud, venv local | 51,95 MiB (54,47 MB) | 2,50 s |
+| Imagem Docker, processo novo | 69,43 MiB (72,80 MB) | 2,25 s |
+| Docker anterior com librosa/Numba | 435,15 MiB | 18,14 s |
+
+O teste de regressão exige pico do processo abaixo de **100.000.000 bytes**.
+As medições incluem o runtime e as bibliotecas do processo DSP, mas **não**
+processos yt-dlp/FFmpeg, cache de arquivos do container nem toda a carga do Railway.
+Logo não são garantia de teto de 100 MB para o serviço inteiro. Mantenha um worker
+e monitore a memória real do container; não reduza o limite Railway a 100 MB
+apenas com base no pico DSP. Nenhuma música real foi usada para estes números.
 
 O user-agent padrão atualizado do yt-dlp é usado; ele **não garante** contornar
-bloqueios de IP/bot do YouTube. Erros de bloqueio retornam 422 `youtube_blocked`
-com orientação para upload direto na análise local da PWA. A PWA atual pode
-mostrar uma mensagem genérica para 422; sua lógica não foi alterada a pedido.
-Não há endpoint de upload de backend nesta versão. Nenhum áudio é enviado a
-serviços de IA; a única origem externa é o YouTube solicitado pelo usuário.
+bloqueios de IP/bot do YouTube. `noplaylist`, `bestaudio/best` e extração de áudio
+são configurados. O yt-dlp só extrai metadados, e FFmpeg decodifica o trecho
+limitado; não há download/transcodificação da música inteira via pós-processador.
+Bloqueios 403/429/bot retornam HTTP 422 com:
+
+```json
+{"detail":"DOWNLOAD_BLOCKED","code":"DOWNLOAD_BLOCKED"}
+```
+
+A PWA exibe: "O YouTube bloqueou o download automático na nuvem. Use o Cortador
+Local abaixo para enviar o arquivo diretamente." O cortador/analisador local
+continua disponível, e baixar/aplicar preset permanece desabilitado após erro.
+Outros erros 422 e respostas não JSON conservam tratamento genérico.
+Não há endpoint de upload de backend nesta versão; o fallback é a ferramenta
+local existente. Nenhum áudio é enviado a serviços de IA; a única origem externa
+é o YouTube solicitado pelo usuário.
 
 ## Validação reproduzível
 
@@ -83,7 +109,10 @@ for test in src/tests/*.test.cjs; do node "$test"; done
 CHROMIUM_PATH=/usr/bin/chromium python -m unittest discover -s src/tests -p '*test.py' -v
 ```
 
-Os testes novos executam HPSS/DSP de verdade em sinais sintéticos. Somente a
+Os testes novos executam HPSS/DSP de verdade em sinais sintéticos, comparam
+HPSS/MFCC numericamente com librosa em subprocesso e verificam o consumo em
+processo novo. Bloqueios yt-dlp e o contrato de erro são simulados; o navegador
+valida o aviso e a limpeza de estados a 390 px. Somente a
 extração de rede é simulada no teste HTTP; nenhum teste comprova download real
 do YouTube ou separação de guitarra em música. Os testes antigos de API usam
 mocks de separação. A conectividade de produção Railway é bloqueada pela política

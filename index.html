@@ -2400,7 +2400,13 @@ function youtubePayload(url,start,end){
 }
 async function requestYoutubePreset(payload,signal){
  const response=await fetch(getAutoPresetApi()+'/api/v1/analyze-link',{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json'},body:JSON.stringify(payload),signal});
- if(!response.ok)throw new Error(response.status===400||response.status===422?'O serviço não aceitou o link ou intervalo. Confira os dados.':response.status===503?'Servidor de IA indisponível no momento.':'O serviço não conseguiu concluir a análise (HTTP '+response.status+').');
+ if(!response.ok){
+  let failure;try{failure=await response.json();}catch{}
+  if(response.status===422&&(failure==='DOWNLOAD_BLOCKED'||failure?.detail==='DOWNLOAD_BLOCKED'||failure?.code==='DOWNLOAD_BLOCKED'||failure?.message==='DOWNLOAD_BLOCKED')){
+   throw Object.assign(new Error('O YouTube bloqueou o download automático na nuvem. Use o Cortador Local abaixo para enviar o arquivo diretamente.'),{code:'DOWNLOAD_BLOCKED'});
+  }
+  throw new Error(response.status===400||response.status===422?'O serviço não aceitou o link ou intervalo. Confira os dados.':response.status===503?'Servidor de IA indisponível no momento.':'O serviço não conseguiu concluir a análise (HTTP '+response.status+').');
+ }
  let data;try{data=await response.json();}catch{throw new Error('O Railway retornou uma resposta JSON inválida.');}
  if(!data||typeof data!=='object'||Array.isArray(data))throw new Error('O Railway retornou uma resposta inválida.');
  const encoded=data.dzh?.base64??data.preset_base64??data.dzh_base64??data.preset?.base64;
@@ -2420,13 +2426,13 @@ $('youtubeAnalyze').addEventListener('click',async()=>{
   const payload=youtubePayload($('youtubeUrl').value,$('youtubeStart').value,$('youtubeEnd').value);
   $('youtubeInputs').disabled=true;$('youtubeProgressWrap').hidden=false;$('youtubeProgress').removeAttribute('value');
   const controller=new AbortController();startedAt=Date.now();timeout=setTimeout(()=>controller.abort(),300000);
-  const updateProgress=()=>{const elapsed=Math.floor((Date.now()-startedAt)/1000);const message=elapsed<10?'A processar áudio no Railway…':elapsed<60?'A isolar guitarra com Demucs…':'A aguardar o preset V75 do Railway…';$('youtubeProgressLabel').textContent=message+' ('+elapsed+' s)';};
+  const updateProgress=()=>{const elapsed=Math.floor((Date.now()-startedAt)/1000);const message=elapsed<10?'A processar áudio no Railway…':elapsed<60?'A analisar componentes harmônicos…':'A aguardar o preset V75 do Railway…';$('youtubeProgressLabel').textContent=message+' ('+elapsed+' s)';};
   updateProgress();progressTimer=setInterval(updateProgress,1000);
   requestStarted=true;youtubeResult=await requestYoutubePreset(payload,controller.signal);
   $('youtubeDiagnosis').textContent=youtubeResult.title+' · AMP: '+youtubeResult.amp+' · DS: '+youtubeResult.ds;
   $('youtubeDownload').disabled=false;$('youtubeApply').disabled=false;
   setStatus($('youtubeStatus'),'Preset MK-300 V75 recebido e validado: 448 bytes. Carregue os parâmetros para revisar ou baixe o .dzh.','good');
- }catch(err){console.error('[API Fetch Error]:',err);const detail=err.name==='AbortError'?'O Railway não concluiu a análise em 5 minutos. Tente um trecho menor.':err instanceof TypeError?'Não foi possível conectar à API. Confira a conexão, a URL do serviço e o CORS.':err.message;setStatus($('youtubeStatus'),detail+(requestStarted?' Servidor de IA indisponível no momento. Você pode continuar usando o cortador local abaixo.':' Nenhuma solicitação foi enviada. O cortador local continua disponível abaixo.'),'warn');}
+ }catch(err){console.error('[API Fetch Error]:',err);const detail=err.name==='AbortError'?'O Railway não concluiu a análise em 5 minutos. Tente um trecho menor.':err instanceof TypeError?'Não foi possível conectar à API. Confira a conexão, a URL do serviço e o CORS.':err.message;setStatus($('youtubeStatus'),detail+(err.code==='DOWNLOAD_BLOCKED'?'':requestStarted?' Servidor de IA indisponível no momento. Você pode continuar usando o cortador local abaixo.':' Nenhuma solicitação foi enviada. O cortador local continua disponível abaixo.'),'warn');}
  finally{clearTimeout(timeout);clearInterval(progressTimer);$('youtubeInputs').disabled=false;$('youtubeProgressWrap').hidden=true;}
 });
 $('youtubeDownload').addEventListener('click',()=>{if(youtubeResult)downloadBytes(youtubeResult.bytes,'AutoPreset_Link.dzh','application/octet-stream','youtubeStatus','Preset da API pronto para baixar.');});

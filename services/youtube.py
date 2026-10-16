@@ -47,14 +47,16 @@ def _metadata_worker(url: str, output: Path) -> dict:
     """Isolate yt-dlp imports from the DSP worker's peak RSS."""
     import json
     import yt_dlp
-    from yt_dlp.utils import std_headers
+    from yt_dlp.utils.networking import std_headers
 
     headers = {**std_headers, "Accept-Language": "en-US,en;q=0.9"}
     options = {
-        "format": "bestaudio[ext=m4a]/bestaudio/best", "noplaylist": True,
+        "format": "bestaudio/best", "noplaylist": True,
         "skip_download": True, "quiet": True, "no_warnings": True,
         "socket_timeout": 15, "retries": 1, "extractor_retries": 1,
         "http_headers": headers, "cachedir": False,
+        # Metadata only here; bounded audio extraction is performed by FFmpeg below.
+        "postprocessors": [{"key": "FFmpegExtractAudio"}],
     }
     try:
         with yt_dlp.YoutubeDL(options) as downloader:

@@ -96,6 +96,69 @@ process.stdout.write(Buffer.from(h.compile()).toString('base64'));"""
             self.assertEqual(amp['model_index'],model)
             self.assertEqual(len(encode(preset)),448)
 
+    def test_hpss_and_mfcc_match_librosa_reference(self):
+        # Reference runs in a separate process so the API never imports librosa.
+        import numpy as np
+        from services.spectral import hpss, mfcc, stft
+        y = np.random.default_rng(42).normal(0,.03,40000).astype('float32')
+        y += .3*np.sin(np.arange(len(y))*2*np.pi*220/16000).astype('float32')
+        with tempfile.TemporaryDirectory() as directory:
+            source = Path(directory)/'source.npy'
+            result = Path(directory)/'reference.npz'
+            np.save(source,y)
+            script = """import sys,numpy as np,librosa
+x=np.load(sys.argv[1]);h,_=librosa.effects.hpss(x,n_fft=1024,hop_length=256,kernel_size=(17,17),margin=(2,2))
+p=np.abs(librosa.stft(x,n_fft=1024,hop_length=256))**2
+m=librosa.feature.melspectrogram(S=p,sr=16000,n_fft=1024,n_mels=32)
+c=librosa.feature.mfcc(S=librosa.power_to_db(m),n_mfcc=13)
+np.savez(sys.argv[2],harmonic=h,mfcc=c)
+"""
+            import sys
+            subprocess.run([sys.executable,'-c',script,str(source),str(result)],check=True,timeout=90)
+            with np.load(result) as reference:
+                np.testing.assert_allclose(hpss(y),reference['harmonic'],atol=2e-6,rtol=2e-4)
+                np.testing.assert_allclose(mfcc(np.abs(stft(y))**2),reference['mfcc'],atol=2e-4,rtol=2e-4)
+
+    def test_buffer_limit_and_stereo_long_clip(self):
+        import numpy as np
+        import soundfile as sf
+        from services.spectral import stft, MAX_BUFFER_SECONDS
+        self.assertEqual(MAX_BUFFER_SECONDS,30)
+        with self.assertRaises(ValueError): stft(np.zeros(16000*30+1,dtype='float32'))
+        with tempfile.TemporaryDirectory() as directory:
+            work = Path(directory)
+            t = np.arange(16000*31,dtype='float32')/16000
+            y = .3*np.sin(t*2*np.pi*330)
+            sf.write(work/'clip.wav',np.column_stack((y,-y)),16000)
+            result = main.build_analysis(work/'clip.wav',work)
+            self.assertEqual(result['features']['duration_seconds'],31)
+            self.assertGreater(result['features']['rms'],.05)
+            self.assertEqual(result['features']['sample_rate'],16000)
+
+    def test_simulated_ytdlp_403_and_429(self):
+        import yt_dlp
+        from services.youtube import _metadata_worker
+        for status in (403,429):
+            with tempfile.TemporaryDirectory() as directory:
+                with patch('yt_dlp.YoutubeDL') as downloader:
+                    downloader.return_value.__enter__.return_value.extract_info.side_effect = yt_dlp.utils.DownloadError('HTTP Error '+str(status))
+                    with self.assertRaises(YouTubeBlocked) as caught:
+                        _metadata_worker('https://www.youtube.com/watch?v=z3JhXn_onsw',Path(directory)/'metadata.json')
+                    self.assertEqual(str(caught.exception),'DOWNLOAD_BLOCKED')
+                    self.assertEqual(caught.exception.status,422)
+                    options = downloader.call_args.args[0]
+                    self.assertTrue(options['noplaylist'])
+                    self.assertEqual(options['format'],'bestaudio/best')
+
+    def test_fresh_dsp_process_under_100_mb(self):
+        import sys
+        result = subprocess.check_output([sys.executable,str(ROOT/'tests/backend/memory_probe.py'),'45'],cwd=ROOT,text=True,timeout=60)
+        measured = json.loads(result)
+        self.assertTrue(measured['under_100_mb'],measured)
+        self.assertFalse(measured['librosa_imported'])
+        self.assertFalse(measured['numba_imported'])
+        self.assertEqual(measured['dzh_bytes'],448)
+
     def test_silence_rejected(self):
         with tempfile.TemporaryDirectory() as directory:
             work = Path(directory)
@@ -127,8 +190,10 @@ class HTTPTests(unittest.TestCase):
     def request(self,path,body=None,method=None,headers=None):
         headers = {'Content-Type':'application/json',**(headers or {})}
         request = urllib.request.Request(self.base+path,data=json.dumps(body).encode() if body is not None else None,headers=headers,method=method)
-        try: return urllib.request.urlopen(request,timeout=30)
-        except urllib.error.HTTPError as error: return error
+        try: response = urllib.request.urlopen(request,timeout=30)
+        except urllib.error.HTTPError as error: response = error
+        self.addCleanup(response.close)
+        return response
 
     def test_health_and_cors(self):
         self.assertEqual(json.load(self.request('/health'))['engine'],'HPSS')
@@ -164,7 +229,7 @@ class HTTPTests(unittest.TestCase):
         with patch('main.extract_clip',side_effect=YouTubeBlocked()):
             response = self.request('/api/v1/analyze-link',body)
             self.assertEqual(response.status,422)
-            self.assertIn('upload',json.load(response)['detail'])
+            self.assertEqual(json.load(response), {'detail':'DOWNLOAD_BLOCKED','code':'DOWNLOAD_BLOCKED'})
 
 
 if __name__ == '__main__': unittest.main()

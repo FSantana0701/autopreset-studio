@@ -14,7 +14,7 @@ assert.match(html, /navigator\.serviceWorker\.register\(['"]\.\/sw\.js['"]\)/);
 assert.match(serviceWorker, /addEventListener\(['"]install['"]/);
 assert.match(serviceWorker, /addEventListener\(['"]fetch['"]/);
 assert.match(serviceWorker, /key\.startsWith\(['"]autopreset-studio-shell-['"]\)/, 'atualizações invalidam o HTML antigo');
-assert.match(serviceWorker, /CACHE_NAME\s*=\s*['"]shell-v11['"]/, 'a atualização usa o HTML sem separador');
+assert.match(serviceWorker, /CACHE_NAME\s*=\s*['"]shell-v12['"]/, 'a atualização usa o HTML sem separador');
 
 for (const [filename, expectedSize] of [['autopreset-192.png', 192], ['autopreset-512.png', 512]]) {
   const image = fs.readFileSync(path.join(appRoot, 'icons', filename));
@@ -37,7 +37,7 @@ const cache = {
 vm.runInNewContext(serviceWorker, {
  URL, Request, Set,
  self:{registration:{scope:'https://example.test/autopreset-studio/'},addEventListener:(event,handler)=>handlers[event]=handler,skipWaiting:async()=>{},clients:{claim:async()=>{claimed=true;}}},
- caches:{open:async()=>cache,keys:async()=>['shell-v11','shell-v10','shell-v9','shell-v8','shell-v7','shell-v6','autopreset-studio-shell-v6','autopreset-local-model-v1','other-app-cache'],delete:async key=>deleted.push(key)},
+ caches:{open:async()=>cache,keys:async()=>['shell-v12','shell-v11','shell-v10','shell-v9','shell-v8','shell-v7','shell-v6','autopreset-studio-shell-v6','autopreset-local-model-v1','other-app-cache'],delete:async key=>deleted.push(key)},
  fetch:async()=>{networkCalls++;if(offline)throw new Error('offline');return new Response(networkBody);}
 });
 async function lifecycle(name) { let pending;handlers[name]({waitUntil:promise=>pending=promise});await pending; }
@@ -52,7 +52,7 @@ async function fetchEvent(path, {navigate=false, authorization=false, method='GE
  assert.ok(installed.every(request=>request.url.startsWith('https://example.test/autopreset-studio/')&&request.cache==='reload'));
  assert.ok(installed.some(request=>request.url.endsWith('/icons/autopreset-192.png')));
  await lifecycle('activate');
- assert.deepEqual(deleted.sort(),['autopreset-local-model-v1','autopreset-studio-shell-v6','shell-v6','shell-v7','shell-v8','shell-v9','shell-v10'].sort());
+ assert.deepEqual(deleted.sort(),['autopreset-local-model-v1','autopreset-studio-shell-v6','shell-v6','shell-v7','shell-v8','shell-v9','shell-v10','shell-v11'].sort());
  assert.ok(claimed,'new worker claims clients');
  let response=await fetchEvent('./index.html',{navigate:true});
  assert.equal(await response.text(),'updated V75');
@@ -69,5 +69,5 @@ async function fetchEvent(path, {navigate=false, authorization=false, method='GE
  assert.equal(await fetchEvent('./index.html',{navigate:true,authorization:true}),undefined);
  assert.equal(await fetchEvent('./index.html',{method:'POST'}),undefined);
  assert.equal(networkCalls,before);
- console.log('PWA: shell-v11, instalação, atualização, offline, escopo, autenticação e preservação de outros caches verificados.');
+ console.log('PWA: shell-v12, instalação, atualização, offline, escopo, autenticação e preservação de outros caches verificados.');
 })().catch(error=>{console.error(error);process.exitCode=1;});

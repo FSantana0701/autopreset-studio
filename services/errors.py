@@ -8,6 +8,6 @@ class ServiceError(Exception):
 class YouTubeBlocked(ServiceError):
     def __init__(self):
         super().__init__(
-            "O YouTube bloqueou a extração ou exige autenticação. Faça upload do arquivo de áudio diretamente na análise local da PWA.",
-            code="youtube_blocked",
+            "DOWNLOAD_BLOCKED",
+            code="DOWNLOAD_BLOCKED",
         )

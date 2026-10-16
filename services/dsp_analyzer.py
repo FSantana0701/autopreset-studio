@@ -1,9 +1,10 @@
 """Chunked spectral features, using float32 scratch and one reusable STFT per chunk."""
 from pathlib import Path
+import gc
+from .spectral import BLOCK_SECONDS, FREQUENCIES, stft, mfcc
 
 
 def analyze(path: Path) -> dict:
-    import librosa
     import numpy as np
     import soundfile as sf
     from .errors import ServiceError
@@ -17,7 +18,7 @@ def analyze(path: Path) -> dict:
         sr = audio.samplerate
         if sr != 16000 or audio.channels != 1 or not 0 < len(audio) <= sr*45:
             raise ServiceError("Trecho harmônico inválido.")
-        for y in audio.blocks(blocksize=sr*4, dtype="float32"):
+        for y in audio.blocks(blocksize=sr*BLOCK_SECONDS, dtype="float32"):
             if not np.isfinite(y).all():
                 raise ServiceError("Áudio contém amostras inválidas.")
             samples += len(y)
@@ -28,16 +29,23 @@ def analyze(path: Path) -> dict:
             if previous is not None:
                 crossings += int(previous != bool(signs[0]))
             previous = bool(signs[-1])
-            spectrum = np.abs(librosa.stft(y, n_fft=1024, hop_length=256))
+            spectrum = np.abs(stft(y))
             power = spectrum*spectrum
-            mel = librosa.feature.melspectrogram(S=power, sr=sr, n_fft=1024, n_mels=32)
-            mfcc = librosa.feature.mfcc(S=librosa.power_to_db(mel), n_mfcc=13)
-            frames = mfcc.shape[1]
-            mfcc_sum += mfcc.sum(axis=1)
-            totals += [float(librosa.feature.spectral_centroid(S=spectrum, sr=sr).sum()),
-                       float(librosa.feature.spectral_rolloff(S=spectrum, sr=sr).sum()),
-                       float(librosa.feature.spectral_flatness(S=power, power=1).sum())]
+            coefficients = mfcc(power)
+            frames = coefficients.shape[1]
+            mfcc_sum += coefficients.sum(axis=1)
+            del coefficients
+            gc.collect()  # MFCC/DCT/mel scratch is no longer referenced.
+            mass = np.maximum(spectrum.sum(axis=0),1e-20)
+            centroid = (FREQUENCIES[:,None]*spectrum).sum(axis=0)/mass
+            cumulative = np.cumsum(spectrum,axis=0)
+            rolloff = FREQUENCIES[np.argmax(cumulative>=.85*mass,axis=0)]
+            clamped = np.maximum(power,1e-10)
+            flatness = np.exp(np.mean(np.log(clamped),axis=0))/np.mean(clamped,axis=0)
+            totals += [float(centroid.sum()),float(rolloff.sum()),float(flatness.sum())]
+            del spectrum, power, mass, centroid, cumulative, rolloff, clamped, flatness
             frame_count += frames
+            gc.collect()
     rms = (energy/max(1,samples))**0.5
     if rms < 1e-5:
         raise ServiceError("O trecho harmônico está silencioso ou muito baixo. Escolha outro intervalo.", code="quiet_audio")
