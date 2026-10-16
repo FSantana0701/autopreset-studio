@@ -30,12 +30,16 @@ Extração tem limites de tempo/tamanho; o servidor aceita apenas um processamen
 simultâneo (503 `busy` permite nova tentativa). WAVs temporários são removidos.
 O cliente desconectar não interrompe imediatamente o processamento síncrono;
 a extração tem timeout e o DSP opera apenas no trecho limitado.
-`CORS_ORIGINS` é uma lista de origens separadas por vírgula, sem barra final;
-as duas entradas GitHub Pages (com e sem caminho do projeto) são sempre
-preservadas, mesmo quando essa variável está definida no Railway. O navegador
-envia apenas a origem sem caminho. Origens locais de porta 8000 são padrão.
-CORS permite credenciais, todos os métodos e headers para as origens permitidas.
+CORS está aberto para diagnóstico: `allow_origins=["*"]`,
+`allow_credentials=False`, métodos e headers `[*]`. A PWA usa `credentials:'omit'`.
 O middleware responde preflight; OPTIONS explícito sem headers também retorna 200.
+`CORS_ORIGINS` e `AUTOPRESET_ALLOWED_ORIGINS` **não são lidas** nesta configuração;
+variáveis Railway não substituem código Python automaticamente. Não é necessário
+alterar essas variáveis para este teste. O navegador envia origem sem caminho.
+O Service Worker já está em `shell-v13`. Após o deploy deste commit, teste em
+guia anônima no telefone e confira `/health`; não é possível executar esse teste
+no telefone do usuário a partir deste ambiente. Uma falha `Failed to fetch` não
+prova CORS: indisponibilidade, DNS/TLS e erros do proxy também podem causá-la.
 Nenhuma chave de IA é usada.
 
 ## Limites e interpretação

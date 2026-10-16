@@ -19,15 +19,10 @@ from services.errors import ServiceError
 from services.youtube import canonical_url, validate_interval, extract_clip
 
 app = FastAPI(title='AutoPreset HPSS API', version='1.0.0')
-# Browser Origin contains only scheme + host, never the Pages project path.
-# Always retain production origins even when Railway overrides CORS_ORIGINS.
-CORS_ORIGINS = list(dict.fromkeys([
-    'https://fsantana0701.github.io',
-    'https://fsantana0701.github.io/autopreset-studio',
-    *[s.strip() for s in os.getenv('CORS_ORIGINS','http://localhost:8000,http://127.0.0.1:8000').split(',') if s.strip()],
-]))
+# Open CORS for connection diagnostics; requests carry no browser credentials.
+CORS_ORIGINS = ['*']
 app.add_middleware(CORSMiddleware,
-    allow_origins=CORS_ORIGINS, allow_credentials=True,
+    allow_origins=CORS_ORIGINS, allow_credentials=False,
     allow_methods=['*'], allow_headers=['*'])
 processing = threading.Lock()
 

@@ -59,16 +59,15 @@ process.stdout.write(Buffer.from(h.compile()).toString('base64'));"""
         encoder.data[330] ^= 1
         with self.assertRaises(ValueError): encoder.compile()
 
-    def test_production_origins_survive_environment_override(self):
+    def test_diagnostic_cors_ignores_origin_environment_variables(self):
         import os
         import sys
         script = "import main,json; print(json.dumps(main.CORS_ORIGINS))"
         result = subprocess.check_output([sys.executable,'-c',script],cwd=ROOT,text=True,
-            env={**os.environ,'CORS_ORIGINS':'https://custom.example'})
+            env={**os.environ,'CORS_ORIGINS':'https://custom.example',
+                 'AUTOPRESET_ALLOWED_ORIGINS':'https://other.example'})
         allowed = json.loads(result)
-        self.assertIn('https://fsantana0701.github.io',allowed)
-        self.assertIn('https://fsantana0701.github.io/autopreset-studio',allowed)
-        self.assertIn('https://custom.example',allowed)
+        self.assertEqual(allowed,['*'])
 
     def test_url_and_interval(self):
         self.assertEqual(canonical_url('https://youtu.be/z3JhXn_onsw?si=test&is=track'),'https://www.youtube.com/watch?v=z3JhXn_onsw')
@@ -210,7 +209,7 @@ class HTTPTests(unittest.TestCase):
         self.assertEqual(json.load(self.request('/health'))['engine'],'HPSS')
         response = self.request('/api/v1/analyze-link',method='OPTIONS',headers={'Origin':'https://fsantana0701.github.io','Access-Control-Request-Method':'POST','Access-Control-Request-Headers':'content-type,accept'})
         self.assertEqual(response.status,200)
-        self.assertEqual(response.headers['Access-Control-Allow-Origin'],'https://fsantana0701.github.io')
+        self.assertEqual(response.headers['Access-Control-Allow-Origin'],'*')
         self.assertIn('POST',response.headers['Access-Control-Allow-Methods'])
         allowed={h.strip().lower() for h in response.headers['Access-Control-Allow-Headers'].split(',')}
         self.assertTrue({'content-type','accept'} <= allowed)
@@ -218,22 +217,23 @@ class HTTPTests(unittest.TestCase):
 
     def test_preflight_origins_headers_and_plain_options(self):
         for origin in ('https://fsantana0701.github.io',
-                       'https://fsantana0701.github.io/autopreset-studio'):
+                       'https://fsantana0701.github.io/autopreset-studio',
+                       'https://diagnostic.example'):
             response = self.request('/api/v1/analyze-link',method='OPTIONS',headers={
                 'Origin':origin,'Access-Control-Request-Method':'POST',
                 'Access-Control-Request-Headers':'content-type,accept,x-request-id'})
             self.assertEqual(response.status,200)
-            self.assertEqual(response.headers['Access-Control-Allow-Origin'],origin)
-            self.assertEqual(response.headers['Access-Control-Allow-Credentials'],'true')
+            self.assertEqual(response.headers['Access-Control-Allow-Origin'],'*')
+            self.assertIsNone(response.headers.get('Access-Control-Allow-Credentials'))
             self.assertIn('x-request-id',response.headers['Access-Control-Allow-Headers'].lower())
             self.assertEqual(response.geturl(),self.base+'/api/v1/analyze-link')
             plain = self.request('/api/v1/analyze-link',method='OPTIONS',headers={'Origin':origin})
             self.assertEqual(plain.status,200)
-            self.assertEqual(plain.headers['Access-Control-Allow-Origin'],origin)
-        denied = self.request('/api/v1/analyze-link',method='OPTIONS',headers={
-            'Origin':'https://untrusted.example','Access-Control-Request-Method':'POST'})
-        self.assertEqual(denied.status,400)
-        self.assertIsNone(denied.headers.get('Access-Control-Allow-Origin'))
+            self.assertEqual(plain.headers['Access-Control-Allow-Origin'],'*')
+        invalid = self.request('/api/v1/analyze-link',body={},headers={'Origin':'https://diagnostic.example'})
+        self.assertEqual(invalid.status,422)
+        self.assertEqual(invalid.headers['Access-Control-Allow-Origin'],'*')
+        self.assertIsNone(invalid.headers.get('Access-Control-Allow-Credentials'))
 
     def test_invalid_interval_before_network(self):
         with patch('main.extract_clip') as extract:
