@@ -132,3 +132,21 @@ do YouTube ou separação de guitarra em música. Os testes antigos de API usam
 mocks de separação. A conectividade de produção Railway é bloqueada pela política
 de saída deste ambiente; push Git não confirma deploy saudável. Verifique
 os logs de deploy e `/health` no Railway após a atualização.
+
+
+### Links no modo leve da PWA
+
+O modo padrão de YouTube usa `POST /api/v1/extract-youtube`: o servidor resolve
+os metadados em subprocesso e extrai somente o intervalo de até 45 s com FFmpeg.
+A resposta WAV PCM de 16 kHz tem no máximo 2.888.192 bytes. A PWA limita o corpo
+recebido antes de decodificar, mede a mixagem com o DSP local e gera os 448 bytes
+no aparelho. Esse caminho não chama HPSS, MFCC, NumPy nem o encoder Python;
+não carrega a faixa inteira no celular. O pico de RAM da extração ainda inclui
+FastAPI, o subprocesso yt-dlp ou FFmpeg e depende do vídeo e do ambiente.
+
+Desmarcar “Modo leve” mantém o endpoint anterior `/api/v1/analyze-link` e sua
+análise harmônica no servidor. Não há fallback automático para esse caminho
+mais pesado. Erros 403/429 ou bloqueios anti-bot do YouTube continuam possíveis
+em ambos os modos; nesse caso, use o botão para carregar um arquivo já baixado
+no Cortador Local. O modo leve usa uma rota já existente no backend; se a versão
+implantada não a tiver, ela precisa ser atualizada antes de funcionar em produção.

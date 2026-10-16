@@ -226,14 +226,15 @@ body { background:radial-gradient(ellipse at 8% 0%, #42301c 0, transparent 34%),
     <p id="cropperStatus" class="status" role="status" aria-live="polite"></p>
   </section>
   <section class="card" aria-labelledby="youtubeTitle">
-    <h2 id="youtubeTitle">Análise IA · YouTube</h2>
-    <p class="hint">Envie um link e um trecho de até 45 segundos para a API externa. A análise local continua disponível abaixo.</p>
-    <details class="field" style="margin:12px 0"><summary>Servidor de IA · Railway</summary><label for="apiBaseUrl">URL da API de produção</label><input id="apiBaseUrl" type="url" readonly><p id="apiConfigStatus" class="hint" role="status">Processamento no Railway. Nenhum modelo é carregado no celular.</p></details>
+    <h2 id="youtubeTitle">YouTube · análise de trecho</h2>
+    <p class="hint">Cole um link e escolha até 45 segundos. No modo leve, você recebe somente esse trecho e gera o preset no aparelho. Se o YouTube bloquear a extração, carregue o arquivo no Cortador Local.</p>
+    <details class="field" style="margin:12px 0"><summary>Servidor de extração · Railway</summary><label for="apiBaseUrl">URL da API de produção</label><input id="apiBaseUrl" type="url" readonly><p id="apiConfigStatus" class="hint" role="status">O Railway obtém o trecho. No modo leve, a análise acontece no aparelho, sem baixar modelos.</p></details>
     <fieldset id="youtubeInputs" style="border:0;padding:0;min-width:0">
       <label for="youtubeUrl">URL do vídeo do YouTube</label><input id="youtubeUrl" type="url" placeholder="https://youtu.be/…">
       <div class="grid"><div class="field"><label for="youtubeStart">Início (mm:ss)</label><input id="youtubeStart" type="text" placeholder="01:30" value="00:00" maxlength="12" pattern="[0-9]+:[0-5][0-9]" autocomplete="off" spellcheck="false" aria-describedby="youtubeIntervalHelp"></div><div class="field"><label for="youtubeEnd">Fim (mm:ss)</label><input id="youtubeEnd" type="text" placeholder="02:00" value="00:45" maxlength="12" pattern="[0-9]+:[0-5][0-9]" autocomplete="off" spellcheck="false" aria-describedby="youtubeIntervalHelp"></div></div>
       <p id="youtubeIntervalHelp" class="hint">Use m:ss ou mm:ss. Ex.: 01:30 até 02:00 = 30 segundos. O fim deve ser posterior ao início e o trecho pode ter no máximo <b>45 segundos</b>.</p>
-      <button id="youtubeAnalyze" type="button">Analisar via IA (YouTube)</button>
+      <label><input id="youtubeLowMemory" type="checkbox" checked> Modo leve: receber só o trecho e analisar no celular</label><p class="hint">Até 45 segundos (menos de 3 MB de áudio). O servidor apenas extrai o trecho; o aparelho mede a mixagem e gera o preset. Desmarque para usar a análise harmônica no servidor.</p>
+      <button id="youtubeAnalyze" type="button">Analisar link do YouTube</button>
     </fieldset>
     <div id="youtubeProgressWrap" class="api-progress" hidden><span class="api-spinner" aria-hidden="true"></span><progress id="youtubeProgress" aria-label="Aguardando análise no Railway"></progress><span><span id="youtubeProgressLabel" aria-live="polite"></span><small class="hint" style="display:block">Etapas previstas; o servidor não informa a fase em tempo real.</small></span></div>
     <p id="youtubeStatus" class="status" role="status" aria-live="polite"></p>
@@ -1344,14 +1345,28 @@ function youtubePayload(url,start,end){
  if(endSeconds-startSeconds>45)throw new Error('O trecho escolhido ultrapassa 45 segundos. Aproxime o fim do início.');
  return {url:cleanUrl,start_seconds:startSeconds,end_seconds:endSeconds,firmware:'v75'};
 }
-async function requestYoutubePreset(payload,signal){
- const response=await fetch(new URL('/api/v1/analyze-link',API_BASE_URL).href,{method:'POST',mode:'cors',credentials:'omit',headers:{'Content-Type':'application/json','Accept':'application/json'},body:JSON.stringify(payload),signal});
+async function requestYoutubePreset(payload,signal,local=false,base=null,onProgress=null){
+ const endpoint=local?'/api/v1/extract-youtube':'/api/v1/analyze-link';
+ const response=await fetch(new URL(endpoint,API_BASE_URL).href,{method:'POST',mode:'cors',credentials:'omit',headers:{'Content-Type':'application/json','Accept':local?'audio/wav':'application/json'},body:JSON.stringify(payload),signal});
  if(!response.ok){
   let failure;try{failure=await response.json();}catch{}
   if(response.status===422&&(failure==='DOWNLOAD_BLOCKED'||failure?.detail==='DOWNLOAD_BLOCKED'||failure?.code==='DOWNLOAD_BLOCKED'||failure?.message==='DOWNLOAD_BLOCKED')){
    throw Object.assign(new Error('O YouTube bloqueou o download automático na nuvem. Use o Cortador Local abaixo para enviar o arquivo diretamente.'),{code:'DOWNLOAD_BLOCKED'});
   }
   throw new Error(response.status===400||response.status===422?'O serviço não aceitou o link ou intervalo. Confira os dados.':response.status===503?'Servidor de IA indisponível no momento.':'O serviço não conseguiu concluir a análise (HTTP '+response.status+').');
+ }
+ if(local){
+  // Bound the network body before allocating PCM, including responses without Content-Length.
+  const limit=16000*45*2*2+8192;
+  if(!/^audio\/(?:wav|x-wav)(?:;|$)/i.test(response.headers.get('Content-Type')||'')||Number(response.headers.get('Content-Length'))>limit){await response.body?.cancel();throw new Error('O serviço não retornou um trecho WAV de até 45 segundos.');}
+  const reader=response.body.getReader(),chunks=[];let size=0;
+  try{while(true){const {done,value}=await reader.read();if(done)break;size+=value.byteLength;if(size>limit)throw new Error('O trecho recebido excedeu o limite de memória.');chunks.push(value);}}
+  catch(error){await reader.cancel().catch(()=>{});throw error;}finally{reader.releaseLock();}
+  const blob=new Blob(chunks,{type:'audio/wav'});chunks.length=0;
+  onProgress?.('Trecho recebido. Analisando no aparelho…');
+  const result=await window.AutoPresetAudioHeuristics.analyzeRecording({blob,signal,onProgress});
+  const bytes=window.AutoPresetDSPLocal.encode(result.features,base);validateBaseBytes(bytes);
+  return {bytes,title:'YouTube · análise no aparelho',amp:AMP_CATALOG[bytes[58]],ds:DS_CATALOG[bytes[57]],features:result.features};
  }
  let data;try{data=await response.json();}catch{throw new Error('O Railway retornou uma resposta JSON inválida.');}
  if(!data||typeof data!=='object'||Array.isArray(data))throw new Error('O Railway retornou uma resposta inválida.');
@@ -1370,14 +1385,15 @@ $('youtubeAnalyze').addEventListener('click',async()=>{
   requireSupportedHardware();
   getAutoPresetApi();
   const payload=youtubePayload($('youtubeUrl').value,$('youtubeStart').value,$('youtubeEnd').value);
+  const local=$('youtubeLowMemory').checked,base=local?compilePreset():null;let localPhase='';
   $('youtubeInputs').disabled=true;$('youtubeProgressWrap').hidden=false;$('youtubeProgress').removeAttribute('value');
   const controller=new AbortController();startedAt=Date.now();timeout=setTimeout(()=>controller.abort(),300000);
-  const updateProgress=()=>{const elapsed=Math.floor((Date.now()-startedAt)/1000);const message=elapsed<10?'A processar áudio no Railway…':elapsed<60?'A analisar componentes harmônicos…':'A aguardar o preset V75 do Railway…';$('youtubeProgressLabel').textContent=message+' ('+elapsed+' s)';};
+  const updateProgress=()=>{const elapsed=Math.floor((Date.now()-startedAt)/1000);const message=local?(localPhase||'Obtendo somente o trecho de áudio…'):elapsed<10?'A processar áudio no Railway…':elapsed<60?'A analisar componentes harmônicos…':'A aguardar o preset V75 do Railway…';$('youtubeProgressLabel').textContent=message+' ('+elapsed+' s)';};
   updateProgress();progressTimer=setInterval(updateProgress,1000);
-  requestStarted=true;youtubeResult=await requestYoutubePreset(payload,controller.signal);
+  requestStarted=true;youtubeResult=await requestYoutubePreset(payload,controller.signal,local,base,message=>{localPhase=message;updateProgress();});
   $('youtubeDiagnosis').textContent=youtubeResult.title+' · AMP: '+youtubeResult.amp+' · DS: '+youtubeResult.ds;
   $('youtubeDownload').disabled=false;$('youtubeApply').disabled=false;
-  setStatus($('youtubeStatus'),'Preset MK-300 V75 recebido e validado: 448 bytes. Carregue os parâmetros para revisar ou baixe o .dzh.','good');
+  setStatus($('youtubeStatus'),(local?'Preset gerado no aparelho a partir da mixagem: 448 bytes. ':'Preset MK-300 V75 recebido e validado: 448 bytes. ')+'Sugestão de baixa confiança: revise os parâmetros ou baixe o .dzh.','good');
  }catch(err){console.error('[API Fetch Error]:',err);console.dir(err);const originalMessage=err.message||String(err);const detail=err.name==='AbortError'?'O Railway não concluiu a análise em 5 minutos. Tente um trecho menor. '+originalMessage:err instanceof TypeError?'Não foi possível conectar à API. Confira a conexão, a URL do serviço e o CORS. Erro original: '+originalMessage:originalMessage;setStatus($('youtubeStatus'),detail+(err.code==='DOWNLOAD_BLOCKED'?'':requestStarted?' Servidor de IA indisponível no momento. Você pode continuar usando o cortador local abaixo.':' Nenhuma solicitação foi enviada. O cortador local continua disponível abaixo.'),'warn');}
  finally{clearTimeout(timeout);clearInterval(progressTimer);$('youtubeInputs').disabled=false;$('youtubeProgressWrap').hidden=true;}
 });

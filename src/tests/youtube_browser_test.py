@@ -5,12 +5,59 @@ import pwa_browser_test as pwa
 
 class YouTubeTests(pwa.PWABrowserTests):
     def configure_api(self):
+        self.page.locator("#youtubeLowMemory").uncheck()
         # A previously configured Render endpoint must not override production.
         self.page.evaluate("localStorage.setItem('AUTO_PRESET_API_URL','https://old-service.onrender.com')")
         expected='https://autopreset-studio-production.up.railway.app'
         self.assertEqual(self.page.evaluate('getAutoPresetApi()'),expected)
         self.assertEqual(self.page.locator('#apiBaseUrl').input_value(),expected)
         self.assertTrue(self.page.locator('#apiBaseUrl').evaluate('(input)=>input.readOnly'))
+
+    def test_default_low_memory_link(self):
+        import io, wave, math, struct
+        self.page.locator('#enterStudio').click()
+        self.assertTrue(self.page.locator('#youtubeLowMemory').is_checked())
+        self.page.locator('#youtubeUrl').fill('https://youtu.be/z3JhXn_onsw')
+        self.page.locator('#youtubeEnd').fill('00:01')
+        data=io.BytesIO()
+        with wave.open(data,'wb') as wav:
+            wav.setnchannels(1);wav.setsampwidth(2);wav.setframerate(16000)
+            wav.writeframes(b''.join(struct.pack('<h',round(12000*math.sin(2*math.pi*440*i/16000))) for i in range(16000)))
+        calls=[]
+        def extract(route):
+            self.assertEqual(route.request.headers['accept'],'audio/wav')
+            calls.append(route.request.post_data_json)
+            route.fulfill(status=200,content_type='audio/wav',body=data.getvalue())
+        self.page.route('**/api/v1/extract-youtube',extract)
+        self.page.route('**/api/v1/analyze-link',lambda route:self.fail('DSP remoto não deve ser solicitado'))
+        self.page.locator('#youtubeAnalyze').click()
+        self.page.wait_for_function('youtubeResult !== null')
+        self.assertEqual(len(calls),1)
+        self.assertEqual(calls[0]['end_seconds'],1)
+        self.assertAlmostEqual(self.page.evaluate('youtubeResult.features.spectral_centroid_hz'),440,delta=8)
+        self.assertIn('gerado no aparelho',self.page.locator('#youtubeStatus').inner_text())
+        with self.page.expect_download() as download:self.page.locator('#youtubeDownload').click()
+        self.assertEqual(download.value.path().stat().st_size,448)
+        self.page.locator('#youtubeApply').click()
+        self.assertEqual(self.page.evaluate('compilePreset().length'),448)
+
+    def test_low_memory_errors_and_size_limit(self):
+        self.page.locator('#enterStudio').click()
+        self.page.locator('#youtubeUrl').fill('https://youtu.be/z3JhXn_onsw')
+        for status, content_type, body, expected in [
+            (422,'application/json',json.dumps({'code':'DOWNLOAD_BLOCKED'}),'bloqueou'),
+            (404,'application/json','{}','HTTP 404'),
+            (200,'text/html','not audio','trecho WAV'),
+            (200,'audio/wav',b'x'*(16000*45*4+8193),'limite de memória')]:
+            self.page.route('**/api/v1/extract-youtube',lambda route, request, status=status, content_type=content_type, body=body:route.fulfill(status=status,content_type=content_type,body=body))
+            self.page.locator('#youtubeAnalyze').click()
+            self.page.wait_for_function("!document.getElementById('youtubeInputs').disabled")
+            # Oversize Content-Length can be rejected before reading the stream.
+            text=self.page.locator('#youtubeStatus').inner_text()
+            self.assertTrue(expected in text or 'trecho WAV' in text,text)
+            self.assertTrue(self.page.locator('#youtubeDownload').is_disabled())
+            self.assertTrue(self.page.locator('#youtubeLocalFallback').is_visible())
+            self.page.unroute('**/api/v1/extract-youtube')
 
     def test_request_download_and_editor(self):
         self.page.locator('#enterStudio').click()
@@ -151,6 +198,7 @@ class YouTubeTests(pwa.PWABrowserTests):
 
     def test_minute_inputs_are_converted_before_post(self):
         self.page.locator('#enterStudio').click()
+        self.page.locator("#youtubeLowMemory").uncheck()
         self.page.locator('#youtubeUrl').fill('https://youtu.be/z3JhXn_onsw')
         self.assertIn('45 segundos',self.page.locator('#youtubeIntervalHelp').inner_text())
         encoded=self.page.evaluate('btoa(String.fromCharCode(...compilePreset()))')
@@ -171,6 +219,7 @@ class YouTubeTests(pwa.PWABrowserTests):
 
     def test_shared_links_headers_and_integer_times(self):
         self.page.locator('#enterStudio').click()
+        self.page.locator("#youtubeLowMemory").uncheck()
         self.page.evaluate("window.API_BASE_URL='https://old-service.onrender.com////';window.AUTO_PRESET_API='http://localhost:8000/'")
         expected='https://autopreset-studio-production.up.railway.app'
         self.assertEqual(self.page.evaluate('getAutoPresetApi()'),expected)
@@ -198,6 +247,7 @@ class YouTubeTests(pwa.PWABrowserTests):
 
     def test_network_error_logs_original_fetch_error(self):
         self.page.locator('#enterStudio').click()
+        self.page.locator("#youtubeLowMemory").uncheck()
         errors=[]
         self.page.evaluate("() => {window.fetchErrorDirs=[];const originalDir=console.dir.bind(console);console.dir=(err)=>{window.fetchErrorDirs.push({name:err.name,message:err.message});originalDir(err);};}")
         self.page.on('console',lambda message:errors.append(message.text) if message.type=='error' else None)

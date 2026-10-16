@@ -1,5 +1,5 @@
 'use strict';
-const CACHE_NAME = 'shell-v14'; // DSP e exportação locais incluídos no HTML autônomo.
+const CACHE_NAME = 'shell-v15'; // DSP e exportação locais incluídos no HTML autônomo.
 const APP_SHELL = ['./', './index.html', './index%20(1).html', './manifest.webmanifest', './icons/autopreset-192.png', './icons/autopreset-512.png'];
 const SCOPE = new URL(self.registration.scope);
 const SHELL_URLS = new Set(APP_SHELL.map(path => new URL(path, SCOPE).href));
