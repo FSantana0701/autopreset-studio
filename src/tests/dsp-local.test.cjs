@@ -1,0 +1,18 @@
+'use strict';
+const assert=require('node:assert/strict'), fs=require('node:fs'), vm=require('node:vm'), path=require('node:path');
+const ctx=vm.createContext({Blob,DOMException,setTimeout,TextEncoder,Uint8Array,ArrayBuffer,DataView});ctx.window=ctx;
+for(const file of ['data/v73.js','data/v73-parameters.js','core/mk300-preset-handler.js','integrations/audio-heuristic-analyzer.js','js/dsp_local.js']) vm.runInContext(fs.readFileSync(path.join(__dirname,'..',file),'utf8'),ctx);
+(async()=>{
+ const rate=16000, samples=Float32Array.from({length:rate*2},(_,i)=>i/rate%0.25<0.02?0.4*Math.sin(2*Math.PI*440*i/rate):0);
+ const f=await ctx.AutoPresetAudioHeuristics.extractFeatures({sampleRate:rate,length:samples.length,duration:2,numberOfChannels:1,getChannelData:()=>samples});
+ const base=Uint8Array.from({length:448},(_,i)=>i%256), original=base.slice();
+ f.decay_proxy_seconds=1; f.decay_confidence=0.9;
+ const bytes=ctx.AutoPresetDSPLocal.encode(f,base), plan=ctx.AutoPresetAudioHeuristics.matchPreset(f), view=new DataView(bytes.buffer);
+ assert.equal(bytes.length,448);assert.deepEqual(base,original);assert.deepEqual(bytes.slice(330),base.slice(330));
+ assert.equal(bytes[58],plan.amp);assert.equal(bytes[59],plan.cabSlot-1);
+ assert.equal(bytes[43+8],1);assert.equal(bytes[43+9],1);
+ assert.equal(view.getInt16(66+24*8,true),plan.delay_time_ms);
+ assert.equal(view.getInt16(66+24*9,true),plan.reverb_decay);
+ assert.throws(()=>ctx.AutoPresetDSPLocal.encode(f,new Uint8Array(447)),/448/);
+ console.log('DSP local: mapeamento V75, delay/reverb, offsets, base imutável e bytes reservados verificados.');
+})().catch(e=>{console.error(e);process.exitCode=1;});

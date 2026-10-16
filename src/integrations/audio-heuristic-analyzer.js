@@ -358,7 +358,7 @@
       checkAbort(signal);
       if (buffer.duration > MAX_DECODE_SECONDS) throw new Error('Recorte arquivos maiores que 5 minutos antes de importar.');
       onProgress?.('Medindo RMS, ZCR e fator de crista da mixagem…');
-      const features = await extractFeatures(buffer, { startSeconds, endSeconds, signal, onProgress });
+      const features = await (root.AutoPresetDSPLocal?.extractFeatures || extractFeatures)(buffer, { startSeconds, endSeconds, signal, onProgress });
       checkAbort(signal);
       return { features, blob: clipWav(buffer, startSeconds, endSeconds), method: 'Web Audio nativa · mixagem completa' };
     } finally { try { await decoder.close(); } catch {} }
@@ -375,7 +375,7 @@
       const buffer = await abortable(decoder.decodeAudioData(await blob.arrayBuffer()), signal);
       checkAbort(signal);
       if (buffer.duration > MAX_CLIP_SECONDS + 0.5) throw new Error('A gravação ultrapassou 45 segundos.');
-      return { features: await extractFeatures(buffer, { signal, onProgress }), blob: clipWav(buffer, 0, buffer.duration), method: 'MediaRecorder · trecho gravado em tempo real' };
+      return { features: await (root.AutoPresetDSPLocal?.extractFeatures || extractFeatures)(buffer, { signal, onProgress }), blob: clipWav(buffer, 0, buffer.duration), method: 'MediaRecorder · trecho gravado em tempo real' };
     } finally { try { await decoder.close(); } catch {} }
   }
 

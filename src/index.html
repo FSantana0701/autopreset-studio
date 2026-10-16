@@ -207,6 +207,24 @@ body { background:radial-gradient(ellipse at 8% 0%, #42301c 0, transparent 34%),
   </div>
   <div id="screenStudio" hidden>
   <div class="actions"><button id="leaveStudio" type="button">← Voltar ao Setup</button></div>
+  <section id="audioCropperSection" class="card" style="border:2px solid var(--accent)" aria-labelledby="cropperTitle">
+    <h2 id="cropperTitle">Cortador Local · Análise Instantânea no Aparelho</h2>
+    <p class="hint">Carregue um MP3/WAV, ouça e marque até 45 segundos. Analise instantaneamente arquivos de até 5 minutos, sem enviar áudio ao servidor. Para faixas longas, use a gravação em tempo real. Mantenha esta tela aberta durante a gravação. Somente o trecho gravado será analisado no aparelho.</p>
+    <fieldset id="cropperInputs" style="border:0;padding:0;min-width:0">
+      <label for="cropperFile">Arquivo de áudio salvo no aparelho</label>
+      <input id="cropperFile" type="file" accept="audio/*">
+      <audio id="cropperAudio" controls preload="metadata" style="width:100%;margin-top:12px"></audio>
+      <div class="actions">
+        <button id="cropperStart" type="button" class="secondary">Capturar Início</button>
+        <button id="cropperEnd" type="button" class="secondary">Capturar Fim</button>
+        <button id="cropperInstant" type="button">Analisar agora no aparelho</button>
+        <button id="cropperDownload" type="button" disabled>Baixar preset local .dzh</button>
+        <button id="cropperRecord" type="button">Gravar e Analisar Trecho</button>
+      </div>
+    </fieldset>
+    <p id="cropperRange" class="meta">Início: — · Fim: —</p>
+    <p id="cropperStatus" class="status" role="status" aria-live="polite"></p>
+  </section>
   <section class="card" aria-labelledby="youtubeTitle">
     <h2 id="youtubeTitle">Análise IA · YouTube</h2>
     <p class="hint">Envie um link e um trecho de até 45 segundos para a API externa. A análise local continua disponível abaixo.</p>
@@ -221,23 +239,7 @@ body { background:radial-gradient(ellipse at 8% 0%, #42301c 0, transparent 34%),
     <p id="youtubeStatus" class="status" role="status" aria-live="polite"></p>
     <p id="youtubeDiagnosis" class="meta"></p>
     <div class="actions"><button id="youtubeApply" type="button" disabled>Carregar parâmetros para revisão</button><button id="youtubeDownload" type="button" disabled>Baixar Preset .dzh</button></div>
-    <a href="#audioCropperSection">Usar cortador local</a>
-  </section>
-  <section id="audioCropperSection" class="card" aria-labelledby="cropperTitle">
-    <h2 id="cropperTitle">Cortador de áudio · gravação em tempo real</h2>
-    <p class="hint">Escolha uma faixa longa, ouça e marque até 45 segundos. Mantenha esta tela aberta durante a gravação. Somente o trecho gravado será analisado no aparelho.</p>
-    <fieldset id="cropperInputs" style="border:0;padding:0;min-width:0">
-      <label for="cropperFile">Arquivo de áudio salvo no aparelho</label>
-      <input id="cropperFile" type="file" accept="audio/*">
-      <audio id="cropperAudio" controls preload="metadata" style="width:100%;margin-top:12px"></audio>
-      <div class="actions">
-        <button id="cropperStart" type="button" class="secondary">Capturar Início</button>
-        <button id="cropperEnd" type="button" class="secondary">Capturar Fim</button>
-        <button id="cropperRecord" type="button">Gravar e Analisar Trecho</button>
-      </div>
-    </fieldset>
-    <p id="cropperRange" class="meta">Início: — · Fim: —</p>
-    <p id="cropperStatus" class="status" role="status" aria-live="polite"></p>
+    <button id="youtubeLocalFallback" type="button">Carregar áudio baixado no Cortador Local</button>
   </section>
   <section class="card" style="border-color:var(--accent)"><h2>Análise leve da mixagem</h2>
     <p class="hint stepHelp">1. Salve um MP3/WAV no celular (por exemplo, baixe-o do Drive). 2. Toque em <b>Escolher arquivo</b> e selecione-o em Downloads, Música ou Áudio. 3. Marque um trecho e toque em <b>Analisar trecho da mixagem</b>. SFM, centroide, rolloff, fluxo espectral, RMS, ZCR e fator de crista são medidos no trecho original. A banda inteira influencia as métricas; não há guitarra isolada. O áudio fica no aparelho. Arquivos acima de 5 minutos devem ser recortados antes de importar.</p>
@@ -372,6 +374,7 @@ body { background:radial-gradient(ellipse at 8% 0%, #42301c 0, transparent 34%),
 <script src="core/mk300-preset-handler.js"></script>
 <script src="integrations/tone3000-select.js"></script>
 <script src="integrations/audio-heuristic-analyzer.js"></script>
+<script src="js/dsp_local.js"></script>
 <script src="integrations/learning-store.js"></script>
 <script src="data/john-petrucci-pack.js"></script>
 <script src="config.js"></script>
@@ -1273,6 +1276,7 @@ function lockAudioInputs(busy){$('audioInputs').disabled=busy;$('cropperInputs')
 let lastLocalAnalysis=null,lastLearningMatch=null;
 async function analyzeAudioSnippet(id,button,crop=null){
  if(activeAIRequest)return;let request;
+ localDzh=null;$('cropperDownload').disabled=true;
  try{
   requireSupportedHardware();const file=crop?$('cropperFile').files?.[0]:$('audioFile').files?.[0];if(!file)throw new Error('Nenhum áudio foi selecionado. Baixe um MP3/WAV no celular e escolha-o em Downloads, Música ou Áudio.');
   if(!crop)await window.AutoPresetAudioHeuristics.validateFile(file);
@@ -1280,6 +1284,7 @@ async function analyzeAudioSnippet(id,button,crop=null){
   const start=crop?Number(crop.start):parseTimestamp(snippet.start),end=crop?Number(crop.end):parseTimestamp(snippet.end),duration=$(crop?'cropperAudio':'previewAudio').duration;
   if(!Number.isFinite(duration)||end>duration+0.01||end<=start)throw new Error('Confira o início e o fim do trecho.');
   if(end-start>45)throw new Error('Cada trecho pode ter no máximo 45 segundos.');
+  const analysisBase=compilePreset();
   const controller=new AbortController();request={controller,reason:null};activeAIRequest=request;
   $('previewAudio').pause();$('mainAppWorkspace').disabled=true;$('pedalboard').disabled=true;$('guitarType').disabled=true;lockAudioInputs(true);$('cancelAI').disabled=false;button.disabled=true;
   request.timeout=setTimeout(()=>{request.reason='timeout';controller.abort()},crop?(end-start+45)*1000:30000);
@@ -1287,20 +1292,22 @@ async function analyzeAudioSnippet(id,button,crop=null){
   setStatus($('audioStatus'),'Medindo o trecho da mixagem localmente, sem modelos…');
   const onProgress=message=>setStatus($('audioStatus'),message);
   let result;
-  if(crop){
+  if(crop&&!crop.instant){
     setStatus($('cropperStatus'),'Gravando o trecho em tempo real… Use Cancelar operação para interromper.');
     const blob=await window.AutoPresetAudioHeuristics.recordRange({audio:$('cropperAudio'),startTime:start,endTime:end,signal:controller.signal});
     result=await window.AutoPresetAudioHeuristics.analyzeRecording({blob,signal:controller.signal,onProgress});
     setStatus($('cropperStatus'),'Trecho gravado e analisado. Veja os resultados abaixo.','good');
   }else result=await window.AutoPresetAudioHeuristics.analyze({file,startSeconds:start,endSeconds:end,durationSeconds:duration,signal:controller.signal,onProgress});
   if(controller.signal.aborted)throw new DOMException('Cancelado','AbortError');
+  localDzh=window.AutoPresetDSPLocal.encode(result.features,analysisBase);$('cropperDownload').disabled=false;
+  if(crop)setStatus($('cropperStatus'),'Análise local concluída. Preset de 448 bytes pronto para baixar e revisar.','good');
   if(guitarStemUrl)URL.revokeObjectURL(guitarStemUrl);guitarStemUrl=URL.createObjectURL(result.blob);
   $('guitarStemPreview').src=guitarStemUrl;$('downloadGuitarStem').href=guitarStemUrl;$('separationOutput').hidden=false;
   const typedReference=$('ytUrl').value.trim();
   if(!typedReference)$('ytUrl').value='Trecho '+snippet.label+' · '+start.toFixed(1)+'–'+end.toFixed(1)+' s';
   const reference=typedReference||$('ytUrl').value;
   lastLocalAnalysis={features:result.features,reference,snippet:{...snippet},initialDraft};$('applyAudioSuggestion').disabled=false;$('audioSuggestionStatus').textContent='Análise local concluída. Ouça o trecho da mixagem original; depois monte um preset inicial para revisar.';$('audioSuggestionStatus').className='status good';
-  $('audioMetrics').textContent='SFM '+result.features.spectral_flatness.toFixed(4)+' · Centroide '+result.features.spectral_centroid_hz.toFixed(0)+' Hz · Rolloff 85% '+result.features.spectral_rolloff_85_hz.toFixed(0)+' Hz · Fluxo '+result.features.spectral_flux.toFixed(3)+' · Repetição '+(result.features.delay_time_ms===null?'inconclusiva':result.features.delay_time_ms+' ms')+' · RMS '+result.features.rms_db.toFixed(2)+' dBFS · ZCR '+result.features.zero_crossing_rate.toFixed(5)+' · Fator de crista '+result.features.crest_factor_db.toFixed(2)+' dB · Mixagem completa';
+  $('audioMetrics').textContent='SFM '+result.features.spectral_flatness.toFixed(4)+' · Centroide '+result.features.spectral_centroid_hz.toFixed(0)+' Hz · Rolloff 85% '+result.features.spectral_rolloff_85_hz.toFixed(0)+' Hz · Fluxo '+result.features.spectral_flux.toFixed(3)+' · Repetição '+(result.features.delay_time_ms===null?'inconclusiva':result.features.delay_time_ms+' ms')+' · RMS '+result.features.rms_db.toFixed(2)+' dBFS · ZCR '+result.features.zero_crossing_rate.toFixed(5)+' · Fator de crista '+result.features.crest_factor_db.toFixed(2)+' dB · Picos '+(result.features.frequency_peaks||[]).map(p=>p.frequency_hz.toFixed(0)+' Hz').join(', ')+' · Mixagem completa';
   $('learningPanel').hidden=false;$('learningTested').checked=false;$('learningNote').value='';$('applyLearningExample').disabled=true;lastLearningMatch=null;
   const match=await window.AutoPresetLearning.bestMatch(result.features);
   if(match){lastLearningMatch=match;$('applyLearningExample').disabled=false;$('learningSummary').textContent='Existe um exemplo corrigido parecido (“'+match.record.reference+'”, nota '+match.record.rating+'/5). Você decide se quer usá-lo como base.';}
@@ -1385,11 +1392,13 @@ $('youtubeApply').addEventListener('click',()=>{
   setStatus($('youtubeStatus'),'Parâmetros carregados em nova aba. Revise os controles e exporte pelo editor para incluir seus ajustes.','good');
  }catch(error){setStatus($('youtubeStatus'),error.message,'warn');}
 });
+let localDzh=null;
 let cropperUrl=null,cropStart=null,cropEnd=null;
 function updateCropperRange(){
  $('cropperRange').textContent='Início: '+(cropStart===null?'—':cropStart.toFixed(2)+' s')+' · Fim: '+(cropEnd===null?'—':cropEnd.toFixed(2)+' s');
 }
 $('cropperFile').addEventListener('change',()=>{
+ localDzh=null;$('cropperDownload').disabled=true;
  const audio=$('cropperAudio');audio.pause();audio.removeAttribute('src');audio.load();
  if(cropperUrl)URL.revokeObjectURL(cropperUrl);cropperUrl=null;cropStart=cropEnd=null;updateCropperRange();
  const file=$('cropperFile').files?.[0];
@@ -1402,6 +1411,12 @@ for(const [id,isStart]of [['cropperStart',true],['cropperEnd',false]])$(id).addE
  if(isStart)cropStart=audio.currentTime;else cropEnd=audio.currentTime;updateCropperRange();
 });
 $('cropperAudio').addEventListener('error',()=>setStatus($('cropperStatus'),'O navegador não conseguiu abrir este áudio.','bad'));
+$('youtubeLocalFallback').addEventListener('click',()=>{$('audioCropperSection').scrollIntoView({behavior:'smooth'});$('cropperFile').click();});
+$('cropperDownload').addEventListener('click',()=>{if(localDzh)downloadBytes(localDzh,'AutoPreset_Local.dzh','application/octet-stream','cropperStatus','Preset local pronto: 448 bytes. Revise e teste na MK-300.');});
+$('cropperInstant').addEventListener('click',()=>{
+ const duration=$('cropperAudio').duration;
+ analyzeAudioSnippet(null,$('cropperInstant'),{label:'Upload local',start:String(cropStart??0),end:String(cropEnd??Math.min(45,duration)),instant:true});
+});
 $('cropperRecord').addEventListener('click',()=>{
  if(cropStart===null||cropEnd===null){setStatus($('cropperStatus'),'Capture Início e Fim antes de gravar.','bad');return;}
  analyzeAudioSnippet(null,$('cropperRecord'),{label:'Gravação',start:String(cropStart),end:String(cropEnd)});
