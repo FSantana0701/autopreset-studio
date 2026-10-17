@@ -95,12 +95,11 @@ process.stdout.write(Buffer.from(h.compile()).toString('base64'));"""
                 self.assertEqual(audio.getnchannels(),1)
 
     def test_all_heuristic_model_templates_encode(self):
-        from services.preset_mapper import PROFILES, suggest
-        for model, profile in PROFILES:
-            features = {'spectral_centroid_hz':profile[0]*8000,
-                        'spectral_rolloff_85_hz':profile[1]*8000,
-                        'spectral_flatness':profile[2], 'zero_crossing_rate':profile[3],
-                        'crest_factor':profile[4]*20}
+        from services.preset_mapper import suggest
+        for crest_db, model in ((7.9,64),(8.0,33),(15.0,33),(15.1,0)):
+            features = {'spectral_centroid_hz':2400, 'spectral_rolloff_85_hz':4200,
+                        'spectral_flatness':0.08, 'zero_crossing_rate':0.12,
+                        'crest_factor_db':crest_db, 'eq_device_values':[0,-2,2,4,-1,0]}
             preset = suggest(features)
             amp = next(block for block in preset['blocks'] if block['id']==4)
             self.assertEqual(amp['model_index'],model)
@@ -108,6 +107,9 @@ process.stdout.write(Buffer.from(h.compile()).toString('base64'));"""
 
     def test_hpss_and_mfcc_match_librosa_reference(self):
         # Reference runs in a separate process so the API never imports librosa.
+        import importlib.util
+        if importlib.util.find_spec('librosa') is None:
+            self.skipTest('librosa is an optional reference dependency; runtime uses NumPy/SciPy.')
         import numpy as np
         from services.spectral import hpss, mfcc, stft
         y = np.random.default_rng(42).normal(0,.03,40000).astype('float32')

@@ -3,7 +3,7 @@
 O Dockerfile da **raiz** inicia `main:app`, porta `${PORT:-7860}`, um worker.
 Configure no Railway: diretório raiz `/`, builder Dockerfile, healthcheck `/health`.
 Remova eventuais comandos/paths antigos que iniciem `audio-service/` ou Demucs.
-A PWA usa `shell-v13`, informa análise harmônica e mostra fallback local para
+A PWA usa `shell-v16`, informa análise harmônica e mostra fallback local para
 `DOWNLOAD_BLOCKED`. A API retorna `separation.method=HPSS` e `guitar_isolated=false`.
 
 ## Desenvolvimento
@@ -36,11 +36,19 @@ O middleware responde preflight; OPTIONS explícito sem headers também retorna 
 `CORS_ORIGINS` e `AUTOPRESET_ALLOWED_ORIGINS` **não são lidas** nesta configuração;
 variáveis Railway não substituem código Python automaticamente. Não é necessário
 alterar essas variáveis para este teste. O navegador envia origem sem caminho.
-O Service Worker já está em `shell-v13`. Após o deploy deste commit, teste em
+O Service Worker já está em `shell-v16`. Após o deploy deste commit, teste em
 guia anônima no telefone e confira `/health`; não é possível executar esse teste
 no telefone do usuário a partir deste ambiente. Uma falha `Failed to fetch` não
 prova CORS: indisponibilidade, DNS/TLS e erros do proxy também podem causá-la.
 Nenhuma chave de IA é usada.
+
+`GET /api/v1/catalog` expõe os nomes e índices embarcados no editor. `GET
+/api/v1/offline-catalog` gera cinco presets de referência (Rock, Metal, MPB,
+Blues e Clean), todos pelo mesmo encoder de 448 bytes. `POST
+/api/v1/analyze-file` recebe multipart `.mp3`, `.wav` ou `.m4a` até 15 MiB e
+recorta um trecho de no máximo 45 s usando FFmpeg. `start_seconds` e
+`end_seconds` aceitam segundos ou `mm:ss`. Os arquivos temporários são removidos
+ao fim do processamento.
 
 ## Limites e interpretação
 

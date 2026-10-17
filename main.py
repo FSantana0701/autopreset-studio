@@ -1,5 +1,6 @@
 """Railway API: bounded YouTube clip → HPSS → DSP → heuristic MK-300 preset."""
 import base64
+import math
 import os
 from pathlib import Path
 import shutil
@@ -9,7 +10,7 @@ import threading
 for key in ('OPENBLAS_NUM_THREADS','OMP_NUM_THREADS','MKL_NUM_THREADS','NUMBA_NUM_THREADS'):
     os.environ[key] = '1'
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, FileResponse, Response
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -30,15 +31,33 @@ processing = threading.Lock()
 class LinkRequest(BaseModel):
     model_config = ConfigDict(extra='forbid', allow_inf_nan=False)
     url: str = Field(max_length=2048)
-    start_seconds: float = Field(ge=0)
-    end_seconds: float = Field(gt=0)
+    start_seconds: float | str = 0
+    end_seconds: float | str = 45
     firmware: Literal['v75'] = 'v75'
 
     @model_validator(mode='after')
     def validate_clip(self):
         self.url = canonical_url(self.url)
+        self.start_seconds = parse_seconds(self.start_seconds)
+        self.end_seconds = parse_seconds(self.end_seconds)
         validate_interval(self.start_seconds, self.end_seconds)
         return self
+
+
+def parse_seconds(value: float | str) -> float:
+    try:
+        if isinstance(value, str) and ':' in value:
+            parts = value.strip().split(':')
+            if len(parts) != 2 or not parts[0].isdigit() or not parts[1].isdigit() or int(parts[1]) >= 60:
+                raise ValueError
+            seconds = int(parts[0]) * 60 + int(parts[1])
+        else:
+            seconds = float(value)
+        if not math.isfinite(seconds):
+            raise ValueError
+        return float(seconds)
+    except (TypeError, ValueError) as exc:
+        raise ValueError('Use segundos ou mm:ss para início/fim.') from exc
 
 
 @app.exception_handler(ServiceError)
@@ -78,6 +97,25 @@ def build_analysis(clip: Path, work: Path):
             'filename':'HPSS-SUGGESTION.dzh','features':features,'preset':preset,'separation':separation}
 
 
+@app.get('/api/v1/catalog')
+def catalog():
+    from services.catalog import public_catalog
+    return public_catalog()
+
+
+@app.get('/api/v1/offline-catalog')
+def offline_catalog():
+    from services.preset_mapper import offline_presets
+    from services.dzh_encoder import encode
+    result = []
+    for preset in offline_presets():
+        raw = encode(preset)
+        result.append({'style':preset['source_style'], 'preset':preset,
+                       'dzh':{'filename':f"AutoPreset_{preset['source_style']}.dzh",
+                              'size_bytes':len(raw), 'base64':base64.b64encode(raw).decode('ascii')}})
+    return {'firmware':'v75', 'presets':result}
+
+
 @app.post('/api/v1/analyze-link')
 def analyze_link(body: LinkRequest):
     acquire()
@@ -86,6 +124,31 @@ def analyze_link(body: LinkRequest):
             work = Path(directory)
             source = extract_clip(body.url,body.start_seconds,body.end_seconds,work)
             result = build_analysis(work/'clip.wav',work)
+            result['source'] = source
+            return result
+    finally:
+        processing.release()
+
+
+@app.post('/api/v1/analyze-file')
+async def analyze_file(file: UploadFile = File(...), start_seconds: str = Form('0'), end_seconds: str = Form('45')):
+    from services.audio_files import ALLOWED_EXTENSIONS, MAX_UPLOAD_BYTES, decode_upload
+    suffix = Path(file.filename or '').suffix.lower()
+    if suffix not in ALLOWED_EXTENSIONS:
+        raise ServiceError('Envie um arquivo MP3, WAV ou M4A.', status=400)
+    payload = await file.read(MAX_UPLOAD_BYTES + 1)
+    await file.close()
+    if len(payload) > MAX_UPLOAD_BYTES:
+        raise ServiceError('O arquivo excede o limite de 15 MiB.', status=413)
+    start, end = parse_seconds(start_seconds), parse_seconds(end_seconds)
+    acquire()
+    try:
+        with tempfile.TemporaryDirectory(prefix='autopreset-upload-') as directory:
+            work = Path(directory)
+            source_path, clip_path = work / ('source' + suffix), work / 'clip.wav'
+            source_path.write_bytes(payload)
+            source = decode_upload(source_path, clip_path, start, end)
+            result = build_analysis(clip_path, work)
             result['source'] = source
             return result
     finally:

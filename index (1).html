@@ -112,6 +112,11 @@ button.secondary, .pedalNav button { border: 1px solid var(--line); background: 
 .presetTabs { display: flex; gap: 8px; overflow: auto; margin: 16px 0; }
 .presetTab { border: 1px solid var(--line); background: var(--panel-raised); color: var(--muted); white-space: nowrap; }
 .presetTab.selected { border-color: var(--accent); color: var(--accent); }
+.sourceTabs { display:flex; gap:8px; overflow-x:auto; margin:16px 0; }
+.sourceTab { flex:1 0 auto; min-height:46px; }
+.sourceTab[aria-selected="true"] { border-color:var(--accent); color:var(--accent); box-shadow:inset 0 -2px var(--accent); }
+.sourcePanel[hidden] { display:none !important; }
+.sourcePanel.dropReady { outline:2px dashed var(--accent); outline-offset:4px; }
 .referencePresetGrid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; margin-top:14px; }
 .referencePreset { min-width:0; padding:14px; border:1px solid var(--line); border-radius:12px; background:var(--input); }
 .referencePreset h3 { margin:0 0 5px; color:var(--accent); font:700 14px ui-monospace,SFMono-Regular,Consolas,monospace; }
@@ -225,7 +230,12 @@ body { background:radial-gradient(ellipse at 8% 0%, #42301c 0, transparent 34%),
     <p id="cropperRange" class="meta">Início: — · Fim: —</p>
     <p id="cropperStatus" class="status" role="status" aria-live="polite"></p>
   </section>
-  <section class="card" aria-labelledby="youtubeTitle">
+  <div class="sourceTabs" role="tablist" aria-label="Fonte para criar preset">
+    <button class="sourceTab" type="button" role="tab" id="tabYoutube" aria-controls="youtubeSourcePanel" aria-selected="true">YouTube</button>
+    <button class="sourceTab" type="button" role="tab" id="tabFile" aria-controls="fileSourcePanel" aria-selected="false">Arquivo MP3 / WAV</button>
+    <button class="sourceTab" type="button" role="tab" id="tabOffline" aria-controls="offlineSourcePanel" aria-selected="false">Catálogo offline</button>
+  </div>
+  <section id="youtubeSourcePanel" class="card sourcePanel" role="tabpanel" aria-labelledby="tabYoutube">
     <h2 id="youtubeTitle">YouTube · análise de trecho</h2>
     <p class="hint">Cole um link e escolha até 45 segundos. No modo leve, você recebe somente esse trecho e gera o preset no aparelho. Se o YouTube bloquear a extração, carregue o arquivo no Cortador Local.</p>
     <details class="field" style="margin:12px 0"><summary>Servidor de extração · Railway</summary><label for="apiBaseUrl">URL da API de produção</label><input id="apiBaseUrl" type="url" readonly><p id="apiConfigStatus" class="hint" role="status">O Railway obtém o trecho. No modo leve, a análise acontece no aparelho, sem baixar modelos.</p></details>
@@ -242,13 +252,15 @@ body { background:radial-gradient(ellipse at 8% 0%, #42301c 0, transparent 34%),
     <div class="actions"><button id="youtubeApply" type="button" disabled>Carregar parâmetros para revisão</button><button id="youtubeDownload" type="button" disabled>Baixar Preset .dzh</button></div>
     <button id="youtubeLocalFallback" type="button">Carregar áudio baixado no Cortador Local</button>
   </section>
-  <section class="card" style="border-color:var(--accent)"><h2>Análise leve da mixagem</h2>
+  <section id="fileSourcePanel" class="card sourcePanel" role="tabpanel" aria-labelledby="tabFile" hidden style="border-color:var(--accent)"><h2>Análise leve da mixagem</h2>
     <p class="hint stepHelp">1. Salve um MP3/WAV no celular (por exemplo, baixe-o do Drive). 2. Toque em <b>Escolher arquivo</b> e selecione-o em Downloads, Música ou Áudio. 3. Marque um trecho e toque em <b>Analisar trecho da mixagem</b>. SFM, centroide, rolloff, fluxo espectral, RMS, ZCR e fator de crista são medidos no trecho original. A banda inteira influencia as métricas; não há guitarra isolada. O áudio fica no aparelho. Arquivos acima de 5 minutos devem ser recortados antes de importar.</p>
-    <fieldset id="audioInputs" style="border:0;padding:0;min-width:0"><div class="field"><label for="audioFile">Arquivo MP3 ou WAV salvo no celular · até 25 MiB</label><input id="audioFile" type="file" accept="audio/*,.mp3,.wav" aria-describedby="audioInfo"><p class="hint">Se o seletor abrir uma pasta vazia, toque no menu ☰ e procure em Downloads, Música ou Áudio. Arquivos que ainda estão no Drive precisam ser baixados primeiro. A análise aceita somente .mp3 e .wav.</p></div><audio id="previewAudio" controls preload="metadata" style="width:100%;margin-top:12px"></audio><p id="audioInfo" class="hint" role="status" aria-live="polite">Nenhum áudio selecionado. A análise não começa até você escolher um arquivo.</p><h3>Trechos · segundos ou mm:ss (máximo 45 s)</h3><div id="snippets"></div><button id="addSnippet" type="button">+ Adicionar trecho</button></fieldset>
+    <fieldset id="audioInputs" style="border:0;padding:0;min-width:0"><div class="field"><label for="audioFile">Arquivo MP3 ou WAV salvo no celular · até 25 MiB</label><input id="audioFile" type="file" accept="audio/*,.mp3,.wav,.m4a" aria-describedby="audioInfo"><p class="hint">Se o seletor abrir uma pasta vazia, toque no menu ☰ e procure em Downloads, Música ou Áudio. A análise local aceita MP3/WAV; o envio opcional ao servidor também aceita M4A (até 15 MiB).</p></div><audio id="previewAudio" controls preload="metadata" style="width:100%;margin-top:12px"></audio><p id="audioInfo" class="hint" role="status" aria-live="polite">Nenhum áudio selecionado. A análise não começa até você escolher um arquivo.</p><h3>Trechos · segundos ou mm:ss (máximo 45 s)</h3><div id="snippets"></div><button id="addSnippet" type="button">+ Adicionar trecho</button></fieldset>
     <div class="actions"><button id="cancelAI" type="button" disabled>Cancelar operação</button></div><div id="audioStatus" class="status" aria-live="polite"></div>
     <section id="separationOutput" class="card" hidden><h3>Mixagem original · trecho analisado</h3><audio id="guitarStemPreview" controls preload="metadata" style="width:100%"></audio><p id="audioMetrics" class="meta"></p><p><a id="downloadGuitarStem" class="downloadFallback" download="mix-clip.wav">Baixar trecho original (.wav)</a></p><p class="hint">As métricas incluem bateria, voz, baixo e guitarra. Elas não identificam o timbre da guitarra nem reconhecem artista. A sugestão é um ponto de partida de baixa confiança; ouça e ajuste manualmente.</p><div class="actions"><button id="applyAudioSuggestion" type="button" disabled>Montar preset inicial com este áudio</button></div><p id="audioSuggestionStatus" class="status" aria-live="polite">Depois que a análise terminar, você pode aplicar uma sugestão offline e revisar os controles antes de exportar.</p></section>
     <section id="learningPanel" class="card" hidden><h3>Aprendizagem com seus testes</h3><p id="learningSummary" class="hint">As correções ficam neste aparelho. Elas servem de exemplos para sugerir presets semelhantes em análises futuras.</p><div class="actions"><button id="applyLearningExample" type="button" class="secondary" disabled>Usar correção parecida</button></div><label class="check"><input id="learningTested" type="checkbox"> Já comparei este preset na MK‑300</label><div class="grid" style="margin-top:12px"><div class="field"><label for="learningRating">Quanto se aproximou da referência?</label><select id="learningRating"><option value="1">1 · Muito diferente</option><option value="2">2 · Ainda distante</option><option value="3" selected>3 · Parcialmente parecido</option><option value="4">4 · Bem parecido</option><option value="5">5 · Muito próximo</option></select></div><div class="field"><label for="learningNote">O que você corrigiu?</label><input id="learningNote" type="text" maxlength="500" placeholder="Ex.: menos ganho, mais médios"></div></div><div class="actions"><button id="saveLearningExample" type="button">Salvar este teste como exemplo</button><button id="exportLearningExamples" type="button" class="secondary">Exportar meus exemplos</button></div><div id="learningStatus" class="status" aria-live="polite"></div></section>
+    <details class="advancedPanel" style="margin-top:14px"><summary>Também analisar e gerar no servidor</summary><p class="hint">Opcional. Reutilize o MP3/WAV acima ou escolha MP3/WAV/M4A aqui. Envia até 15 MiB e processa um trecho de até 45 segundos. O serviço calcula a sugestão e devolve um .dzh de 448 bytes.</p><label for="serverFileInput">Arquivo para o serviço (opcional se já escolheu MP3/WAV acima)</label><input id="serverFileInput" type="file" accept=".mp3,.wav,.m4a,audio/mpeg,audio/wav,audio/mp4"><div class="grid"><label>Início (segundos)<input id="serverFileStart" type="number" min="0" step="0.1" value="0"></label><label>Fim (segundos)<input id="serverFileEnd" type="number" min="0.3" max="45" step="0.1" value="30"></label></div><div class="actions"><button id="serverFileAnalyze" type="button">Analisar arquivo no servidor</button></div><p id="serverFileStatus" class="status" role="status" aria-live="polite"></p><div id="serverFileReview" class="card" hidden></div><div class="actions"><button id="serverFileApply" type="button" disabled>Carregar parâmetros para revisão</button><button id="serverFileDownload" type="button" disabled>Baixar Preset .dzh</button></div></details>
   </section>
+  <section id="offlineSourcePanel" class="card sourcePanel" role="tabpanel" aria-labelledby="tabOffline" hidden><h2>Catálogo offline</h2><p class="hint">Perfis locais de partida. Nenhum áudio é enviado e não precisa de internet. Ajuste os parâmetros e confira o som no equipamento.</p><div class="field"><label for="offlineStyle">Estilo de referência</label><select id="offlineStyle"><option>Rock</option><option>Metal</option><option>MPB</option><option>Blues</option><option>Clean</option></select></div><div class="actions"><button id="offlineApply" type="button">Criar preset deste perfil</button></div><p id="offlineStatus" class="status" role="status" aria-live="polite"></p></section>
   <details class="advancedPanel textAiPanel" open><summary>Sugestão local e histórico de correções</summary>
     <section class="card" style="border-color:var(--accent)"><h2>Referência por texto ou preset parecido</h2><p class="hint">Sem exemplos anteriores, a sugestão por texto usa perfis offline e é apenas um ponto de partida. Ao testar e corrigir o preset, salve o resultado para o AutoPreset usar como exemplo local nas próximas análises.</p><div class="field"><label for="ytUrl">Artista, música ou estilo</label><input id="ytUrl" type="text" maxlength="2000" placeholder="Ex.: Gravity · John Mayer" autocomplete="off"></div><div class="actions"><button id="analyzeAI" type="button">Aplicar perfil local</button></div><div id="aiStatus" class="status" aria-live="polite"></div><p id="aiDescription" class="hint"></p></section>
   </details>
@@ -1511,6 +1523,110 @@ window.AUTO_PRESET_API = API_BASE_URL;
 
 </script>
 <script>
+/* Extra source controls for V75. The core/editor and 448-byte handler remain in index.html. */
+(function () {
+  'use strict';
+  const $ = (id) => document.getElementById(id);
+  const tabs = [['tabYoutube', 'youtubeSourcePanel'], ['tabFile', 'fileSourcePanel'], ['tabOffline', 'offlineSourcePanel']];
+  function selectTab(id) {
+    for (const [tabId, panelId] of tabs) {
+      const selected = tabId === id;
+      $(tabId).setAttribute('aria-selected', String(selected));
+      $(tabId).tabIndex = selected ? 0 : -1;
+      $(panelId).hidden = !selected;
+    }
+  }
+  for (const [tab] of tabs) $(tab).addEventListener('click', () => selectTab(tab));
+  $('tabYoutube').tabIndex = 0;
+  $('tabFile').tabIndex = $('tabOffline').tabIndex = -1;
+  $('tabYoutube').parentElement.addEventListener('keydown', event => {
+    if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+    event.preventDefault();
+    const current = tabs.findIndex(([id]) => id === document.activeElement.id);
+    const next = event.key === 'Home' ? 0 : event.key === 'End' ? tabs.length - 1 : (current + (event.key === 'ArrowRight' ? 1 : tabs.length - 1)) % tabs.length;
+    $(tabs[next][0]).focus(); selectTab(tabs[next][0]);
+  });
+  const dropZone = $('fileSourcePanel');
+  dropZone.addEventListener('dragover', event => { event.preventDefault(); dropZone.classList.add('dropReady'); });
+  dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dropReady'));
+  dropZone.addEventListener('drop', event => {
+    event.preventDefault(); dropZone.classList.remove('dropReady');
+    const file = event.dataTransfer?.files?.[0];
+    if (!file) return;
+    const transfer = new DataTransfer(); transfer.items.add(file); $('audioFile').files = transfer.files;
+    $('audioFile').dispatchEvent(new Event('change', {bubbles:true}));
+  });
+
+  const blockNames = {2: 'NR', 3: 'DS', 4: 'AMP', 5: 'CAB', 6: 'EQ', 8: 'DLY', 9: 'REV'};
+  let fileResult = null;
+  function renderReview(data) {
+    const root = $('serverFileReview');
+    root.replaceChildren();
+    const title = document.createElement('h3'); title.textContent = 'Revisão dos parâmetros sugeridos'; root.appendChild(title);
+    for (const block of (data.preset?.blocks || [])) {
+      const section = document.createElement('section');
+      const heading = document.createElement('h4');
+      heading.textContent = `${blockNames[block.id] || `Bloco ${block.id}`} · ${block.model_name}`;
+      section.appendChild(heading);
+      const values = document.createElement('p');
+      values.textContent = block.knobs.map((name, i) => `${name}: ${block.values[i]}`).join(' · ');
+      section.appendChild(values); root.appendChild(section);
+    }
+    const note = document.createElement('p');
+    note.textContent = `DSP · perfil ${data.preset?.classification?.profile || 'não classificado'} · crest ${Number(data.features?.crest_factor_db || 0).toFixed(1)} dB. ${data.preset?.diagnosis?.explanation || ''}`;
+    root.appendChild(note); root.hidden = false;
+  }
+  $('serverFileAnalyze').addEventListener('click', async () => {
+    const status = $('serverFileStatus'), button = $('serverFileAnalyze');
+    const file = $('serverFileInput').files?.[0] || $('audioFile').files?.[0];
+    fileResult = null; $('serverFileApply').disabled = $('serverFileDownload').disabled = true; $('serverFileReview').hidden = true;
+    if (!file) { status.textContent = 'Escolha primeiro um MP3, WAV ou M4A.'; status.className = 'status warn'; return; }
+    if (file.size > 15 * 1024 * 1024) { status.textContent = 'O limite de envio é 15 MiB.'; status.className = 'status warn'; return; }
+    const start = Number($('serverFileStart').value), end = Number($('serverFileEnd').value);
+    if (!Number.isFinite(start) || !Number.isFinite(end) || start < 0 || end <= start || end - start > 45) {
+      status.textContent = 'Escolha um intervalo válido de até 45 segundos.'; status.className = 'status warn'; return;
+    }
+    button.disabled = true; status.textContent = 'A enviar o trecho e a analisar no servidor…'; status.className = 'status';
+    try {
+      const api = String(window.AUTO_PRESET_API || window.API_BASE_URL || '').replace(/\/$/, '');
+      if (!api) throw new Error('A URL do serviço não está configurada.');
+      const form = new FormData(); form.append('file', file); form.append('start_seconds', String(start)); form.append('end_seconds', String(end));
+      const response = await fetch(api + '/api/v1/analyze-file', {method: 'POST', body: form, credentials: 'omit'});
+      const data = await response.json().catch(() => null);
+      if (!response.ok) throw new Error(data?.detail || `O serviço respondeu HTTP ${response.status}.`);
+      const encoded = data?.dzh_base64 || data?.dzh?.base64;
+      if (typeof encoded !== 'string') throw new Error('A resposta não trouxe o preset .dzh.');
+      const raw = atob(encoded); const bytes = Uint8Array.from(raw, ch => ch.charCodeAt(0));
+      if (bytes.byteLength !== 448) throw new Error(`O preset recebido tem ${bytes.byteLength} bytes; esperado: 448.`);
+      fileResult = {data, bytes}; renderReview(data);
+      $('serverFileApply').disabled = $('serverFileDownload').disabled = false;
+      status.textContent = 'Análise concluída. Revise os blocos e ouça/ajuste o preset antes de usar.'; status.className = 'status good';
+    } catch (error) { status.textContent = error.message || 'Falha ao analisar o áudio.'; status.className = 'status warn'; }
+    finally { button.disabled = false; }
+  });
+  $('serverFileDownload').addEventListener('click', () => {
+    if (!fileResult) return;
+    const url = URL.createObjectURL(new Blob([fileResult.bytes], {type: 'application/octet-stream'}));
+    const link = document.createElement('a'); link.href = url; link.download = 'AutoPreset_Arquivo.dzh'; link.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  });
+  $('serverFileApply').addEventListener('click', () => {
+    if (!fileResult || typeof window.AutoPresetLoadAPIResult !== 'function') return;
+    window.AutoPresetLoadAPIResult(fileResult.data, fileResult.bytes, fileResult.data.source?.title || 'Arquivo de áudio');
+    $('serverFileStatus').textContent = 'Preset aberto em nova aba de rascunho para revisão no editor.';
+    $('serverFileStatus').className = 'status good';
+  });
+  $('offlineApply').addEventListener('click', () => {
+    const style = $('offlineStyle').value;
+    $('ytUrl').value = style;
+    $('analyzeAI').click();
+    $('offlineStatus').textContent = `Perfil local “${style}” criado. Ajuste os parâmetros no editor e exporte o .dzh.`;
+    $('offlineStatus').className = 'status good';
+  });
+})();
+
+</script>
+<script>
 "use strict";
 const $ = (id) => document.getElementById(id);
 function selectedAIProvider(){return 'claude';}
@@ -1585,6 +1701,13 @@ const profiles = [
  {match:/gravity|mayer|blues|clean/i,label:'Clean / Blues Boutique',name:'BoutiqueClean',bpm:60,amp:0,drive:23,delay:17,time:450,fb:20,mix:18,ampGain:30,driveGain:40},
  {match:/worship|ambient|pad|igreja/i,label:'Worship Atmosférico',name:'AtmosWorship',bpm:72,amp:0,drive:21,delay:14,time:520,fb:45,mix:35,ampGain:40,driveGain:25}
 ];
+profiles.unshift(
+ {match:/^metal$/i,label:'Metal · perfil offline',name:'MetalStart',bpm:120,amp:23,drive:21,delay:0,time:420,fb:25,mix:18,ampGain:72,driveGain:35,dlyOn:false},
+ {match:/^rock$/i,label:'Rock · perfil offline',name:'RockStart',bpm:120,amp:22,drive:21,delay:3,time:420,fb:25,mix:20,ampGain:55,driveGain:35},
+ {match:/^mpb$/i,label:'MPB · perfil offline',name:'MPBStart',bpm:100,amp:0,drive:0,delay:0,time:420,fb:20,mix:15,ampGain:35,driveGain:20,dlyOn:false},
+ {match:/^blues$/i,label:'Blues · perfil offline',name:'BluesStart',bpm:90,amp:4,drive:0,delay:3,time:430,fb:18,mix:16,ampGain:42,driveGain:32},
+ {match:/^clean$/i,label:'Clean · perfil offline',name:'CleanStart',bpm:100,amp:0,drive:0,delay:0,time:420,fb:18,mix:14,ampGain:30,driveGain:20,dlyOn:false}
+);
 const fallbackProfile={label:'Stage genérico',name:'CustomStage',bpm:120,amp:16,drive:10,delay:3,time:400,fb:30,mix:22,ampGain:50,driveGain:40};
 $('analyzeYt').addEventListener('click',async()=>{
  const button=$('analyzeYt');if(button.disabled)return;
@@ -2539,6 +2662,13 @@ $('youtubeApply').addEventListener('click',()=>{
   setStatus($('youtubeStatus'),'Parâmetros carregados em nova aba. Revise os controles e exporte pelo editor para incluir seus ajustes.','good');
  }catch(error){setStatus($('youtubeStatus'),error.message,'warn');}
 });
+window.AutoPresetLoadAPIResult=(data,bytes,title)=>{
+ youtubeResult={bytes:bytes.slice(),title:String(title||data.source?.title||'Áudio'),amp:data.preset?.blocks?.find(item=>item.id===4)?.model_name||'—',ds:data.preset?.blocks?.find(item=>item.id===3)?.model_name||'Desligado',diagnosis:data.preset?.diagnosis||data.preset?.classification||null,preset:data.preset||null};
+ $('youtubeDiagnosis').textContent=youtubeResult.title+' · AMP: '+youtubeResult.amp+' · DS: '+youtubeResult.ds;
+ $('youtubeDownload').disabled=false;$('youtubeApply').disabled=false;
+ $('youtubeStatus').textContent='Preset gerado pelo serviço e validado: 448 bytes. Revise os parâmetros antes de usar.';$('youtubeStatus').className='status good';
+ $('youtubeApply').click();
+};
 let localDzh=null;
 let cropperUrl=null,cropStart=null,cropEnd=null;
 function updateCropperRange(){

@@ -10,7 +10,7 @@ A compatibilidade de formato é sustentada pelos testes binários e diferenciais
 
 O fluxo com **IRs** preserva o slot, os controles de CAB e os cortes de frequência no preset. Instale o IR correspondente no equipamento pelo software compatível da M-VAVE: o `.dzh` não incorpora o arquivo IR. As melhorias de resposta dinâmica e leitura de IRs atribuídas à V75 pertencem ao firmware e devem ser verificadas na documentação do fabricante e na pedaleira; esta atualização apenas alinha a aplicação a esse fluxo, sem implementar ou comprovar essas melhorias de DSP.
 
-A PWA usa o cache **`shell-v11`**. Ao abrir o app conectado, o navegador instala o Service Worker atualizado, remove caches legados da aplicação e ativa o novo shell. A navegação consulta a rede antes do cache para evitar HTML antigo; sem conexão, usa o shell armazenado. Em uma aba já aberta, recarregue após a atualização para exibir a nova interface. Projetos e exemplos locais são preservados.
+A PWA usa o cache **`shell-v16`**. Ao abrir o app conectado, o navegador instala o Service Worker atualizado, remove caches legados da aplicação e ativa o novo shell. A navegação consulta a rede antes do cache para evitar HTML antigo; sem conexão, usa o shell armazenado. Em uma aba já aberta, recarregue após a atualização para exibir a nova interface. Projetos e exemplos locais são preservados.
 
 ## Recursos principais
 
@@ -19,6 +19,7 @@ A PWA usa o cache **`shell-v11`**. Ao abrir o app conectado, o navegador instala
 - **Analisador heurístico de áudio:** usa a Web Audio API nativa para medir RMS, taxa de cruzamentos por zero e fator de crista em trechos da mixagem. Não carrega modelos ONNX nem envia o áudio para um serviço de análise. Os limites de tamanho e duração ajudam a controlar o uso de memória durante a decodificação.
 - **Capturas NAM A2 pelo TONE3000:** permite selecionar capturas compatíveis A2-Lite, conferir metadados e baixar o arquivo .nam escolhido. A captura é importada no software compatível da M‑VAVE; ela não é incorporada ao arquivo .dzh.
 - **Perfis textuais offline:** referências de estilo podem servir como ponto de partida heurístico. São sugestões para revisão e teste, não uma reprodução garantida de uma gravação.
+- **Fontes de preset:** a tela do estúdio separa YouTube, arquivo e perfis locais em abas. O envio de arquivo é opcional (MP3/WAV/M4A, 15 MiB, trecho de até 45 s); a análise local continua disponível no aparelho. Os cinco perfis offline não precisam do backend.
 - **Edição e projetos:** ajuste blocos e parâmetros, salve uma sessão em JSON, recupere um rascunho e exporte presets individualmente ou em lote.
 - **Compartilhamento:** gere ou importe códigos de preset sem alterar o formato binário do equipamento.
 
@@ -77,6 +78,14 @@ O nome do preset é limitado a 19 bytes UTF‑8. Antes de exportar, use **Verifi
 ## Pack John Petrucci
 
 A biblioteca do projeto inclui quatro arquivos .dzh originais fornecidos para referência: **JP CLEAN**, **JP OVERDRIVE**, **JP HEAVY RHYTHM** e **JP EPIC SOLO**. Os originais são validados por SHA‑256 e podem ser baixados sem regravação. Ao abrir um deles para edição, o arquivo original continua sendo a base, preservando knobs e bytes desconhecidos.
+
+## API V75 · upload e catálogo
+
+O backend oferece `GET /health`, `GET /api/v1/catalog`, `GET /api/v1/offline-catalog`, `POST /api/v1/analyze-link` e `POST /api/v1/analyze-file`. O upload aceita `.mp3`, `.wav` ou `.m4a`, até 15 MiB; os endpoints de análise limitam o trecho a 45 s. Horários do YouTube aceitam segundos ou `mm:ss`. A resposta do analisador inclui métricas, parâmetros do preset e Base64 de um `.dzh` de 448 bytes. O upload usa FFmpeg instalado pelo Dockerfile.
+
+O catálogo expõe os modelos e índices já embarcados no editor (120 AMP, 40 DS, 100 CAB, 27 DLY e 18 REV); os nomes técnicos e os slots são mantidos. O perfil de cinco bandas a 100, 300, 1k, 3k e 8k Hz é usado para medir espectro e interpolado para as seis bandas graváveis do Guitar EQ 6. O preset é codificado com o encoder de 448 bytes já validado e mantém os bytes reservados intactos. A separação é HPSS harmônico/percussivo, não isolamento exclusivo de guitarra.
+
+Configuração local: `python -m pip install -r requirements.txt`, instale FFmpeg e execute `uvicorn main:app --host 0.0.0.0 --port 7860 --workers 1`. O endereço de produção da PWA está em `src/config.js`.
 
 O material de referência lista seis posições, mas **JP LIGHT RHYTHM** e **JP SOLO** não foram fornecidos. O anúncio do pack menciona capturas AM3; os arquivos dessas capturas também não fazem parte da biblioteca do app. O AutoPreset Studio não instala NAMs nem configura os controles CTL A/B.
 

@@ -120,6 +120,7 @@ class BrowserCompatibilityTests(unittest.TestCase):
 
     def test_audio_picker_explains_missing_file_and_rejects_invalid_format(self):
         self.page.locator('#enterStudio').click()
+        self.page.locator('#tabFile').click()
         self.assertIn('Nenhum áudio selecionado', self.page.locator('#audioInfo').inner_text())
         self.assertTrue(self.page.get_by_role('button', name='Analisar trecho da mixagem').is_disabled())
         self.page.locator('#audioFile').set_input_files({
@@ -142,6 +143,7 @@ class BrowserCompatibilityTests(unittest.TestCase):
         requests=[]
         self.page.on('request',lambda request:requests.append(request.url))
         self.page.locator('#enterStudio').click()
+        self.page.locator('#tabFile').click()
         self.page.locator('#audioFile').set_input_files({'name':'diagnostic-mix.wav','mimeType':'audio/wav','buffer':data.getvalue()})
         self.page.wait_for_function('audioReady')
         self.page.get_by_label('Início do trecho 1',exact=True).fill('0')
