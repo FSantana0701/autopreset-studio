@@ -39,9 +39,10 @@ Os testes comparam todos os 448 bytes entre a entrada e a saída dos encoders Ja
 
 - `npm run build`: concluído; os dois HTMLs foram regenerados.
 - `npm test`: 46 testes aprovados, nenhum com falha, dois testes opcionais de fixtures legadas ausentes ignorados.
-- `CHROMIUM_PATH=<headless_shell> python -m pytest -q tests/backend src/tests tests/test_v75_sources.py`: 68 testes aprovados, nenhum com falha; uma comparação opcional com librosa ignorada porque essa dependência de referência não estava instalada.
+- `CHROMIUM_PATH=<headless_shell> python -m pytest -q tests/backend src/tests tests/test_v75_sources.py`: 69 testes aprovados, nenhum com falha; uma comparação opcional com librosa ignorada porque essa dependência de referência não estava instalada.
 - Chromium 140 via Playwright 1.55: importação/exportação, compartilhamento, projetos legados, NAM/DS, operação offline, abas, áudio sintético e larguras mobile/tablet/desktop.
-- `git diff --check`: aprovado. Núcleo JS, encoder Python, dados V73 originais e Dockerfile sem alterações.
+- `git diff --check`: aprovado. Núcleo JS, encoder Python e dados V73 originais sem alterações. O Dockerfile mantém o comando pip corrigido pelo proprietário e copia também o novo JSON V75.
+- Empacotamento de produção: as instruções COPY do Dockerfile são reproduzidas em uma pasta isolada; a API de catálogo e os cinco presets offline precisam responder sem acessar arquivos extras do checkout.
 
 Os testes HTTP do YouTube simulam o transporte; não comprovam que o YouTube aceitará downloads a partir do IP de produção. O timbre final ainda depende da comparação auditiva na MK-300.
 

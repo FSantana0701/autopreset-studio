@@ -2,8 +2,13 @@
 import base64
 import hashlib
 import json
+import os
 from pathlib import Path
+import shlex
+import shutil
 import subprocess
+import sys
+import tempfile
 
 from services.catalog import ROOT, V75, load_catalog, public_catalog
 from services.dzh_encoder import Encoder, encode
@@ -59,3 +64,35 @@ def test_v75_overlay_does_not_modify_the_legacy_catalog():
     assert len(legacy['blocks'][3]['models']) == 40
     assert legacy['blocks'][4]['models'][0]['name'] == '1J120_CL'
     assert len(load_catalog()['blocks'][3]['models']) == 42
+
+
+def test_docker_copy_includes_every_runtime_catalog_and_offline_encoder():
+    # Reproduce the actual COPY inputs in an isolated filesystem, rather than
+    # accidentally reading data files that only exist in the checkout.
+    with tempfile.TemporaryDirectory() as directory:
+        destination = Path(directory)
+        for line in (ROOT / 'Dockerfile').read_text().splitlines():
+            if not line.startswith('COPY '):
+                continue
+            *sources, target = shlex.split(line)[1:]
+            folder = destination / target.removeprefix('./')
+            folder.mkdir(parents=True, exist_ok=True)
+            for source in sources:
+                path = ROOT / source
+                if path.is_dir():
+                    shutil.copytree(path, folder, dirs_exist_ok=True)
+                else:
+                    shutil.copy2(path, folder / path.name)
+        script = """import base64,json
+from fastapi.testclient import TestClient
+import main
+with TestClient(main.app) as client:
+    catalog=client.get('/api/v1/catalog')
+    offline=client.get('/api/v1/offline-catalog')
+    assert catalog.status_code == offline.status_code == 200
+    print(json.dumps({'firmware':catalog.json()['firmware'],
+      'sizes':[len(base64.b64decode(item['dzh']['base64'])) for item in offline.json()['presets']]}))
+"""
+        result = subprocess.check_output([sys.executable, '-c', script], cwd=destination,
+                                         env={**os.environ, 'PYTHONPATH': str(destination)}, text=True)
+        assert json.loads(result) == {'firmware': 'v75', 'sizes': [448] * 5}
