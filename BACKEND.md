@@ -4,7 +4,7 @@ O `railway.json` seleciona o Dockerfile da **raiz** e healthcheck `/health`.
 O Dockerfile inicia `main:app` na porta `${PORT:-7860}`, com um worker. No serviço
 Railway, a raiz do repositório precisa ser `/` e a origem precisa ser este repo.
 Remova eventuais comandos/paths antigos que iniciem `audio-service/` ou Demucs.
-A PWA usa `shell-v16`, informa análise harmônica e mostra fallback local para
+A PWA usa `shell-v17`, informa análise harmônica e mostra fallback local para
 `DOWNLOAD_BLOCKED`. A API retorna `separation.method=HPSS` e `guitar_isolated=false`.
 
 ## Desenvolvimento
@@ -16,6 +16,7 @@ python -m pip install -r requirements.txt
 # Instale FFmpeg pelo gerenciador do sistema antes de extrair links.
 uvicorn main:app --host 0.0.0.0 --port 7860 --workers 1
 ```
+
 `GET /health` deve retornar JSON `api=autopreset-audio`, `engine=HPSS`,
 `analysis_enabled=true` e a disponibilidade do FFmpeg. `/openapi.json` deve
 listar as rotas da API; resposta vazia em `/health` ou 404 nas rotas indica
@@ -39,8 +40,8 @@ O middleware responde preflight; OPTIONS explícito sem headers também retorna 
 `CORS_ORIGINS` e `AUTOPRESET_ALLOWED_ORIGINS` **não são lidas** nesta configuração;
 variáveis Railway não substituem código Python automaticamente. Não é necessário
 alterar essas variáveis para este teste. O navegador envia origem sem caminho.
-O Service Worker já está em `shell-v16`. Após o deploy deste commit, teste em
 O Service Worker já está em `shell-v17`. Após o deploy deste commit, teste em
+guia anônima no telefone e confira `/health`; não é possível executar esse teste
 no telefone do usuário a partir deste ambiente. Uma falha `Failed to fetch` não
 prova CORS: indisponibilidade, DNS/TLS e erros do proxy também podem causá-la.
 Nenhuma chave de IA é usada.
