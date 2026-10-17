@@ -4,7 +4,7 @@
   function encode(features, base) {
     const plan = root.AutoPresetAudioHeuristics.matchPreset(features);
     const handler = new root.MK300Core.MK300PresetHandler(base);
-    const parameters = root.MK300V73Parameters;
+    const parameters = root.MK300V75Parameters || root.MK300V73Parameters;
     const blocks = [[2, plan.gate, true], [3, plan.drive, plan.dsOn], [4, plan.amp, true], [5, plan.cabSlot - 1, true], [6, plan.eq, true]];
     for (const [block, model, enabled] of blocks) {
       handler.setBlockModel(block, model); handler.setBlockState(block, enabled);

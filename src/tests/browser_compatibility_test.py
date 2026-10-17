@@ -82,6 +82,43 @@ class BrowserCompatibilityTests(unittest.TestCase):
         with self.assertRaisesRegex(Exception, 'CRC32'):
             self.page.evaluate('(code)=>decodeShare(code.slice(0,-8)+"00000000")', LEGACY['code'])
 
+    def test_six_owner_v75_presets_import_and_export_identically(self):
+        fixtures = Path(__file__).parent / 'fixtures/v75'
+        for fixture in json.loads((fixtures / 'manifest.json').read_text()):
+            raw = (fixtures / fixture['file']).read_bytes()
+            self.page.locator('#base').set_input_files({
+                'name': fixture['original_name'], 'mimeType': 'application/octet-stream', 'buffer': raw
+            })
+            self.page.wait_for_function("document.getElementById('baseStatus').classList.contains('good')")
+            output = self.page.evaluate('Array.from(compilePreset())')
+            self.assertEqual(bytes(output), raw, fixture['original_name'])
+            shared = self.page.evaluate('code => Array.from(decodeShare(code))',
+                                        self.page.evaluate('encodeShare(compilePreset())'))
+            self.assertEqual(bytes(shared), raw)
+
+    def test_nam_disables_ds_and_supports_observed_custom_indices(self):
+        for index in (115, 117, 118):
+            result = self.page.evaluate('''index => {
+                $('dsOn').checked=true;
+                $('namSlot').value=String(index+1);$('namMode').checked=true;
+                $('namKind').value='amp_only';$('namInstalled').checked=true;
+                refreshUI();
+                const output=compilePreset();
+                return {index:output[58], ds:output[46], disabled:$('dsOn').disabled, size:output.length};
+            }''', index)
+            self.assertEqual(result, {'index': index, 'ds': 0, 'disabled': True, 'size': 448})
+        result = self.page.evaluate("() => { $('namMode').checked=false; refreshUI(); return $('dsOn').disabled; }")
+        self.assertFalse(result)
+
+    def test_v75_labels_and_legacy_projects_coexist(self):
+        self.assertIn('MW-808', self.page.locator('#drive option[value="40"]').inner_text())
+        self.assertIn('MW-GOLD', self.page.locator('#drive option[value="41"]').inner_text())
+        self.assertIn('Fender Super', self.page.locator('#amp option[value="0"]').inner_text())
+        self.assertIn('6DS-MarsFD100', self.page.locator('#amp option[value="5"]').inner_text())
+        self.assertIn('53DS-Pey5150', self.page.locator('#amp option[value="52"]').inner_text())
+        self.assertIn('44MarVal4', self.page.locator('#cabSlot option[value="44"]').inner_text())
+        self.assertTrue(self.page.evaluate("!AMP_CATALOG.includes('Jcm800') && !AMP_CATALOG.includes('Boss DS-2 Mod')"))
+
     def test_signed_fx_project_and_share_roundtrip(self):
         result = self.page.evaluate('''(old) => {
             const bytes=new Uint8Array(old),view=new DataView(bytes.buffer);

@@ -3,9 +3,9 @@ from __future__ import annotations
 
 from .catalog import load_catalog
 
-AMP_PROFILES = {"clean": 0, "crunch": 33, "high_gain": 64}
-DS_MODELS = {"boost": 21, "blues": 0, "rat": 10, "muff": 38}
-CAB_DEFAULT = 62
+AMP_PROFILES = {"clean": 0, "crunch": 0, "high_gain": 5}
+DS_MODELS = {"boost": 40, "blues": 41}
+CAB_DEFAULT = 43
 EQ_MODEL = 0
 DLY_MODELS = {"digital": 0, "analog": 3}
 REV_MODELS = {"room": 0, "hall": 1, "plate": 2, "church": 1}
@@ -55,15 +55,15 @@ def suggest(features: dict, catalog: dict | None = None) -> dict:
             'diagnosis': {'selected_models': selected, 'delay_time_ms': delay,
                           'explanation': 'Mapeamento heurístico baseado em medidas do trecho; não reconhece o instrumento nem recria exatamente o equipamento de origem.'},
             'warnings': ['O componente HPSS não isola exclusivamente guitarra; outros instrumentos podem influenciar as medidas.',
-                         'Os índices do catálogo V73 compatível com V75 são mantidos; valide o som e o slot CAB no equipamento.']}
+                         'AMP, DS e CAB usam os índices confirmados nas exportações V75 fornecidas. Capturas NAM e IRs não são incluídos no .dzh; confirme os mesmos modelos e slots no equipamento.']}
 
 
 OFFLINE_STYLES = {
-    'Rock': ('crunch', 33, 21, True, 62, 3, True, 1),
-    'Metal': ('high_gain', 64, 21, True, 62, 0, False, 2),
-    'MPB': ('clean', 0, 0, False, 68, 0, False, 0),
-    'Blues': ('crunch', 4, 0, True, 69, 3, False, 0),
-    'Clean': ('clean', 0, 21, False, 0, 0, False, 1),
+    'Rock': ('crunch', 5, 40, True, 43, 3, True, 1),
+    'Metal': ('high_gain', 52, 40, True, 43, 0, False, 2),
+    'MPB': ('clean', 0, 41, False, 43, 0, False, 0),
+    'Blues': ('crunch', 0, 41, True, 43, 3, False, 0),
+    'Clean': ('clean', 0, 40, False, 43, 0, False, 1),
 }
 
 

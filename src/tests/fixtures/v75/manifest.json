@@ -1,0 +1,62 @@
+[
+  {
+    "file": "export-1.dzh",
+    "original_name": "teste 1.dzh",
+    "sha256": "0a01843496a9f472baa8ec4495455939dadd30aa34a6193d456bfc055ee2cd86",
+    "ds": 40,
+    "amp": 0,
+    "cab": 43,
+    "ds_enabled": true,
+    "amp_enabled": true
+  },
+  {
+    "file": "export-2.dzh",
+    "original_name": "teste app 2.dzh",
+    "sha256": "c8d81887d471da85cbc6300633846886469cd09780358aa0fccd59054bf55d0a",
+    "ds": 41,
+    "amp": 5,
+    "cab": 43,
+    "ds_enabled": true,
+    "amp_enabled": true
+  },
+  {
+    "file": "export-3.dzh",
+    "original_name": "teste app 3.dzh",
+    "sha256": "9cc06cbb7d3249194b4309669e7b7db29f76b9b8857396eab236652366bfc898",
+    "ds": 40,
+    "amp": 52,
+    "cab": 43,
+    "ds_enabled": true,
+    "amp_enabled": true
+  },
+  {
+    "file": "export-4.dzh",
+    "original_name": "teste 4.dzh",
+    "sha256": "155713f672fa0b022806a228b3f7efc42222db5e27a71e588348469e47afa9e4",
+    "ds": 0,
+    "amp": 115,
+    "cab": 49,
+    "ds_enabled": true,
+    "amp_enabled": false
+  },
+  {
+    "file": "export-5.dzh",
+    "original_name": "variação teste 4.dzh",
+    "sha256": "f09d4adc0108436bc7367877aca9f8095879e85daf70ec56b171e57afed9d441",
+    "ds": 0,
+    "amp": 117,
+    "cab": 49,
+    "ds_enabled": false,
+    "amp_enabled": true
+  },
+  {
+    "file": "export-6.dzh",
+    "original_name": "teste 5.dzh",
+    "sha256": "71f94510b885fe26e26fb8f1eed19331b1243ce079fbae8c625f87b39c413048",
+    "ds": 40,
+    "amp": 118,
+    "cab": 43,
+    "ds_enabled": false,
+    "amp_enabled": true
+  }
+]

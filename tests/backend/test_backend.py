@@ -96,7 +96,7 @@ process.stdout.write(Buffer.from(h.compile()).toString('base64'));"""
 
     def test_all_heuristic_model_templates_encode(self):
         from services.preset_mapper import suggest
-        for crest_db, model in ((7.9,64),(8.0,33),(15.0,33),(15.1,0)):
+        for crest_db, model in ((7.9,5),(8.0,0),(15.0,0),(15.1,0)):
             features = {'spectral_centroid_hz':2400, 'spectral_rolloff_85_hz':4200,
                         'spectral_flatness':0.08, 'zero_crossing_rate':0.12,
                         'crest_factor_db':crest_db, 'eq_device_values':[0,-2,2,4,-1,0]}

@@ -21,15 +21,15 @@ from services.preset_mapper import offline_presets, suggest
 def test_real_catalog_dsp_thresholds_and_448_byte_encoder():
     catalog = public_catalog()
     assert len(catalog['blocks']['AMP']) >= 100
-    assert len(catalog['blocks']['DS']) == 40
+    assert len(catalog['blocks']['DS']) == 42
     assert len(catalog['blocks']['DLY']) == 27
     assert len(catalog['blocks']['REV']) == 18
     assert catalog['eq_analysis_bands_hz'] == [100, 300, 1000, 3000, 8000]
     features = {'crest_factor_db': 7.5, 'spectral_centroid_hz': 2000,
                 'eq_device_values': [-2, -1, 0, 1, 2, 0], 'delay_detected': False}
     preset = suggest(features)
-    assert next(block for block in preset['blocks'] if block['id'] == 4)['model_index'] == 64
-    assert next(block for block in preset['blocks'] if block['id'] == 3)['model_index'] == 21
+    assert next(block for block in preset['blocks'] if block['id'] == 4)['model_index'] == 5
+    assert next(block for block in preset['blocks'] if block['id'] == 3)['model_index'] == 40
     assert len(encode(preset)) == 448
 
 

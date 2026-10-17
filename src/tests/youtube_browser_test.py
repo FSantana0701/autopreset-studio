@@ -16,6 +16,7 @@ class YouTubeTests(pwa.PWABrowserTests):
     def test_default_low_memory_link(self):
         import io, wave, math, struct
         self.page.locator('#enterStudio').click()
+        self.page.locator('#tabYoutube').click()
         self.assertTrue(self.page.locator('#youtubeLowMemory').is_checked())
         self.page.locator('#youtubeUrl').fill('https://youtu.be/z3JhXn_onsw')
         self.page.locator('#youtubeEnd').fill('00:01')
@@ -43,6 +44,7 @@ class YouTubeTests(pwa.PWABrowserTests):
 
     def test_low_memory_errors_and_size_limit(self):
         self.page.locator('#enterStudio').click()
+        self.page.locator('#tabYoutube').click()
         self.page.locator('#youtubeUrl').fill('https://youtu.be/z3JhXn_onsw')
         for status, content_type, body, expected in [
             (422,'application/json',json.dumps({'code':'DOWNLOAD_BLOCKED'}),'bloqueou'),
@@ -61,6 +63,7 @@ class YouTubeTests(pwa.PWABrowserTests):
 
     def test_request_download_and_editor(self):
         self.page.locator('#enterStudio').click()
+        self.page.locator('#tabYoutube').click()
         self.configure_api()
         self.page.locator('#youtubeUrl').fill('https://youtu.be/z3JhXn_onsw')
         original = self.page.evaluate('Array.from(compilePreset())')
@@ -102,6 +105,7 @@ class YouTubeTests(pwa.PWABrowserTests):
     def test_download_blocked_mobile_local_fallback(self):
         self.page.set_viewport_size({'width':390,'height':844})
         self.page.locator('#enterStudio').click()
+        self.page.locator('#tabYoutube').click()
         self.configure_api()
         self.page.locator('#youtubeUrl').fill('https://youtu.be/z3JhXn_onsw?si=shared')
         for payload in ({'detail':'DOWNLOAD_BLOCKED','code':'DOWNLOAD_BLOCKED'},
@@ -122,6 +126,7 @@ class YouTubeTests(pwa.PWABrowserTests):
 
     def test_validation_errors_and_fallback(self):
         self.page.locator('#enterStudio').click()
+        self.page.locator('#tabYoutube').click()
         self.configure_api()
         self.page.locator('#youtubeUrl').fill('https://youtu.be/z3JhXn_onsw')
         requests = []
@@ -158,6 +163,7 @@ class YouTubeTests(pwa.PWABrowserTests):
 
     def test_railway_waiting_progress_and_timeout(self):
         self.page.locator('#enterStudio').click()
+        self.page.locator('#tabYoutube').click()
         self.configure_api()
         self.page.clock.install()
         self.page.locator('#youtubeUrl').fill('https://youtu.be/z3JhXn_onsw')
@@ -179,6 +185,7 @@ class YouTubeTests(pwa.PWABrowserTests):
     def test_invalid_json_and_wrong_binary_sizes(self):
         import base64
         self.page.locator('#enterStudio').click()
+        self.page.locator('#tabYoutube').click()
         self.page.locator('#youtubeUrl').fill('https://youtu.be/z3JhXn_onsw')
         valid=self.page.evaluate('Array.from(compilePreset())')
         bad_chain=bytearray(valid);bad_chain[32]=bad_chain[33]
@@ -198,6 +205,7 @@ class YouTubeTests(pwa.PWABrowserTests):
 
     def test_minute_inputs_are_converted_before_post(self):
         self.page.locator('#enterStudio').click()
+        self.page.locator('#tabYoutube').click()
         self.page.locator("#youtubeLowMemory").uncheck()
         self.page.locator('#youtubeUrl').fill('https://youtu.be/z3JhXn_onsw')
         self.assertIn('45 segundos',self.page.locator('#youtubeIntervalHelp').inner_text())
@@ -219,6 +227,7 @@ class YouTubeTests(pwa.PWABrowserTests):
 
     def test_shared_links_headers_and_integer_times(self):
         self.page.locator('#enterStudio').click()
+        self.page.locator('#tabYoutube').click()
         self.page.locator("#youtubeLowMemory").uncheck()
         self.page.evaluate("window.API_BASE_URL='https://old-service.onrender.com////';window.AUTO_PRESET_API='http://localhost:8000/'")
         expected='https://autopreset-studio-production.up.railway.app'
@@ -247,6 +256,7 @@ class YouTubeTests(pwa.PWABrowserTests):
 
     def test_network_error_logs_original_fetch_error(self):
         self.page.locator('#enterStudio').click()
+        self.page.locator('#tabYoutube').click()
         self.page.locator("#youtubeLowMemory").uncheck()
         errors=[]
         self.page.evaluate("() => {window.fetchErrorDirs=[];const originalDir=console.dir.bind(console);console.dir=(err)=>{window.fetchErrorDirs.push({name:err.name,message:err.message});originalDir(err);};}")

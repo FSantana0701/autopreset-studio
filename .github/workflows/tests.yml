@@ -30,10 +30,12 @@ jobs:
           for test in src/tests/*.test.cjs; do node "$test"; done
       - name: Install test dependencies
         run: |
-          python -m pip install -r src/tests/requirements.txt
+          python -m pip install -r requirements.txt -r src/tests/requirements.txt
           python -m playwright install --with-deps chromium
       - name: Audio API unit tests
         run: python -m unittest discover -s src/tests -p audio_service_test.py -v
+      - name: V75 DSP catalog and 448-byte backend regressions
+        run: python -m pytest tests/backend tests/test_v75_sources.py -q
       - name: Browser compatibility tests
         run: python -m unittest discover -s src/tests -p browser_compatibility_test.py -v
       - name: PWA offline and responsive browser tests

@@ -287,7 +287,7 @@
   }
 
   // Exact IDs from the repository catalog; alternate marketing names are not aliases.
-  function matchPreset(features, catalog = root.MK300V73, parameters = root.MK300V73Parameters) {
+  function matchPreset(features, catalog = root.MK300V75 || root.MK300V73, parameters = root.MK300V75Parameters || root.MK300V73Parameters) {
     const hints = toneHints(features);
     if (features.feature_version !== 3 || !features.active_spectral_frames || !catalog || !parameters) throw new Error('Catálogo ou análise espectral indisponível.');
     const matrix = {
@@ -296,9 +296,16 @@
       'Hi-Gain': { amp: '67EHV5150_DS', ds: '11RAT', cab: '63EAGLProV30s', driveGain: 48 },
       Fuzz: { amp: '34OR_CRUNCH', ds: '39BIG-MUFF', cab: '36Recto_112', driveGain: 68 }
     };
-    const row = { ...matrix[hints.classification] };
-    if (hints.brightness > 0.6) row.cab = '63EAGLProV30s';
-    else if (hints.classification === 'Clean' && hints.brightness > 0.35) row.cab = '77J120Rolnd';
+    const v75 = catalog.firmware === 'v75';
+    const verified = {
+      Clean: {amp:'Fender Super', ds:'MW-GOLD', cab:'44MarVal4', driveGain:12},
+      Crunch: {amp:'Fender Super', ds:'MW-GOLD', cab:'44MarVal4', driveGain:32},
+      'Hi-Gain': {amp:'6DS-MarsFD100', ds:'MW-808', cab:'44MarVal4', driveGain:18},
+      Fuzz: {amp:'53DS-Pey5150', ds:'MW-808', cab:'44MarVal4', driveGain:24}
+    };
+    const row = {...(v75 ? verified : matrix)[hints.classification]};
+    if (!v75 && hints.brightness > 0.6) row.cab = '63EAGLProV30s';
+    else if (!v75 && hints.classification === 'Clean' && hints.brightness > 0.35) row.cab = '77J120Rolnd';
     const exact = (list, name) => { const index = list.indexOf(name); if (index < 0) throw new Error('Modelo ausente do catálogo: ' + name); return index; };
     const amp = exact(catalog.AMP_CATALOG, row.amp), drive = exact(catalog.DS_CATALOG, row.ds);
     const cabSlot = Number(Object.keys(catalog.CAB_SLOT_NAMES).find(key => catalog.CAB_SLOT_NAMES[key] === row.cab));
@@ -318,7 +325,7 @@
       dsOn: hints.classification !== 'Clean', ampOn: true,
       delay: exact(catalog.DLY_CATALOG, 'Clean'), reverb: exact(catalog.REV_CATALOG, 'Room'),
       models: { amp: row.amp, ds: row.ds, cab: row.cab, gate: gateName, eq: 'Guitar EQ 6' },
-      limitations: 'IDs do catálogo V73 preservado na V75. IRs de usuário podem ocupar outros slots. Cortes CAB em Hz são recomendações: unidades brutas não calibradas. Repetições podem ser ritmo; caudas podem ser sustain.'
+      limitations: v75 ? 'AMP/DS/CAB confirmados nos presets V75 enviados. Os slots dependem dos modelos instalados; o .dzh não inclui capturas ou IRs. Fuzz é uma hipótese espectral, não uma identificação de pedal. Cortes CAB em unidades brutas; repetições podem ser ritmo.' : 'Catálogo legado V73. Confirme os mesmos modelos e slots no equipamento; capturas e IRs não são incluídos.'
     };
   }
 

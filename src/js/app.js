@@ -111,7 +111,7 @@
   function showPedalboard(bytes, origin='Preset carregado') {
     if (!(bytes instanceof Uint8Array)) bytes = Uint8Array.from(bytes || []);
     if (!bytes || bytes.length !== 448) return;
-    const catalog = window.MK300V73Parameters?.blocks;
+    const catalog = (window.MK300V75Parameters || window.MK300V73Parameters)?.blocks;
     if (!Array.isArray(catalog)) return;
     const root = $('pedalboardGrid'); root.replaceChildren();
     for (const block of pedalBlocks) {

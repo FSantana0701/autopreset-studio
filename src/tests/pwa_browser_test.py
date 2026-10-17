@@ -54,7 +54,7 @@ class PWABrowserTests(unittest.TestCase):
 
     def test_scope_offline_shell_and_icons(self):
         self.assertEqual(self.page.evaluate('(async()=> (await navigator.serviceWorker.ready).scope)()'), self.url)
-        self.assertIn('shell-v17', self.page.evaluate('caches.keys()'))
+        self.assertIn('shell-v19', self.page.evaluate('caches.keys()'))
         self.context.set_offline(True)
         self.page.reload()
         self.assertIn('M-VAVE MK-300 V75', self.page.locator('.brand').inner_text())
@@ -108,6 +108,7 @@ class PWABrowserTests(unittest.TestCase):
             wav.setnchannels(1); wav.setsampwidth(2); wav.setframerate(16000)
             wav.writeframes(b''.join(struct.pack('<h',round(12000*math.sin(2*math.pi*440*i/16000))) for i in range(16000)))
         self.page.locator('#enterStudio').click()
+        self.page.locator('#tabFile').click()
         self.context.set_offline(True)
         self.page.locator('#cropperFile').set_input_files({'name':'tone.wav','mimeType':'audio/wav','buffer':data.getvalue()})
         self.page.wait_for_function("Number.isFinite(document.getElementById('cropperAudio').duration)")
@@ -122,6 +123,7 @@ class PWABrowserTests(unittest.TestCase):
             self.page.set_viewport_size({'width': width, 'height': height})
             self.assertFalse(self.page.evaluate('document.documentElement.scrollWidth > innerWidth'))
             self.page.locator('#enterStudio').click()
+            self.page.locator('#tabFile').click()
             self.assertTrue(self.page.locator('#audioCropperSection').is_visible())
             self.assertTrue(self.page.locator('#cropperRecord').is_visible())
             self.assertFalse(self.page.evaluate('document.documentElement.scrollWidth > innerWidth'))
