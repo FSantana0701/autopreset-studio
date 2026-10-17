@@ -54,7 +54,7 @@ class PWABrowserTests(unittest.TestCase):
 
     def test_scope_offline_shell_and_icons(self):
         self.assertEqual(self.page.evaluate('(async()=> (await navigator.serviceWorker.ready).scope)()'), self.url)
-        self.assertIn('shell-v16', self.page.evaluate('caches.keys()'))
+        self.assertIn('shell-v17', self.page.evaluate('caches.keys()'))
         self.context.set_offline(True)
         self.page.reload()
         self.assertIn('M-VAVE MK-300 V75', self.page.locator('.brand').inner_text())
@@ -62,7 +62,27 @@ class PWABrowserTests(unittest.TestCase):
         self.assertTrue(self.page.evaluate("fetch('./manifest.webmanifest').then(r=>r.ok)"))
         self.assertTrue(self.page.evaluate("fetch('./icons/autopreset-192.png').then(r=>r.ok)"))
         self.page.locator('#enterStudio').click()
+        self.page.locator('#tabFile').click()
         self.assertTrue(self.page.locator('#audioCropperSection').is_visible())
+
+    def test_source_tabs_and_virtual_pedalboard(self):
+        self.page.locator('#enterStudio').click()
+        self.assertTrue(self.page.locator('#offlineSourcePanel').is_visible())
+        self.assertFalse(self.page.locator('#fileSourcePanel').is_visible())
+        self.assertFalse(self.page.locator('#youtubeSourcePanel').is_visible())
+        self.page.locator('#tabFile').click()
+        self.assertTrue(self.page.locator('#fileSourcePanel').is_visible())
+        self.assertTrue(self.page.locator('#audioCropperSection').is_visible())
+        self.assertFalse(self.page.locator('#offlineSourcePanel').is_visible())
+        self.page.locator('#tabYoutube').click()
+        self.assertTrue(self.page.locator('#youtubeSourcePanel').is_visible())
+        self.assertFalse(self.page.locator('#fileSourcePanel').is_visible())
+        self.assertTrue(self.page.locator('#virtualPedalboard').is_hidden())
+        self.page.locator('#tabOffline').click()
+        self.page.locator('#offlineApply').click()
+        self.page.wait_for_function("!document.querySelector('#virtualPedalboard').hidden")
+        self.assertEqual(self.page.locator('#pedalboardGrid .pedalCard').count(), 7)
+        self.assertEqual(self.page.locator('#pedalboardGrid .pedalName').all_text_contents(), ['NR','DS','AMP','EQ','CAB','DLY','REV'])
 
     def test_local_dsp_offline(self):
         self.context.set_offline(True)

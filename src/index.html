@@ -188,6 +188,52 @@ body { background:radial-gradient(ellipse at 8% 0%, #42301c 0, transparent 34%),
   .referencePresetGrid { grid-template-columns:1fr; }
 }
 @media(max-width:420px){ #inspectorControls, #modelParameterControls { grid-template-columns:1fr; } }
+/* Studio shell v17: compact source navigation, pedal review and thumb-ready actions. */
+:root { --bg:#121214; --panel:#18181b; --panel-raised:#202024; --input:#111114; --line:#323238; --text:#f4f1e9; --muted:#aaa8a1; --accent:#ffb703; --warn:#f77f00; --bad:#ff8878; --wrap-padding:24px 18px 120px; }
+body { background:radial-gradient(ellipse at 12% -5%,#3b2b13 0,transparent 32%),var(--bg); }
+.brand,.sourceTab[aria-selected="true"],.pedalLed.isOn { color:var(--accent); }
+.card { background:linear-gradient(145deg,#202024,#18181b); border-color:#323238; }
+.sourceTabs { position:sticky; top:0; z-index:15; display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:7px; margin:12px 0 16px; padding:8px; border:1px solid #323238; border-radius:16px; background:#141417ed; backdrop-filter:blur(14px); }
+.sourceTab { min-width:0; min-height:54px; padding:9px 10px; border:1px solid transparent; border-radius:11px; background:transparent; color:var(--muted); font-size:13px; line-height:1.25; }
+.sourceTab[aria-selected="true"] { border-color:#72541a; background:#2a2112; box-shadow:inset 0 -2px var(--accent); }
+.sourcePanel { margin-top:0; }
+.virtualPedalboard { border-color:#655020; }
+.pedalboardHeading { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:12px; }
+.pedalboardHeading h2 { margin:2px 0 0; }
+.eyebrow { color:var(--accent); font:700 10px ui-monospace,SFMono-Regular,Consolas,monospace; letter-spacing:.15em; }
+.pedalboardGrid { display:grid; grid-template-columns:repeat(7,minmax(90px,1fr)); gap:9px; overflow-x:auto; padding:2px 2px 8px; }
+.pedalCard { min-width:90px; padding:10px 9px; border:1px solid #323238; border-radius:12px; background:#141417; }
+.pedalCard.isOn { border-color:#62501f; }
+.pedalCardHead { display:flex; align-items:center; justify-content:space-between; gap:6px; }
+.pedalName { color:#f4f1e9; font:800 12px ui-monospace,SFMono-Regular,Consolas,monospace; }
+.pedalLed { width:9px; height:9px; border-radius:50%; background:#4c4b48; box-shadow:inset 0 0 0 1px #6a6862; }
+.pedalLed.isOn { background:#66d69b; box-shadow:0 0 10px #66d69b99; }
+.pedalModel { min-height:34px; margin:9px 0 7px; color:var(--muted); font-size:11px; line-height:1.25; overflow-wrap:anywhere; }
+.pedalValues { display:grid; gap:4px; color:#eee9dd; font:11px ui-monospace,SFMono-Regular,Consolas,monospace; }
+.pedalValue { display:flex; justify-content:space-between; gap:5px; }
+.pedalValue span:first-child { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--muted); }
+.actionDock { position:fixed; z-index:30; right:0; bottom:0; left:0; display:grid; grid-template-columns:minmax(0,1.4fr) minmax(180px,.8fr); gap:10px; padding:12px max(16px,calc((100vw - 1064px)/2)) calc(12px + env(safe-area-inset-bottom)); border-top:1px solid #39332a; background:#141417f5; box-shadow:0 -12px 28px #0008; backdrop-filter:blur(16px); }
+body:not(.studio-ready) .actionDock { display:none; }
+.actionDock button { min-height:52px; }
+.actionDock .primaryAction { background:var(--accent); color:#201704; }
+.actionDock .primaryAction span { font-size:11px; opacity:.75; }
+.systemToast { position:fixed; z-index:40; top:max(12px,env(safe-area-inset-top)); left:50%; width:min(92vw,520px); padding:12px 16px; border:1px solid #55431e; border-radius:12px; background:#242017f5; color:#f4f1e9; box-shadow:0 12px 34px #0009; transform:translateX(-50%); }
+.systemToast[data-tone="good"] { border-color:#35664b; background:#14251c; }
+.systemToast[data-tone="bad"] { border-color:#77473f; background:#2b1917; }
+.status { min-height:0; margin:6px 0 0; padding:0; color:var(--muted); font-size:12px; }
+.status:empty { display:none; }
+.status.warn, .notice { border:0; border-left:2px solid #76571b; padding:5px 8px; background:#201d16; color:#d3c29b; }
+button, input[type="text"],input[type="number"],input[type="url"],input[type="file"],select { min-height:48px; }
+button { background:var(--accent); color:#211805; }
+button.secondary,.pedalNav button { background:#25252a; }
+@media(max-width:700px) {
+  :root { --wrap-padding:16px 12px 132px; }
+  .sourceTabs { gap:4px; padding:5px; }
+  .sourceTab { min-height:58px; padding:8px 5px; font-size:11px; }
+  .pedalboardGrid { grid-template-columns:repeat(7,88px); }
+  .actionDock { grid-template-columns:1fr; gap:7px; padding:9px 12px calc(9px + env(safe-area-inset-bottom)); }
+  .actionDock button { min-height:48px; }
+}
 </style>
 </head>
 <body>
@@ -212,9 +258,25 @@ body { background:radial-gradient(ellipse at 8% 0%, #42301c 0, transparent 34%),
   </div>
   <div id="screenStudio" hidden>
   <div class="actions"><button id="leaveStudio" type="button">← Voltar ao Setup</button></div>
+  <div class="sourceTabs" role="tablist" aria-label="Fonte para criar preset">
+    <button class="sourceTab" type="button" role="tab" id="tabOffline" aria-controls="offlineSourcePanel" aria-selected="true">⚡ Presets Prontos</button>
+    <button class="sourceTab" type="button" role="tab" id="tabFile" aria-controls="fileSourcePanel" aria-selected="false">📁 Analisar Arquivo / Áudio</button>
+    <button class="sourceTab" type="button" role="tab" id="tabYoutube" aria-controls="youtubeSourcePanel" aria-selected="false">🎥 Analisar YouTube</button>
+  </div>
+  <section id="virtualPedalboard" class="card virtualPedalboard" aria-labelledby="pedalboardTitle" hidden>
+    <div class="pedalboardHeading"><div><span class="eyebrow">MK‑300 · REVISÃO</span><h2 id="pedalboardTitle">Pedaleira virtual</h2></div><span id="pedalboardOrigin" class="meta">Preset pronto</span></div>
+    <div id="pedalboardGrid" class="pedalboardGrid" aria-live="polite"></div>
+  </section>
+  <section id="offlineSourcePanel" class="card sourcePanel" role="tabpanel" aria-labelledby="tabOffline">
+    <h2>Presets prontos · catálogo offline</h2><p class="hint">Escolha um perfil local para criar um ponto de partida na pedaleira. Funciona sem enviar áudio e sem conexão com a IA.</p><div class="field"><label for="offlineStyle">Estilo de referência</label><select id="offlineStyle"><option>Rock</option><option>Metal</option><option>MPB</option><option>Blues</option><option>Clean</option></select></div><div class="actions"><button id="offlineApply" type="button">Criar preset deste perfil</button></div><p id="offlineStatus" class="status" role="status" aria-live="polite"></p>
+  <details class="advancedPanel textAiPanel"><summary>Sugestão local e histórico de correções</summary>
+    <section class="card" style="border-color:var(--accent)"><h2>Referência por texto ou preset parecido</h2><p class="hint">Sem exemplos anteriores, a sugestão por texto usa perfis offline e é apenas um ponto de partida. Ao testar e corrigir o preset, salve o resultado para o AutoPreset usar como exemplo local nas próximas análises.</p><div class="field"><label for="ytUrl">Artista, música ou estilo</label><input id="ytUrl" type="text" maxlength="2000" placeholder="Ex.: Gravity · John Mayer" autocomplete="off"></div><div class="actions"><button id="analyzeAI" type="button">Aplicar perfil local</button></div><div id="aiStatus" class="status" aria-live="polite"></div><p id="aiDescription" class="hint"></p></section>
+  </details>
+  </section>
+  <section id="fileSourcePanel" class="card sourcePanel" role="tabpanel" aria-labelledby="tabFile" hidden style="border-color:var(--accent)">
   <section id="audioCropperSection" class="card" style="border:2px solid var(--accent)" aria-labelledby="cropperTitle">
-    <h2 id="cropperTitle">Cortador Local · Análise Instantânea no Aparelho</h2>
-    <p class="hint">Carregue um MP3/WAV, ouça e marque até 45 segundos. Analise instantaneamente arquivos de até 5 minutos, sem enviar áudio ao servidor. Para faixas longas, use a gravação em tempo real. Mantenha esta tela aberta durante a gravação. Somente o trecho gravado será analisado no aparelho.</p>
+    <h2 id="cropperTitle">Cortador local · análise no aparelho</h2>
+    <p class="hint">Carregue um MP3/WAV, ouça e marque até 45 segundos. A análise acontece no aparelho; o áudio não é enviado ao servidor.</p>
     <fieldset id="cropperInputs" style="border:0;padding:0;min-width:0">
       <label for="cropperFile">Arquivo de áudio salvo no aparelho</label>
       <input id="cropperFile" type="file" accept="audio/*">
@@ -230,12 +292,16 @@ body { background:radial-gradient(ellipse at 8% 0%, #42301c 0, transparent 34%),
     <p id="cropperRange" class="meta">Início: — · Fim: —</p>
     <p id="cropperStatus" class="status" role="status" aria-live="polite"></p>
   </section>
-  <div class="sourceTabs" role="tablist" aria-label="Fonte para criar preset">
-    <button class="sourceTab" type="button" role="tab" id="tabYoutube" aria-controls="youtubeSourcePanel" aria-selected="true">YouTube</button>
-    <button class="sourceTab" type="button" role="tab" id="tabFile" aria-controls="fileSourcePanel" aria-selected="false">Arquivo MP3 / WAV</button>
-    <button class="sourceTab" type="button" role="tab" id="tabOffline" aria-controls="offlineSourcePanel" aria-selected="false">Catálogo offline</button>
-  </div>
-  <section id="youtubeSourcePanel" class="card sourcePanel" role="tabpanel" aria-labelledby="tabYoutube">
+  <h2>Analisar arquivo de áudio</h2>
+    <h3>Análise leve da mixagem</h3>
+    <p class="hint stepHelp">1. Salve um MP3/WAV no celular (por exemplo, baixe-o do Drive). 2. Toque em <b>Escolher arquivo</b> e selecione-o em Downloads, Música ou Áudio. 3. Marque um trecho e toque em <b>Analisar trecho da mixagem</b>. SFM, centroide, rolloff, fluxo espectral, RMS, ZCR e fator de crista são medidos no trecho original. A banda inteira influencia as métricas; não há guitarra isolada. O áudio fica no aparelho. Arquivos acima de 5 minutos devem ser recortados antes de importar.</p>
+    <fieldset id="audioInputs" style="border:0;padding:0;min-width:0"><div class="field"><label for="audioFile">Arquivo MP3 ou WAV salvo no celular · até 25 MiB</label><input id="audioFile" type="file" accept="audio/*,.mp3,.wav,.m4a" aria-describedby="audioInfo"><p class="hint">Se o seletor abrir uma pasta vazia, toque no menu ☰ e procure em Downloads, Música ou Áudio. A análise local aceita MP3/WAV; o envio opcional ao servidor também aceita M4A (até 15 MiB).</p></div><audio id="previewAudio" controls preload="metadata" style="width:100%;margin-top:12px"></audio><p id="audioInfo" class="hint" role="status" aria-live="polite">Nenhum áudio selecionado. A análise não começa até você escolher um arquivo.</p><h3>Trechos · segundos ou mm:ss (máximo 45 s)</h3><div id="snippets"></div><button id="addSnippet" type="button">+ Adicionar trecho</button></fieldset>
+    <div class="actions"><button id="cancelAI" type="button" disabled>Cancelar operação</button></div><div id="audioStatus" class="status" aria-live="polite"></div>
+    <section id="separationOutput" class="card" hidden><h3>Mixagem original · trecho analisado</h3><audio id="guitarStemPreview" controls preload="metadata" style="width:100%"></audio><p id="audioMetrics" class="meta"></p><p><a id="downloadGuitarStem" class="downloadFallback" download="mix-clip.wav">Baixar trecho original (.wav)</a></p><p class="hint">As métricas incluem bateria, voz, baixo e guitarra. Elas não identificam o timbre da guitarra nem reconhecem artista. A sugestão é um ponto de partida de baixa confiança; ouça e ajuste manualmente.</p><div class="actions"><button id="applyAudioSuggestion" type="button" disabled>Montar preset inicial com este áudio</button></div><p id="audioSuggestionStatus" class="status" aria-live="polite">Depois que a análise terminar, você pode aplicar uma sugestão offline e revisar os controles antes de exportar.</p></section>
+    <section id="learningPanel" class="card" hidden><h3>Aprendizagem com seus testes</h3><p id="learningSummary" class="hint">As correções ficam neste aparelho. Elas servem de exemplos para sugerir presets semelhantes em análises futuras.</p><div class="actions"><button id="applyLearningExample" type="button" class="secondary" disabled>Usar correção parecida</button></div><label class="check"><input id="learningTested" type="checkbox"> Já comparei este preset na MK‑300</label><div class="grid" style="margin-top:12px"><div class="field"><label for="learningRating">Quanto se aproximou da referência?</label><select id="learningRating"><option value="1">1 · Muito diferente</option><option value="2">2 · Ainda distante</option><option value="3" selected>3 · Parcialmente parecido</option><option value="4">4 · Bem parecido</option><option value="5">5 · Muito próximo</option></select></div><div class="field"><label for="learningNote">O que você corrigiu?</label><input id="learningNote" type="text" maxlength="500" placeholder="Ex.: menos ganho, mais médios"></div></div><div class="actions"><button id="saveLearningExample" type="button">Salvar este teste como exemplo</button><button id="exportLearningExamples" type="button" class="secondary">Exportar meus exemplos</button></div><div id="learningStatus" class="status" aria-live="polite"></div></section>
+    <details class="advancedPanel" style="margin-top:14px"><summary>Também analisar e gerar no servidor</summary><p class="hint">Opcional. Reutilize o MP3/WAV acima ou escolha MP3/WAV/M4A aqui. Envia até 15 MiB e processa um trecho de até 45 segundos. O serviço calcula a sugestão e devolve um .dzh de 448 bytes.</p><label for="serverFileInput">Arquivo para o serviço (opcional se já escolheu MP3/WAV acima)</label><input id="serverFileInput" type="file" accept=".mp3,.wav,.m4a,audio/mpeg,audio/wav,audio/mp4"><div class="grid"><label>Início (segundos)<input id="serverFileStart" type="number" min="0" step="0.1" value="0"></label><label>Fim (segundos)<input id="serverFileEnd" type="number" min="0.3" max="45" step="0.1" value="30"></label></div><div class="actions"><button id="serverFileAnalyze" type="button">Analisar arquivo no servidor</button></div><p id="serverFileStatus" class="status" role="status" aria-live="polite"></p><div id="serverFileReview" class="card" hidden></div><div class="actions"><button id="serverFileApply" type="button" disabled>Carregar parâmetros para revisão</button><button id="serverFileDownload" type="button" disabled>Baixar Preset .dzh</button></div></details>
+  </section>
+  <section id="youtubeSourcePanel" class="card sourcePanel" role="tabpanel" aria-labelledby="tabYoutube" hidden>
     <h2 id="youtubeTitle">YouTube · análise de trecho</h2>
     <p class="hint">Cole um link e escolha até 45 segundos. No modo leve, você recebe somente esse trecho e gera o preset no aparelho. Se o YouTube bloquear a extração, carregue o arquivo no Cortador Local.</p>
     <details class="field" style="margin:12px 0"><summary>Servidor de extração · Railway</summary><label for="apiBaseUrl">URL da API de produção</label><input id="apiBaseUrl" type="url" readonly><p id="apiConfigStatus" class="hint" role="status">O Railway obtém o trecho. No modo leve, a análise acontece no aparelho, sem baixar modelos.</p></details>
@@ -252,18 +318,7 @@ body { background:radial-gradient(ellipse at 8% 0%, #42301c 0, transparent 34%),
     <div class="actions"><button id="youtubeApply" type="button" disabled>Carregar parâmetros para revisão</button><button id="youtubeDownload" type="button" disabled>Baixar Preset .dzh</button></div>
     <button id="youtubeLocalFallback" type="button">Carregar áudio baixado no Cortador Local</button>
   </section>
-  <section id="fileSourcePanel" class="card sourcePanel" role="tabpanel" aria-labelledby="tabFile" hidden style="border-color:var(--accent)"><h2>Análise leve da mixagem</h2>
-    <p class="hint stepHelp">1. Salve um MP3/WAV no celular (por exemplo, baixe-o do Drive). 2. Toque em <b>Escolher arquivo</b> e selecione-o em Downloads, Música ou Áudio. 3. Marque um trecho e toque em <b>Analisar trecho da mixagem</b>. SFM, centroide, rolloff, fluxo espectral, RMS, ZCR e fator de crista são medidos no trecho original. A banda inteira influencia as métricas; não há guitarra isolada. O áudio fica no aparelho. Arquivos acima de 5 minutos devem ser recortados antes de importar.</p>
-    <fieldset id="audioInputs" style="border:0;padding:0;min-width:0"><div class="field"><label for="audioFile">Arquivo MP3 ou WAV salvo no celular · até 25 MiB</label><input id="audioFile" type="file" accept="audio/*,.mp3,.wav,.m4a" aria-describedby="audioInfo"><p class="hint">Se o seletor abrir uma pasta vazia, toque no menu ☰ e procure em Downloads, Música ou Áudio. A análise local aceita MP3/WAV; o envio opcional ao servidor também aceita M4A (até 15 MiB).</p></div><audio id="previewAudio" controls preload="metadata" style="width:100%;margin-top:12px"></audio><p id="audioInfo" class="hint" role="status" aria-live="polite">Nenhum áudio selecionado. A análise não começa até você escolher um arquivo.</p><h3>Trechos · segundos ou mm:ss (máximo 45 s)</h3><div id="snippets"></div><button id="addSnippet" type="button">+ Adicionar trecho</button></fieldset>
-    <div class="actions"><button id="cancelAI" type="button" disabled>Cancelar operação</button></div><div id="audioStatus" class="status" aria-live="polite"></div>
-    <section id="separationOutput" class="card" hidden><h3>Mixagem original · trecho analisado</h3><audio id="guitarStemPreview" controls preload="metadata" style="width:100%"></audio><p id="audioMetrics" class="meta"></p><p><a id="downloadGuitarStem" class="downloadFallback" download="mix-clip.wav">Baixar trecho original (.wav)</a></p><p class="hint">As métricas incluem bateria, voz, baixo e guitarra. Elas não identificam o timbre da guitarra nem reconhecem artista. A sugestão é um ponto de partida de baixa confiança; ouça e ajuste manualmente.</p><div class="actions"><button id="applyAudioSuggestion" type="button" disabled>Montar preset inicial com este áudio</button></div><p id="audioSuggestionStatus" class="status" aria-live="polite">Depois que a análise terminar, você pode aplicar uma sugestão offline e revisar os controles antes de exportar.</p></section>
-    <section id="learningPanel" class="card" hidden><h3>Aprendizagem com seus testes</h3><p id="learningSummary" class="hint">As correções ficam neste aparelho. Elas servem de exemplos para sugerir presets semelhantes em análises futuras.</p><div class="actions"><button id="applyLearningExample" type="button" class="secondary" disabled>Usar correção parecida</button></div><label class="check"><input id="learningTested" type="checkbox"> Já comparei este preset na MK‑300</label><div class="grid" style="margin-top:12px"><div class="field"><label for="learningRating">Quanto se aproximou da referência?</label><select id="learningRating"><option value="1">1 · Muito diferente</option><option value="2">2 · Ainda distante</option><option value="3" selected>3 · Parcialmente parecido</option><option value="4">4 · Bem parecido</option><option value="5">5 · Muito próximo</option></select></div><div class="field"><label for="learningNote">O que você corrigiu?</label><input id="learningNote" type="text" maxlength="500" placeholder="Ex.: menos ganho, mais médios"></div></div><div class="actions"><button id="saveLearningExample" type="button">Salvar este teste como exemplo</button><button id="exportLearningExamples" type="button" class="secondary">Exportar meus exemplos</button></div><div id="learningStatus" class="status" aria-live="polite"></div></section>
-    <details class="advancedPanel" style="margin-top:14px"><summary>Também analisar e gerar no servidor</summary><p class="hint">Opcional. Reutilize o MP3/WAV acima ou escolha MP3/WAV/M4A aqui. Envia até 15 MiB e processa um trecho de até 45 segundos. O serviço calcula a sugestão e devolve um .dzh de 448 bytes.</p><label for="serverFileInput">Arquivo para o serviço (opcional se já escolheu MP3/WAV acima)</label><input id="serverFileInput" type="file" accept=".mp3,.wav,.m4a,audio/mpeg,audio/wav,audio/mp4"><div class="grid"><label>Início (segundos)<input id="serverFileStart" type="number" min="0" step="0.1" value="0"></label><label>Fim (segundos)<input id="serverFileEnd" type="number" min="0.3" max="45" step="0.1" value="30"></label></div><div class="actions"><button id="serverFileAnalyze" type="button">Analisar arquivo no servidor</button></div><p id="serverFileStatus" class="status" role="status" aria-live="polite"></p><div id="serverFileReview" class="card" hidden></div><div class="actions"><button id="serverFileApply" type="button" disabled>Carregar parâmetros para revisão</button><button id="serverFileDownload" type="button" disabled>Baixar Preset .dzh</button></div></details>
-  </section>
-  <section id="offlineSourcePanel" class="card sourcePanel" role="tabpanel" aria-labelledby="tabOffline" hidden><h2>Catálogo offline</h2><p class="hint">Perfis locais de partida. Nenhum áudio é enviado e não precisa de internet. Ajuste os parâmetros e confira o som no equipamento.</p><div class="field"><label for="offlineStyle">Estilo de referência</label><select id="offlineStyle"><option>Rock</option><option>Metal</option><option>MPB</option><option>Blues</option><option>Clean</option></select></div><div class="actions"><button id="offlineApply" type="button">Criar preset deste perfil</button></div><p id="offlineStatus" class="status" role="status" aria-live="polite"></p></section>
-  <details class="advancedPanel textAiPanel" open><summary>Sugestão local e histórico de correções</summary>
-    <section class="card" style="border-color:var(--accent)"><h2>Referência por texto ou preset parecido</h2><p class="hint">Sem exemplos anteriores, a sugestão por texto usa perfis offline e é apenas um ponto de partida. Ao testar e corrigir o preset, salve o resultado para o AutoPreset usar como exemplo local nas próximas análises.</p><div class="field"><label for="ytUrl">Artista, música ou estilo</label><input id="ytUrl" type="text" maxlength="2000" placeholder="Ex.: Gravity · John Mayer" autocomplete="off"></div><div class="actions"><button id="analyzeAI" type="button">Aplicar perfil local</button></div><div id="aiStatus" class="status" aria-live="polite"></div><p id="aiDescription" class="hint"></p></section>
-  </details>
+
   <p id="originBadge" class="originBadge" role="status">Edição manual</p>
   <details id="referencePackPanel" class="advancedPanel referencePackPanel"><summary>Biblioteca de referência · Pack John Petrucci</summary><section class="card">
     <h2>Presets de referência v73</h2>
@@ -382,6 +437,11 @@ body { background:radial-gradient(ellipse at 8% 0%, #42301c 0, transparent 34%),
   </fieldset>
   </div>
 </main>
+<nav class="actionDock" aria-label="Ações principais do preset">
+  <button id="stickyDownload" type="button" class="primaryAction">⬇️ Baixar Preset .dzh <span>(448 bytes)</span></button>
+  <button id="stickyReview" type="button" class="secondary">🔍 Revisar / Editar Parâmetros</button>
+</nav>
+<div id="systemToast" class="systemToast" role="status" aria-live="polite" aria-atomic="true" hidden></div>
 <script src="data/v73.js"></script>
 <script src="data/v73-parameters.js"></script>
 <script src="core/mk300-preset-handler.js"></script>
@@ -1436,6 +1496,7 @@ window.AutoPresetLoadAPIResult=(data,bytes,title)=>{
  $('youtubeApply').click();
 };
 let localDzh=null;
+window.AutoPresetGetCurrentBytes=()=>youtubeResult?.bytes?.slice()||localDzh?.slice()||compilePreset();
 let cropperUrl=null,cropStart=null,cropEnd=null;
 function updateCropperRange(){
  $('cropperRange').textContent='Início: '+(cropStart===null?'—':cropStart.toFixed(2)+' s')+' · Fim: '+(cropEnd===null?'—':cropEnd.toFixed(2)+' s');

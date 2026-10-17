@@ -1,5 +1,5 @@
 'use strict';
-const CACHE_NAME = 'shell-v16'; // Abas YouTube, upload de arquivo e catálogo offline.
+const CACHE_NAME = 'shell-v17'; // Studio de pedaleira virtual e revisão compacta.
 const APP_SHELL = ['./', './index.html', './index%20(1).html', './manifest.webmanifest', './icons/autopreset-192.png', './icons/autopreset-512.png'];
 const SCOPE = new URL(self.registration.scope);
 const SHELL_URLS = new Set(APP_SHELL.map(path => new URL(path, SCOPE).href));

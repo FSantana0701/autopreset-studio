@@ -2,7 +2,7 @@
 (function () {
   'use strict';
   const $ = (id) => document.getElementById(id);
-  const tabs = [['tabYoutube', 'youtubeSourcePanel'], ['tabFile', 'fileSourcePanel'], ['tabOffline', 'offlineSourcePanel']];
+  const tabs = [['tabOffline', 'offlineSourcePanel'], ['tabFile', 'fileSourcePanel'], ['tabYoutube', 'youtubeSourcePanel']];
   function selectTab(id) {
     for (const [tabId, panelId] of tabs) {
       const selected = tabId === id;
@@ -12,8 +12,12 @@
     }
   }
   for (const [tab] of tabs) $(tab).addEventListener('click', () => selectTab(tab));
-  $('tabYoutube').tabIndex = 0;
-  $('tabFile').tabIndex = $('tabOffline').tabIndex = -1;
+  $('tabOffline').tabIndex = 0;
+  $('tabFile').tabIndex = $('tabYoutube').tabIndex = -1;
+  selectTab('tabOffline');
+  $('enterStudio').addEventListener('click', () => setTimeout(() => { if (!$('screenStudio').hidden) document.body.classList.add('studio-ready'); }, 0));
+  $('leaveStudio').addEventListener('click', () => document.body.classList.remove('studio-ready'));
+  $('youtubeLocalFallback').addEventListener('click', () => $('tabFile').click());
   $('tabYoutube').parentElement.addEventListener('keydown', event => {
     if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
     event.preventDefault();
@@ -74,6 +78,7 @@
       const raw = atob(encoded); const bytes = Uint8Array.from(raw, ch => ch.charCodeAt(0));
       if (bytes.byteLength !== 448) throw new Error(`O preset recebido tem ${bytes.byteLength} bytes; esperado: 448.`);
       fileResult = {data, bytes}; renderReview(data);
+      showPedalboard(bytes, data.source?.title || 'Arquivo · sugestão pronta');
       $('serverFileApply').disabled = $('serverFileDownload').disabled = false;
       status.textContent = 'Análise concluída. Revise os blocos e ouça/ajuste o preset antes de usar.'; status.className = 'status good';
     } catch (error) { status.textContent = error.message || 'Falha ao analisar o áudio.'; status.className = 'status warn'; }
@@ -97,5 +102,82 @@
     $('analyzeAI').click();
     $('offlineStatus').textContent = `Perfil local “${style}” criado. Ajuste os parâmetros no editor e exporte o .dzh.`;
     $('offlineStatus').className = 'status good';
+  });
+
+  const pedalBlocks = [
+    {id:2,label:'NR'}, {id:3,label:'DS'}, {id:4,label:'AMP'}, {id:6,label:'EQ'},
+    {id:5,label:'CAB'}, {id:8,label:'DLY'}, {id:9,label:'REV'}
+  ];
+  function showPedalboard(bytes, origin='Preset carregado') {
+    if (!(bytes instanceof Uint8Array)) bytes = Uint8Array.from(bytes || []);
+    if (!bytes || bytes.length !== 448) return;
+    const catalog = window.MK300V73Parameters?.blocks;
+    if (!Array.isArray(catalog)) return;
+    const root = $('pedalboardGrid'); root.replaceChildren();
+    for (const block of pedalBlocks) {
+      const modelIndex = bytes[0x36 + block.id] || 0;
+      const model = catalog.find(item => item.id === block.id)?.models?.[modelIndex];
+      const enabled = (bytes[0x2b + block.id] || 0) !== 0;
+      const card = document.createElement('article'); card.className = `pedalCard${enabled ? ' isOn' : ''}`;
+      const head = document.createElement('div'); head.className = 'pedalCardHead';
+      const name = document.createElement('strong'); name.className = 'pedalName'; name.textContent = block.label;
+      const led = document.createElement('span'); led.className = `pedalLed${enabled ? ' isOn' : ''}`; led.setAttribute('aria-label', enabled ? 'Ligado' : 'Desligado');
+      head.append(name, led); card.appendChild(head);
+      const modelName = document.createElement('p'); modelName.className = 'pedalModel';
+      modelName.textContent = model?.name || (block.label === 'CAB' ? `Slot ${modelIndex + 1}` : 'Modelo não identificado'); card.appendChild(modelName);
+      const values = document.createElement('div'); values.className = 'pedalValues';
+      (model?.knobs || []).slice(0, 3).forEach((knob, i) => {
+        const offset = 0x42 + 24 * block.id + 2 * i;
+        const raw = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength).getInt16(offset, true);
+        const row = document.createElement('div'); row.className = 'pedalValue';
+        const label = document.createElement('span'); label.textContent = knob;
+        const value = document.createElement('b'); value.textContent = String(raw);
+        row.append(label, value); values.appendChild(row);
+      });
+      card.appendChild(values); root.appendChild(card);
+    }
+    $('pedalboardOrigin').textContent = origin;
+    $('virtualPedalboard').hidden = false;
+  }
+  window.AutoPresetShowPedalboard = showPedalboard;
+  function refreshCompiled(origin) {
+    try { if (typeof window.compilePreset === 'function') showPedalboard(window.compilePreset(), origin); } catch (_) { /* Invalid/incomplete edits stay hidden until a valid preset exists. */ }
+  }
+  const observedStatuses = ['youtubeStatus','serverFileStatus','cropperStatus','audioSuggestionStatus','aiStatus','offlineStatus','projectStatus','result'];
+  const statusObserver = new MutationObserver(records => {
+    for (const record of records) {
+      const node = record.target;
+      if (!(node instanceof HTMLElement) || !node.textContent.trim()) continue;
+      const tone = node.classList.contains('bad') ? 'bad' : node.classList.contains('warn') ? 'bad' : node.classList.contains('good') ? 'good' : '';
+      if (!tone) continue;
+      const toast = $('systemToast'); toast.textContent = node.textContent.trim().replace(/\s+/g, ' ').slice(0, 180); toast.dataset.tone = tone; toast.hidden = false;
+      clearTimeout(statusObserver.toastTimer); statusObserver.toastTimer = setTimeout(() => { toast.hidden = true; }, 4200);
+      if (tone === 'good') {
+        if (node.id === 'youtubeStatus' && typeof window.AutoPresetGetCurrentBytes === 'function') {
+          try { showPedalboard(window.AutoPresetGetCurrentBytes(),'YouTube · preset pronto'); } catch (_) { refreshCompiled('Preset atual · editor'); }
+        } else refreshCompiled('Preset atual · editor');
+      }
+    }
+  });
+  for (const id of observedStatuses) { const node=$(id); if(node) statusObserver.observe(node,{childList:true,subtree:true,characterData:true,attributes:true,attributeFilter:['class']}); }
+  for (const id of ['generate','checkPreset','applyAudioSuggestion','offlineApply','analyzeAI','analyzeYt','importCode','youtubeApply','serverFileApply','cropperInstant','cropperRecord','saveProject']) {
+    const node=$(id); if(node) node.addEventListener('click',()=>setTimeout(()=>refreshCompiled('Preset atual · editor'),80));
+  }
+  $('youtubeDownload').addEventListener('click', () => setTimeout(() => {
+    try { const bytes = window.AutoPresetGetCurrentBytes?.(); if (bytes) showPedalboard(bytes,'YouTube'); else refreshCompiled('YouTube · preset pronto'); } catch (_) { refreshCompiled('YouTube · preset pronto'); }
+  }, 0));
+  $('serverFileDownload').addEventListener('click', () => setTimeout(() => {
+    if (fileResult?.bytes) showPedalboard(fileResult.bytes,'Arquivo · preset pronto');
+  }, 0));
+  $('stickyDownload').addEventListener('click', () => {
+    const selected = $('tabFile').getAttribute('aria-selected') === 'true';
+    const youtube = $('tabYoutube').getAttribute('aria-selected') === 'true';
+    const target = selected ? (!$('serverFileDownload').disabled ? $('serverFileDownload') : !$('cropperDownload').disabled ? $('cropperDownload') : $('generate'))
+      : youtube && !$('youtubeDownload').disabled ? $('youtubeDownload') : $('generate');
+    target.click();
+  });
+  $('stickyReview').addEventListener('click', () => {
+    if (!$('virtualPedalboard').hidden) $('virtualPedalboard').scrollIntoView({behavior:'smooth',block:'start'});
+    $('blockInspector').scrollIntoView({behavior:'smooth',block:'start'});
   });
 })();
