@@ -74,7 +74,8 @@ def analyze_link_options():
 
 @app.get('/health')
 def health():
-    return {'status':'ok','engine':'HPSS','guitar_isolated':False,'max_duration_seconds':45,
+    return {'status':'ok','api':'autopreset-audio','analysis_enabled':True,
+            'engine':'HPSS','guitar_isolated':False,'max_duration_seconds':45,
             'ffmpeg_available':shutil.which('ffmpeg') is not None}
 
 

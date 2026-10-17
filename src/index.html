@@ -1194,11 +1194,10 @@ if($('testAI'))$('testAI').addEventListener('click',async()=>{
  try{
   const response=await fetch(getAutoPresetApi()+'/health',{signal:controller.signal,headers:{Accept:'application/json'}});
   const data=await response.json().catch(()=>({}));
-  if(!response.ok||data.status!=='ok')throw new Error(data.detail||'Serviço indisponível.');
-  if(data.ai_enabled!=='true')throw new Error('O administrador ainda não configurou o assistente de IA.');
-  if(data.audio_enabled!=='true')throw new Error('O separador de áudio ainda não está ativo.');
-  $('serviceStatus').textContent='Assistente e separador conectados. Nenhuma chave é solicitada no navegador.';
-  setStatus($('audioStatus'),'Serviço do AutoPreset conectado. Referência textual e separação de áudio disponíveis.','good');
+  if(!response.ok||data.status!=='ok'||data.api!=='autopreset-audio')throw new Error(response.status===404?'Este endereço não está servindo a API AutoPreset.':'Resposta inválida do serviço de áudio.');
+  if(!data.analysis_enabled)throw new Error('A análise de áudio está desativada no serviço.');
+  $('serviceStatus').textContent='API de áudio conectada · HPSS/DSP. A guitarra não é isolada; nenhuma chave de provedor é solicitada.';
+  setStatus($('audioStatus'),'Serviço de áudio conectado. A análise harmônica é uma hipótese da mixagem, não uma identificação isolada de guitarra.','good');
  }catch(error){setStatus($('audioStatus'),error.name==='AbortError'?'O teste expirou após 20 segundos.':'Falha ao conectar: '+error.message,'bad');}
  finally{clearTimeout(timer);button.disabled=false;}
 });
@@ -1433,6 +1432,7 @@ async function requestYoutubePreset(payload,signal,local=false,base=null,onProgr
   if(response.status===422&&(failure==='DOWNLOAD_BLOCKED'||failure?.detail==='DOWNLOAD_BLOCKED'||failure?.code==='DOWNLOAD_BLOCKED'||failure?.message==='DOWNLOAD_BLOCKED')){
    throw Object.assign(new Error('O YouTube bloqueou o download automático na nuvem. Use o Cortador Local abaixo para enviar o arquivo diretamente.'),{code:'DOWNLOAD_BLOCKED'});
   }
+  if(response.status===404)throw new Error('O servidor respondeu, mas não tem a rota da API AutoPreset (HTTP 404). O backend FastAPI ainda não está publicado neste endereço Railway. Use o Cortador Local ou envie um arquivo enquanto a implantação é corrigida.');
   throw new Error(response.status===400||response.status===422?'O serviço não aceitou o link ou intervalo. Confira os dados.':response.status===503?'Servidor de IA indisponível no momento.':'O serviço não conseguiu concluir a análise (HTTP '+response.status+').');
  }
  if(local){

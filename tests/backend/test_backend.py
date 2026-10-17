@@ -208,7 +208,10 @@ class HTTPTests(unittest.TestCase):
         return response
 
     def test_health_and_cors(self):
-        self.assertEqual(json.load(self.request('/health'))['engine'],'HPSS')
+        health = json.load(self.request('/health'))
+        self.assertEqual(health['engine'],'HPSS')
+        self.assertEqual(health['api'],'autopreset-audio')
+        self.assertTrue(health['analysis_enabled'])
         response = self.request('/api/v1/analyze-link',method='OPTIONS',headers={'Origin':'https://fsantana0701.github.io','Access-Control-Request-Method':'POST','Access-Control-Request-Headers':'content-type,accept'})
         self.assertEqual(response.status,200)
         self.assertEqual(response.headers['Access-Control-Allow-Origin'],'*')
