@@ -186,6 +186,7 @@ class YouTubeTests(pwa.PWABrowserTests):
         import base64
         self.page.locator('#enterStudio').click()
         self.page.locator('#tabYoutube').click()
+        self.configure_api()  # Test the mocked analysis route, not the live lightweight extractor.
         self.page.locator('#youtubeUrl').fill('https://youtu.be/z3JhXn_onsw')
         valid=self.page.evaluate('Array.from(compilePreset())')
         bad_chain=bytearray(valid);bad_chain[32]=bad_chain[33]
@@ -194,11 +195,16 @@ class YouTubeTests(pwa.PWABrowserTests):
             json.dumps({'dzh_base64':base64.b64encode(data).decode()})
             for data in [bytes(447),bytes(449),bad_chain,bad_state]
         ]
-        for payload in payloads:
+        requests=[]
+        for index,payload in enumerate(payloads):
             self.page.unroute('**/api/v1/analyze-link')
-            self.page.route('**/api/v1/analyze-link',lambda route,request,body=payload:route.fulfill(status=200,content_type='application/json',body=body))
+            def respond(route, request, body=payload):
+                requests.append(request.url)
+                route.fulfill(status=200,content_type='application/json',body=body)
+            self.page.route('**/api/v1/analyze-link',respond)
             self.page.locator('#youtubeAnalyze').click()
             self.page.wait_for_function("!document.querySelector('#youtubeInputs').disabled")
+            self.assertEqual(len(requests),index+1,'Every invalid payload must reach the simulated analysis API')
             self.assertTrue(self.page.locator('#youtubeDownload').is_disabled())
             self.assertTrue(self.page.locator('#youtubeApply').is_disabled())
             self.assertIn('cortador local',self.page.locator('#youtubeStatus').inner_text())
