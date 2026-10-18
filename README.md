@@ -89,11 +89,18 @@ Configuração local: `python -m pip install -r requirements.txt`, instale FFmpe
 
 ## Assistente IA de timbres
 
-A aba **💬 Assistente IA** conversa com `gpt-4o-mini` por `POST /api/v1/chat`.
-No Railway, configure a variável **OPENAI_API_KEY** no serviço do backend e aplique
-o deploy. A chave é lida apenas no servidor; a PWA não pede nem armazena chaves.
+A aba **💬 Assistente IA** conversa com `openai/gpt-oss-120b` hospedado pela Groq por
+`POST /api/v1/chat`, usando o cliente compatível OpenAI apontado para
+`https://api.groq.com/openai/v1`. No Railway, configure a variável **GROQ_API_KEY**
+no serviço do backend e aplique o deploy. A chave é lida apenas no servidor; a PWA
+não pede nem armazena chaves.
 Sem a variável, a API inicia normalmente e o chat retorna HTTP 503 com
 `Chave de API não configurada no servidor`.
+O ID `llama3-70b-8192` foi desativado pela Groq; por isso o backend usa o modelo
+de produção recomendado atualmente, `openai/gpt-oss-120b`. A Groq lista preço por
+token para esse modelo (US$ 0,15 por milhão de tokens de entrada e US$ 0,60 por
+milhão de saída); confira os [modelos e preços atuais](https://console.groq.com/docs/models)
+antes de usar. Não há garantia de uso gratuito ilimitado.
 
 Contrato mínimo: `{"message":"Quero um lead com sustain"}` →
 `{"response":"..."}`. Opcionalmente, `history` aceita até 10 mensagens com
@@ -104,7 +111,7 @@ O prompt injeta o catálogo V75 de `services/catalog.py`, os controles conhecido
 a exclusividade NAM/DS, e solicita ajustes para NR, DS, AMP, EQ, CAB, DLY e REV.
 Os nomes legados do catálogo binário não são oferecidos ao assistente.
 
-O chat exige internet e envia o texto e o histórico recente à OpenAI pelo backend;
+O chat exige internet e envia o texto e o histórico recente à Groq pelo backend;
 não envia áudio nem altera automaticamente o preset aberto. Falhas de chave,
 conexão, limite de uso e timeout recebem mensagens em português. Os testes usam
 um transporte HTTP simulado, sem chave real nem consumo da API.
@@ -123,7 +130,7 @@ A PWA não é um APK e não está publicada na Play Store.
 ## Privacidade e limites
 
 - A análise heurística local não envia nem armazena o arquivo de áudio.
-- O Assistente IA envia as mensagens e o histórico recente ao backend e à OpenAI; o histórico desta sessão não é salvo no projeto nem no cache da PWA.
+- O Assistente IA envia as mensagens e o histórico recente ao backend e à Groq; o histórico desta sessão não é salvo no projeto nem no cache da PWA.
 - As medições e projetos podem permanecer no armazenamento local do navegador para permitir rascunhos e exemplos; use os controles de exportação/importação do app para fazer cópias.
 - Downloads e autorização do TONE3000 são feitos diretamente com o serviço. Revise os termos e a licença apresentados pelo criador da captura.
 - Resultados heurísticos são aproximados. Sempre revise o som, teste na MK‑300 e ajuste para sua guitarra, amplificação e saída.
@@ -133,7 +140,7 @@ A PWA não é um APK e não está publicada na Play Store.
 - **index.html**: aplicação autônoma publicada no GitHub Pages.
 - **src/index.html**: fonte usada para gerar as páginas autônomas.
 - **src/css/style.css**, **src/js/app.js**: estilos e interação do Assistente IA, incorporados nas páginas autônomas pelo build.
-- **services/ai_chat.py**: catálogo e integração OpenAI exclusivamente no servidor.
+- **services/ai_chat.py**: catálogo e integração Groq exclusivamente no servidor.
 - **src/data/**: catálogo do firmware v73 e dados do pack.
 - **src/core/mk300-preset-handler.js**: validação e compilação binária do preset.
 - **src/integrations/audio-heuristic-analyzer.js**: captura em tempo real e medições locais com Web Audio.

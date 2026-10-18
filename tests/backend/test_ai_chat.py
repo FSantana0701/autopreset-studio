@@ -16,7 +16,7 @@ SERVER_KEY = 'server-only-test-key'
 
 @pytest.fixture
 def client(monkeypatch):
-    monkeypatch.setenv('OPENAI_API_KEY', SERVER_KEY)
+    monkeypatch.setenv('GROQ_API_KEY', SERVER_KEY)
     with TestClient(main.app) as client:
         yield client
 
@@ -38,9 +38,9 @@ def completion(content='NR: Soft Gate\nDS: MW-808\nAMP: Fender Super', reason='s
 @pytest.mark.parametrize('key', [None, '', '   '])
 def test_missing_key_is_friendly_and_other_api_routes_still_work(client, monkeypatch, key):
     if key is None:
-        monkeypatch.delenv('OPENAI_API_KEY', raising=False)
+        monkeypatch.delenv('GROQ_API_KEY', raising=False)
     else:
-        monkeypatch.setenv('OPENAI_API_KEY', key)
+        monkeypatch.setenv('GROQ_API_KEY', key)
     monkeypatch.setattr(ai_chat, 'AsyncOpenAI', lambda **_: pytest.fail('No upstream request without a key'))
     response = client.post('/api/v1/chat', json={'message': 'Quero um clean'})
     assert response.status_code == 503
@@ -62,9 +62,10 @@ def test_chat_uses_server_credentials_current_catalog_and_optional_history(clien
     assert response.json() == {'response': completion()['choices'][0]['message']['content']}
     assert len(requests) == 1
     assert requests[0].headers['authorization'] == 'Bearer ' + SERVER_KEY
+    assert str(requests[0].url).startswith(ai_chat.CHAT_BASE_URL + '/')
     body = json.loads(requests[0].content)
-    assert body['model'] == 'gpt-4o-mini'
-    assert body['store'] is False
+    assert body['model'] == ai_chat.CHAT_MODEL == 'openai/gpt-oss-120b'
+    assert 'store' not in body
     assert 0 < body['max_completion_tokens'] <= 2200
     assert body['messages'][0]['role'] == 'system'
     assert body['messages'][1:-1] == history
@@ -102,8 +103,8 @@ def test_prompt_follows_catalog_changes(monkeypatch):
     {'message': 'ok', 'history': [{'role': 'user', 'content': 'x' * 8001}]},
     {'message': 'ok', 'history': [{'role': 'user', 'content': 'hi'}] * 11},
 ])
-def test_invalid_or_unbounded_input_never_calls_openai(client, monkeypatch, body):
-    monkeypatch.setattr(ai_chat, 'AsyncOpenAI', lambda **_: pytest.fail('Invalid input reached OpenAI'))
+def test_invalid_or_unbounded_input_never_calls_groq(client, monkeypatch, body):
+    monkeypatch.setattr(ai_chat, 'AsyncOpenAI', lambda **_: pytest.fail('Invalid input reached Groq'))
     assert client.post('/api/v1/chat', json=body).status_code == 422
 
 

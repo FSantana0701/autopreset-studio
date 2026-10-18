@@ -14,7 +14,8 @@ from openai import (
 from services.catalog import public_catalog
 from services.errors import ServiceError
 
-CHAT_MODEL = 'gpt-4o-mini'
+CHAT_MODEL = 'openai/gpt-oss-120b'
+CHAT_BASE_URL = 'https://api.groq.com/openai/v1'
 CHAT_MODULES = ('GATE', 'DS', 'AMP', 'EQ', 'CAB', 'DLY', 'REV')
 
 
@@ -74,7 +75,7 @@ CATÁLOGO V75 DO BACKEND:
 
 
 async def generate_reply(message: str, history: list[dict[str, str]] | None = None) -> str:
-    api_key = (os.getenv('OPENAI_API_KEY') or '').strip()
+    api_key = (os.getenv('GROQ_API_KEY') or '').strip()
     if not api_key:
         raise ServiceError('Chave de API não configurada no servidor',
                            status=503, code='chat_not_configured')
@@ -82,10 +83,12 @@ async def generate_reply(message: str, history: list[dict[str, str]] | None = No
     messages = [{'role': 'system', 'content': system_prompt()},
                 *(history or []), {'role': 'user', 'content': message}]
     try:
-        async with AsyncOpenAI(api_key=api_key, timeout=45.0, max_retries=0) as client:
+        async with AsyncOpenAI(
+            api_key=api_key, base_url=CHAT_BASE_URL, timeout=45.0, max_retries=0
+        ) as client:
             completion = await client.chat.completions.create(
                 model=CHAT_MODEL, messages=messages, temperature=0.3,
-                max_completion_tokens=2200, store=False,
+                max_completion_tokens=2200,
             )
     except AuthenticationError as exc:
         raise ServiceError('A chave de API configurada no servidor é inválida.',
