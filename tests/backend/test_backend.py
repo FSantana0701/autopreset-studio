@@ -94,15 +94,17 @@ process.stdout.write(Buffer.from(h.compile()).toString('base64'));"""
                 self.assertEqual(audio.getnframes(),80000)
                 self.assertEqual(audio.getnchannels(),1)
 
-    def test_all_heuristic_model_templates_encode(self):
+    def test_incomplete_measurements_do_not_invent_drive_from_crest_alone(self):
         from services.preset_mapper import suggest
-        for crest_db, model in ((7.9,5),(8.0,0),(15.0,0),(15.1,0)):
+        for crest_db in (3.0,7.9,8.0,15.0,15.1):
             features = {'spectral_centroid_hz':2400, 'spectral_rolloff_85_hz':4200,
                         'spectral_flatness':0.08, 'zero_crossing_rate':0.12,
                         'crest_factor_db':crest_db, 'eq_device_values':[0,-2,2,4,-1,0]}
             preset = suggest(features)
             amp = next(block for block in preset['blocks'] if block['id']==4)
-            self.assertEqual(amp['model_index'],model)
+            self.assertEqual(amp['model_index'],0)
+            self.assertFalse(preset['classification']['measurement_complete'])
+            self.assertFalse(any(block['id']==3 for block in preset['blocks']))
             self.assertEqual(len(encode(preset)),448)
 
     def test_hpss_and_mfcc_match_librosa_reference(self):

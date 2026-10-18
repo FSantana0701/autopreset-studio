@@ -9,7 +9,7 @@ COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 COPY main.py ./
 COPY services/ ./services/
-COPY src/data/mk300-v73-parameters.json src/data/mk300-v75-confirmed.json src/data/john-petrucci-pack.js ./src/data/
+COPY src/data/ ./src/data/
 RUN chmod -R a+rX /app && useradd --create-home app
 USER app
 EXPOSE 7860

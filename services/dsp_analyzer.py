@@ -83,7 +83,7 @@ def analyze(path: Path) -> dict:
                 best = int(lags[np.argmax(corr[lags])])
                 if corr[best] >= 0.12:
                     delay_ms = int(round(best*10))
-    return {"sample_rate": sr, "duration_seconds": samples/sr,
+    result = {"sample_rate": sr, "duration_seconds": samples/sr,
             "mfcc": (mfcc_sum/max(1,frame_count)).tolist(),
             "spectral_centroid_hz": float(totals[0]/frame_count),
             "spectral_rolloff_85_hz": float(totals[1]/frame_count),
@@ -96,3 +96,8 @@ def analyze(path: Path) -> dict:
             "eq_device_bands_hz": list(EQ_DEVICE_BANDS_HZ), "eq_device_values": device_db.tolist(),
             "delay_detected": delay_ms is not None, "delay_time_ms": delay_ms,
             "audio_source": "hpss_harmonic", "feature_version": 1}
+    # The decision uses the same relative-power FFT descriptors as the browser.
+    # MFCC/virtual EQ diagnostics above remain available for existing clients.
+    from .tone_features import extract
+    result.update(extract(path))
+    return result

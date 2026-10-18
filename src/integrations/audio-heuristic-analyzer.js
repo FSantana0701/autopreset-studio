@@ -24,13 +24,14 @@
     if (!(file instanceof Blob) || !file.size) throw new Error('Escolha um arquivo de áudio no celular.');
     if (file.size > MAX_AUDIO_BYTES) throw new Error('O limite do áudio é 25 MiB.');
     const name = String(file.name || '').toLowerCase();
-    if (!/\.(mp3|wav)$/.test(name)) throw new Error('Formato não aceito. Selecione um arquivo .mp3 ou .wav salvo no aparelho.');
-    const header = new Uint8Array(await file.slice(0, 12).arrayBuffer());
+    if (!/\.(mp3|wav|m4a)$/.test(name)) throw new Error('Formato não aceito. Selecione um arquivo .mp3, .wav ou .m4a salvo no aparelho.');
+    const header = new Uint8Array(await file.slice(0, 64).arrayBuffer());
     const ascii = (a, b) => String.fromCharCode(...header.subarray(a, b));
     const wav = header.length >= 12 && ascii(0, 4) === 'RIFF' && ascii(8, 12) === 'WAVE';
     const mp3 = header.length >= 3 && (ascii(0, 3) === 'ID3' || header[0] === 255 && (header[1] & 224) === 224);
-    if (!(name.endsWith('.wav') && wav) && !(name.endsWith('.mp3') && mp3)) throw new Error('O conteúdo do arquivo não parece ser um MP3/WAV válido.');
-    return { name: file.name, size: file.size, type: wav ? 'audio/wav' : 'audio/mpeg' };
+    const m4a = header.length >= 16 && ascii(4, 8) === 'ftyp';
+    if (!(name.endsWith('.wav') && wav) && !(name.endsWith('.mp3') && mp3) && !(name.endsWith('.m4a') && m4a)) throw new Error('O conteúdo do arquivo não parece ser um MP3/WAV/M4A válido.');
+    return { name: file.name, size: file.size, type: wav ? 'audio/wav' : mp3 ? 'audio/mpeg' : 'audio/mp4' };
   }
 
   function measure(buffer, startSeconds = 0, endSeconds = buffer.duration) {
@@ -261,16 +262,23 @@
     const required = ['sample_rate', 'spectral_flatness', 'spectral_centroid_hz', 'spectral_rolloff_85_hz', 'spectral_flux', 'spectral_flux_peak', 'harmonic_energy_ratio', 'noise_floor_db', 'delay_confidence', 'decay_confidence'];
     if (required.some(key => !Number.isFinite(f[key])) || !Array.isArray(f.band_energy_ratios) || f.band_energy_ratios.length !== 6 || f.band_energy_ratios.some(x => !Number.isFinite(x) || x < 0)) throw new Error('Medições espectrais inválidas.');
     if (f.sample_rate <= 0 || f.spectral_flatness < 0 || f.spectral_flatness > 1 || f.spectral_centroid_hz < 0 || f.spectral_rolloff_85_hz < 0 || (f.delay_time_ms !== null && (!Number.isInteger(f.delay_time_ms) || f.delay_time_ms < 80 || f.delay_time_ms > 1200)) || (f.decay_proxy_seconds !== null && (!Number.isFinite(f.decay_proxy_seconds) || f.decay_proxy_seconds <= 0))) throw new Error('Medições espectrais fora da faixa.');
+    const c = root.AutoPresetToneConfig?.classification || {
+      crest_reference_db:13, crest_span_db:11, harmonic_scale:3, crossing_scale_hz:12000,
+      weights:{compression:.35,noise:.3,harmonics:.25,crossings:.1},
+      crunch_threshold:.36,high_gain_threshold:.5,fuzz_noise_threshold:.55,
+      fuzz_compression_threshold:.65,fuzz_crossings_threshold:.25
+    };
     const brightness = clamp((f.spectral_centroid_hz / 5000 + f.spectral_rolloff_85_hz / 9000) / 2, 0, 1);
-    const compression = clamp((13 - f.crest_factor_db) / 11, 0, 1);
+    const compression = clamp((c.crest_reference_db - f.crest_factor_db) / c.crest_span_db, 0, 1);
     const noise = clamp(Math.sqrt(Math.max(0, f.spectral_flatness)), 0, 1);
-    const crossings = clamp(f.zero_crossing_rate * f.sample_rate / 12000, 0, 1);
-    const distortion = clamp(0.35 * compression + 0.3 * noise + 0.25 * clamp(f.harmonic_energy_ratio * 3, 0, 1) + 0.1 * crossings, 0, 1);
-    const fuzz = noise > 0.55 && compression > 0.65 && crossings > 0.25;
-    const kind = fuzz ? 'Fuzz' : distortion > 0.5 ? 'Hi-Gain' : distortion > 0.36 ? 'Crunch' : 'Clean';
+    const crossings = clamp(f.zero_crossing_rate * f.sample_rate / c.crossing_scale_hz, 0, 1);
+    const distortion = clamp(c.weights.compression * compression + c.weights.noise * noise + c.weights.harmonics * clamp(f.harmonic_energy_ratio * c.harmonic_scale, 0, 1) + c.weights.crossings * crossings, 0, 1);
+    const fuzz = noise > c.fuzz_noise_threshold && compression > c.fuzz_compression_threshold && crossings > c.fuzz_crossings_threshold;
+    const kind = fuzz ? 'Fuzz' : distortion > c.high_gain_threshold ? 'Hi-Gain' : distortion > c.crunch_threshold ? 'Crunch' : 'Clean';
     const bands = f.band_energy_ratios, bassEnergy = bands[0] + bands[1], middleEnergy = bands[2] + bands[3];
     return {
       classification: kind, distortion, brightness, confidence: 'baixa · mixagem completa',
+      method:root.AutoPresetToneConfig?.version || 'usb-spectral-v1', gain_is_starting_point:true,
       ampGain: Math.round(clamp(15 + 75 * distortion, 0, 100)),
       bass: Math.round(clamp(42 + 25 * bassEnergy, 0, 100)), middle: Math.round(clamp(43 + 24 * middleEnergy, 0, 100)),
       treble: Math.round(35 + 35 * brightness), presence: Math.round(25 + 40 * brightness),
@@ -280,8 +288,8 @@
       gate_release_percent: Math.round(clamp(70 - f.spectral_flux_peak * 50, 15, 80)),
       delay_time_ms: f.delay_confidence >= 0.4 ? f.delay_time_ms : null,
       delay_mix: Math.round(clamp(f.delay_confidence * 24, 0, 24)),
-      reverb_decay: f.decay_proxy_seconds ? Math.round(clamp(f.decay_proxy_seconds / 4 * 100, 0, 100)) : null,
-      reverb_mix: f.decay_proxy_seconds ? Math.round(clamp(f.decay_confidence * 22, 0, 22)) : null,
+      reverb_decay: null, reverb_mix: 0,
+      reverb_candidate: f.decay_proxy_seconds ? {decay:Math.round(clamp(f.decay_proxy_seconds / 4 * 100, 0, 100)),mix:Math.round(clamp(f.decay_confidence * 22, 0, 22)),reason:'Decaimento também pode ser sustain; confirme no editor.'} : null,
       eq_gains_db: bands.map(value => Math.round(clamp(0.8 * Math.log2(Math.max(value, 1e-5) * 6), -3, 3)))
     };
   }
@@ -361,7 +369,12 @@
     const decoder = new Context();
     try {
       onProgress?.('Decodificando o áudio com Web Audio…');
-      const buffer = await abortable(decoder.decodeAudioData(await file.arrayBuffer()), signal);
+      let buffer;
+      try { buffer = await abortable(decoder.decodeAudioData(await file.arrayBuffer()), signal); }
+      catch (error) {
+        if (error.name === 'AbortError') throw error;
+        throw new Error('Este navegador não decodificou o áudio. Use WAV/MP3 ou a opção Analisar arquivo no servidor.');
+      }
       checkAbort(signal);
       if (buffer.duration > MAX_DECODE_SECONDS) throw new Error('Recorte arquivos maiores que 5 minutos antes de importar.');
       onProgress?.('Medindo RMS, ZCR e fator de crista da mixagem…');

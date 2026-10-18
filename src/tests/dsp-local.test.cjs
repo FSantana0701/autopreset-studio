@@ -10,9 +10,11 @@ for(const file of ['data/v73.js','data/v73-parameters.js','core/mk300-preset-han
  const bytes=ctx.AutoPresetDSPLocal.encode(f,base), plan=ctx.AutoPresetAudioHeuristics.matchPreset(f), view=new DataView(bytes.buffer);
  assert.equal(bytes.length,448);assert.deepEqual(base,original);assert.deepEqual(bytes.slice(330),base.slice(330));
  assert.equal(bytes[58],plan.amp);assert.equal(bytes[59],plan.cabSlot-1);
- assert.equal(bytes[43+8],1);assert.equal(bytes[43+9],1);
+ assert.equal(bytes[43+8],1);assert.equal(bytes[43+9],0,'sustain alone must not turn on reverb');
  assert.equal(view.getInt16(66+24*8,true),plan.delay_time_ms);
- assert.equal(view.getInt16(66+24*9,true),plan.reverb_decay);
+ assert.equal(plan.reverb_decay,null);
+ assert.ok(plan.reverb_candidate,'decay remains available for manual review');
+ assert.deepEqual(bytes.slice(66+24*9,66+24*10),base.slice(66+24*9,66+24*10),'opaque reverb values survive');
  assert.throws(()=>ctx.AutoPresetDSPLocal.encode(f,new Uint8Array(447)),/448/);
- console.log('DSP local: mapeamento V75, delay/reverb, offsets, base imutável e bytes reservados verificados.');
+ console.log('DSP local: delay, sustain sem falso reverb, offsets, base imutável e bytes reservados verificados.');
 })().catch(e=>{console.error(e);process.exitCode=1;});

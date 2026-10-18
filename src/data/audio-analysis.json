@@ -1,0 +1,18 @@
+{
+  "version": "usb-spectral-v1",
+  "classification": {
+    "crest_reference_db": 13,
+    "crest_span_db": 11,
+    "harmonic_scale": 3,
+    "crossing_scale_hz": 12000,
+    "weights": {"compression": 0.35, "noise": 0.3, "harmonics": 0.25, "crossings": 0.1},
+    "crunch_threshold": 0.36,
+    "high_gain_threshold": 0.5,
+    "fuzz_noise_threshold": 0.55,
+    "fuzz_compression_threshold": 0.65,
+    "fuzz_crossings_threshold": 0.25
+  },
+  "calibration_scope": "Três referências USB de Fender Super, Gain 25/50/75, sem DS ou REV. Casos de validação clean; não comprovam identificação universal de amplificadores nem recuperação do knob Gain.",
+  "automatic_reverb_from_decay": false,
+  "gain_is_starting_point": true
+}

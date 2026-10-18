@@ -90,8 +90,10 @@ def build_analysis(clip: Path, work: Path):
     from services.preset_mapper import suggest
     from services.dzh_encoder import encode
     harmonic = work/'harmonic.wav'
-    separation = separate_harmonic(clip, harmonic)
-    features = analyze(harmonic)
+    original = work/'analysis.wav'
+    separation = separate_harmonic(clip, harmonic, analysis_target=original)
+    separation['measurement_source'] = 'original_audio'
+    features = analyze(original)
     preset = suggest(features)
     raw = encode(preset)
     return {'dzh_base64':base64.b64encode(raw).decode('ascii'), 'size_bytes':len(raw),

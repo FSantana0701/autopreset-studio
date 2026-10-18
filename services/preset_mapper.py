@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 from .catalog import load_catalog
+from .tone_classifier import classify
+import math
 
 AMP_PROFILES = {"clean": 0, "crunch": 0, "high_gain": 5}
 DS_MODELS = {"boost": 40, "blues": 41}
@@ -20,20 +22,22 @@ def _block(block_id: int, model_index: int, values: dict[str, int], catalog: dic
 
 
 def suggest(features: dict, catalog: dict | None = None) -> dict:
-    """Crest-factor thresholds are deterministic heuristics, not instrument recognition."""
+    """Spectral evidence, independent of absolute recording loudness."""
     catalog = catalog or load_catalog()
     crest_db = float(features.get('crest_factor_db', 0))
-    if crest_db < 8:
-        profile, amp_index, ds_index, ds_on = 'high_gain', AMP_PROFILES['high_gain'], DS_MODELS['boost'], True
-    elif crest_db > 15:
-        profile, amp_index, ds_index, ds_on = 'clean', AMP_PROFILES['clean'], DS_MODELS['boost'], False
-    else:
-        profile, amp_index, ds_index, ds_on = 'crunch', AMP_PROFILES['crunch'], DS_MODELS['blues'], True
-
-    brightness = min(1.0, max(0.0, float(features.get('spectral_centroid_hz', 2000))/8000))
-    amp_values = {'Gain': 34 if profile == 'clean' else 52 if profile == 'crunch' else 66,
-                  'Level': 58, 'Bass': 48, 'Middle': 56, 'Treble': round(60 - 15*brightness),
-                  'Reso': 0, 'Pres': 50, 'Bright': 50}
+    decision = classify(features)
+    profile = {'Clean': 'clean', 'Crunch': 'crunch', 'Hi-Gain': 'high_gain', 'Fuzz': 'high_gain'}[decision['classification']]
+    amp_index = AMP_PROFILES[profile]
+    ds_index = DS_MODELS['blues' if profile == 'crunch' else 'boost']
+    ds_on = profile != 'clean'
+    brightness = decision['brightness']
+    bands = features.get('band_energy_ratios', [1/6]*6)
+    if not isinstance(bands, list) or len(bands) != 6 or any(not isinstance(v,(int,float)) or not math.isfinite(v) or v < 0 for v in bands):
+        bands = [1/6]*6
+    amp_values = {'Gain': round(15 + 75*decision['distortion']), 'Level': 50,
+                  'Bass': round(42 + 25*sum(bands[:2])), 'Middle': round(43 + 24*sum(bands[2:4])),
+                  'Treble': round(35 + 35*brightness),
+                  'Reso': 0, 'Pres': round(25 + 40*brightness), 'Bright': 50}
     blocks = [_block(2, 0, {'Gate': 25, 'Bias': 50}, catalog)]
     if ds_on:
         blocks.append(_block(3, ds_index, {'Gain': 38, 'Level': 55, 'Bass': 48, 'Middle': 55,
@@ -42,19 +46,22 @@ def suggest(features: dict, catalog: dict | None = None) -> dict:
         _block(4, amp_index, amp_values, catalog),
         _block(5, CAB_DEFAULT, {'Level': 55, 'Low Cut': 20, 'High Cut': 117}, catalog),
         _block(6, EQ_MODEL, dict(zip(next(b for b in catalog['blocks'] if b['id'] == 6)['models'][EQ_MODEL]['knobs'],
-                                    features.get('eq_device_values', [0]*6)),), catalog),
+                                    [round(min(3,max(-3,.8*math.log2(max(v,1e-5)*6)))) for v in bands])), catalog),
     ])
     delay = features.get('delay_time_ms') if features.get('delay_detected') else None
     if delay is not None:
         blocks.append(_block(8, DLY_MODELS['analog'], {'Time': int(min(1000, max(50, delay))), 'Fb': 25, 'Mix': 20, 'Sync': 0}, catalog))
-    blocks.append(_block(9, REV_MODELS['hall'], {'Decay': 30, 'Mix': 22, 'High Pass': 80, 'Low Pass': 80, 'Mod Depth': 40}, catalog))
     selected = {block['id']: {'index': block['model_index'], 'name': block['model_name']} for block in blocks}
     return {'name': 'MK300 DSP V75', 'firmware': 'v75', 'blocks': blocks,
-            'classification': {'profile': profile, 'method': 'crest_factor_thresholds', 'confidence': 'low',
+            'classification': {'profile': profile, 'tone_type': decision['classification'], 'method': decision['method'], 'confidence': 'low',
+                               'distortion': decision['distortion'], 'measurement_complete': decision['measurement_complete'],
+                               'gain_is_starting_point': True,
                                'crest_factor_db': crest_db, 'spectral_flatness': features.get('spectral_flatness')},
-            'diagnosis': {'selected_models': selected, 'delay_time_ms': delay,
+            'diagnosis': {'selected_models': selected, 'delay_time_ms': delay, 'reverb_confirmed': False,
+                          'reverb_reason': 'Decaimento e sustain não comprovam reverb; ajuste a ambiência no editor.',
                           'explanation': 'Mapeamento heurístico baseado em medidas do trecho; não reconhece o instrumento nem recria exatamente o equipamento de origem.'},
-            'warnings': ['O componente HPSS não isola exclusivamente guitarra; outros instrumentos podem influenciar as medidas.',
+            'warnings': ['A classificação mede o áudio original; outros instrumentos podem influenciar as medidas. HPSS não isola exclusivamente guitarra.',
+                         'Gain é um ponto de partida. O nível da gravação não identifica o knob usado na pedaleira.',
                          'AMP, DS e CAB usam os índices confirmados nas exportações V75 fornecidas. Capturas NAM e IRs não são incluídos no .dzh; confirme os mesmos modelos e slots no equipamento.']}
 
 

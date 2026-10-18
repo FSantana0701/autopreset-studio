@@ -12,7 +12,7 @@
       "HIGH_GAIN": ["5DS-RandSanat", "6DS-MarsFD100", "7DS-EagleS", "8DS-DiselHgn", "9DS-EV5150Com", "53DS-Pey5150", "63DS-Sold100+"]
     },
     "NAM": ["Jcm800", "Boss DS-2 Mod"],
-    "CAB": ["44MarVal4", "47ENG412", "500gP412", "53Pey5150", "69CeleAt", "20BassEDN300", "60Alton212"],
+    "CAB": ["1EAGLProV30s", "44MarVal4", "47ENG412", "500gP412", "53Pey5150", "69CeleAt", "20BassEDN300", "60Alton212"],
     "EQ": ["Guitar EQ 6", "Bass EQ 7", "Normal EQ 10"],
     "MOD": ["Chorus", "Tri Chorus", "Flanger", "Tri Flanger", "Tremolo", "Tri Tremolo", "Opto Tremolo", "Phaser", "Vibrato", "Tri Vibrato", "Opto Vibrato", "Univibe", "Tri Univibe", "Autofilter", "Phaser Stereo", "Chorus Stereo", "Tremolo Stereo", "Vibrato Stereo"],
     "DLY": ["Clean", "Modern", "Echo", "Analog", "Duck", "Dtype", "Tremolo", "Filter", "Dual", "Lofi", "Pattern", "Ice", "Reverse", "PingPong Stereo", "Clean Stereo", "Modern Stereo", "Echo Stereo", "Analog Stereo"],
@@ -24,7 +24,8 @@
     {"block": 4, "index": 0, "name": "Fender Super", "evidence": "teste 1.dzh"},
     {"block": 4, "index": 5, "name": "6DS-MarsFD100", "evidence": "teste app 2.dzh"},
     {"block": 4, "index": 52, "name": "53DS-Pey5150", "evidence": "teste app 3.dzh"},
-    {"block": 5, "index": 43, "name": "44MarVal4", "evidence": "teste 1.dzh"}
+    {"block": 5, "index": 43, "name": "44MarVal4", "evidence": "teste 1.dzh"},
+    {"block": 5, "index": 0, "name": "1EAGLProV30s", "evidence": "teste prático 1.dzh e captura do editor V75"}
   ],
   "nam": {
     "exclusive_with_ds": true,

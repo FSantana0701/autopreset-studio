@@ -18,15 +18,22 @@ from services.dzh_encoder import encode
 from services.preset_mapper import offline_presets, suggest
 
 
-def test_real_catalog_dsp_thresholds_and_448_byte_encoder():
+def test_real_catalog_spectral_mapping_and_448_byte_encoder():
     catalog = public_catalog()
     assert len(catalog['blocks']['AMP']) >= 100
     assert len(catalog['blocks']['DS']) == 42
     assert len(catalog['blocks']['DLY']) == 27
     assert len(catalog['blocks']['REV']) == 18
     assert catalog['eq_analysis_bands_hz'] == [100, 300, 1000, 3000, 8000]
-    features = {'crest_factor_db': 7.5, 'spectral_centroid_hz': 2000,
-                'eq_device_values': [-2, -1, 0, 1, 2, 0], 'delay_detected': False}
+    from services.dsp_analyzer import analyze
+    # A measured clipped chord, rather than crest alone, supplies drive evidence.
+    rate = 16000
+    t = np.arange(rate * 2) / rate
+    signal = .2 * np.tanh(10 * (np.sin(2*np.pi*220*t) + np.sin(2*np.pi*330*t) + np.sin(2*np.pi*554*t)))
+    with tempfile.TemporaryDirectory() as directory:
+        path = Path(directory) / 'clipped.wav'
+        sf.write(path, signal, rate, subtype='FLOAT')
+        features = analyze(path)
     preset = suggest(features)
     assert next(block for block in preset['blocks'] if block['id'] == 4)['model_index'] == 5
     assert next(block for block in preset['blocks'] if block['id'] == 3)['model_index'] == 40

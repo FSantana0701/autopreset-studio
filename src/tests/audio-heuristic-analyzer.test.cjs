@@ -29,7 +29,20 @@ assert.throws(()=>analyzer.measure(buffer([sine]),-1,1),/inválido/);
  assert.equal(header.getUint16(22,true),1);
  const file=new Blob([wav],{type:'audio/wav'});Object.defineProperty(file,'name',{value:'mix.wav'});
  await analyzer.validateFile(file);
+ // A real MP4 container header is accepted; decoding still verifies the codec.
+ const m4aHeader=Uint8Array.from([0,0,0,28,102,116,121,112,77,52,65,32,0,0,0,0,77,52,65,32]);
+ const m4a=new Blob([m4aHeader],{type:'audio/mp4'});Object.defineProperty(m4a,'name',{value:'usb.m4a'});
+ await analyzer.validateFile(m4a);
+ const fake=new Blob(['invalid m4a content']);Object.defineProperty(fake,'name',{value:'fake.m4a'});
+ await assert.rejects(analyzer.validateFile(fake),/não parece/);
  await assert.rejects(analyzer.analyze({file,startSeconds:0,endSeconds:1,durationSeconds:301}),/5 minutos/);
  await assert.rejects(analyzer.analyze({file,startSeconds:0,endSeconds:1,durationSeconds:1,signal:{aborted:true}}),{name:'AbortError'});
+ let closed=0;
+ context.AudioContext=class {
+   decodeAudioData(){return Promise.reject(Object.assign(new Error('unsupported codec'),{name:'EncodingError'}));}
+   async close(){closed++;}
+ };
+ await assert.rejects(analyzer.analyze({file,startSeconds:0,endSeconds:0.5,durationSeconds:1}),/WAV\/MP3.*servidor/);
+ assert.equal(closed,1,'failed decoder releases its AudioContext');
  console.log('Mixagem: RMS, ZCR, crest, intervalo, WAV, silêncio e limites verificados com sinais diagnósticos.');
 })().catch(error=>{console.error(error);process.exitCode=1;});

@@ -47,6 +47,16 @@ class BrowserCompatibilityTests(unittest.TestCase):
         output = self.page.evaluate('(code)=>{importShared(code);return Array.from(compilePreset())}', LEGACY['code'])
         self.assertEqual(output, LEGACY['bytes'])
 
+    def test_unsupported_m4a_keeps_file_for_explicit_server_fallback(self):
+        header = bytes([0,0,0,28,102,116,121,112,77,52,65,32,0,0,0,0,77,52,65,32])
+        self.page.locator('#audioFile').set_input_files({
+            'name':'unsupported.m4a','mimeType':'audio/mp4','buffer':header
+        })
+        self.page.wait_for_function("document.getElementById('audioInfo').textContent.includes('servidor')")
+        self.assertFalse(self.page.evaluate('audioReady'))
+        self.assertEqual(self.page.evaluate("document.getElementById('audioFile').files[0].name"),'unsupported.m4a')
+        self.assertIn('Codec', self.page.locator('#audioStatus').inner_text())
+
     def test_old_project_without_parameters_keeps_gain(self):
         output = self.page.evaluate('(project)=>{restoreProject(project);return Array.from(compilePreset())}', LEGACY['project'])
         self.assertEqual(output, LEGACY['bytes'])
@@ -245,7 +255,7 @@ class BrowserCompatibilityTests(unittest.TestCase):
         self.assertFalse(result['cabOn'])
         self.assertEqual(result['size'],448)
 
-    def test_spectral_repetition_and_decay_are_written_to_real_knobs(self):
+    def test_spectral_repetition_uses_delay_and_dry_sustain_preserves_manual_reverb(self):
         result = self.page.evaluate('''async () => {
             const rate=16000;
             const analyze=async fn=>{
@@ -259,16 +269,21 @@ class BrowserCompatibilityTests(unittest.TestCase):
             const delay={time:view.getInt16(knobOffset(8,0),true),sync:view.getInt16(knobOffset(8,DLY_SYNC[bytes[62]]),true),active:bytes[0x2B+8],release:view.getInt16(knobOffset(2,1),true),expectedRelease:plan.gate_release_percent};
             const tail=await analyze(t=>t<0.05?0:0.4*Math.exp(-(t-0.05)*6)*Math.sin(2*Math.PI*440*t));
             const tailPlan=AutoPresetAudioHeuristics.matchPreset(tail);
+            $('revOn').checked=false;$('revP0').value='37';$('revP1').value='19';
+            const manual={decay:Number($('revP0').value),mix:Number($('revP1').value)};
             applySpectralSuggestion(tail);
             bytes=compilePreset();view=new DataView(bytes.buffer,bytes.byteOffset,bytes.byteLength);
-            return {delay,reverb:{decay:view.getInt16(knobOffset(9,0),true),mix:view.getInt16(knobOffset(9,1),true),expectedDecay:tailPlan.reverb_decay,expectedMix:tailPlan.reverb_mix},size:bytes.length};
+            return {delay,manual,reverb:{decay:view.getInt16(knobOffset(9,0),true),mix:view.getInt16(knobOffset(9,1),true),active:bytes[0x2B+9]},autoDecay:tailPlan.reverb_decay,candidate:tailPlan.reverb_candidate,size:bytes.length};
         }''')
         self.assertEqual(result['delay']['time'],250)
         self.assertEqual(result['delay']['sync'],0)
         self.assertEqual(result['delay']['active'],1)
         self.assertEqual(result['delay']['release'],result['delay']['expectedRelease'])
-        self.assertEqual(result['reverb']['decay'],result['reverb']['expectedDecay'])
-        self.assertEqual(result['reverb']['mix'],result['reverb']['expectedMix'])
+        self.assertEqual(result['reverb']['decay'],result['manual']['decay'])
+        self.assertEqual(result['reverb']['mix'],result['manual']['mix'])
+        self.assertEqual(result['reverb']['active'],0)
+        self.assertIsNone(result['autoDecay'])
+        self.assertIsNotNone(result['candidate'])
         self.assertEqual(result['size'],448)
 
 

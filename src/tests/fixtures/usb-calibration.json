@@ -1,0 +1,132 @@
+{
+  "source": "Três gravações USB enviadas pelo proprietário; métricas extraídas a 16 kHz, sem áudio incorporado.",
+  "setup": {
+    "firmware": "v75",
+    "amp": "Fender Super",
+    "amp_index": 0,
+    "cab": "1EAGLProV30s",
+    "cab_index": 0,
+    "ds_enabled": false,
+    "rev_enabled": false
+  },
+  "scope": "Casos de regressão clean. Não comprovam reconhecimento do AMP, do IR nem recuperação do Gain físico.",
+  "cases": [
+    {
+      "id": "usb-clean-gain-25",
+      "recorded_amp_gain": 25,
+      "expected": {
+        "classification": "Clean",
+        "amp_index": 0,
+        "ds_enabled": false,
+        "rev_enabled": false
+      },
+      "features": {
+        "feature_version": 3,
+        "sample_rate": 16000,
+        "duration_seconds": 17.8773125,
+        "rms": 0.04896428440111188,
+        "rms_db": -26.202411764001123,
+        "peak": 0.30125075578689575,
+        "crest_factor": 6.152459072393897,
+        "crest_factor_db": 15.780974667106364,
+        "zero_crossing_rate": 0.10671733627934946,
+        "spectral_centroid_hz": 568.3611804578836,
+        "spectral_rolloff_85_hz": 766.5247553023726,
+        "spectral_flatness": 0.01703758508340773,
+        "harmonic_energy_ratio": 0.20398267829696556,
+        "spectral_flux": 0.495163954921218,
+        "spectral_flux_peak": 0.837920052864709,
+        "band_energy_ratios": [
+          0.008212763804626615,
+          0.16009237360834858,
+          0.5651862700339025,
+          0.18965684160904953,
+          0.06522281606606826,
+          0.011628934878004408
+        ],
+        "active_spectral_frames": 278,
+        "delay_detected": false,
+        "delay_time_ms": null,
+        "audio_source": "full_mix"
+      }
+    },
+    {
+      "id": "usb-clean-gain-50",
+      "recorded_amp_gain": 50,
+      "expected": {
+        "classification": "Clean",
+        "amp_index": 0,
+        "ds_enabled": false,
+        "rev_enabled": false
+      },
+      "features": {
+        "feature_version": 3,
+        "sample_rate": 16000,
+        "duration_seconds": 27.84,
+        "rms": 0.20491198240115552,
+        "rms_db": -13.768652902396024,
+        "peak": 1.0018092393875122,
+        "crest_factor": 4.888973439465699,
+        "crest_factor_db": 13.784353557202191,
+        "zero_crossing_rate": 0.039493623144807706,
+        "spectral_centroid_hz": 218.60970043550884,
+        "spectral_rolloff_85_hz": 293.132713491819,
+        "spectral_flatness": 4.605538815057516e-06,
+        "harmonic_energy_ratio": 0.1674615028790078,
+        "spectral_flux": 0.3015063367431437,
+        "spectral_flux_peak": 0.871385885470994,
+        "band_energy_ratios": [
+          0.42909207952615824,
+          0.3975565709052113,
+          0.12510286757155245,
+          0.036679646626545596,
+          0.009880049680300828,
+          0.0016887856902316743
+        ],
+        "active_spectral_frames": 434,
+        "delay_detected": false,
+        "delay_time_ms": null,
+        "audio_source": "full_mix"
+      }
+    },
+    {
+      "id": "usb-clean-gain-75",
+      "recorded_amp_gain": 75,
+      "expected": {
+        "classification": "Clean",
+        "amp_index": 0,
+        "ds_enabled": false,
+        "rev_enabled": false
+      },
+      "features": {
+        "feature_version": 3,
+        "sample_rate": 16000,
+        "duration_seconds": 18.1973125,
+        "rms": 0.044371466322746966,
+        "rms_db": -27.057924382461643,
+        "peak": 0.29355984926223755,
+        "crest_factor": 6.615960066024335,
+        "crest_factor_db": 16.411857502964736,
+        "zero_crossing_rate": 0.1169304427866848,
+        "spectral_centroid_hz": 638.277194565428,
+        "spectral_rolloff_85_hz": 885.6907173153779,
+        "spectral_flatness": 0.023138391176273122,
+        "harmonic_energy_ratio": 0.23208140994399967,
+        "spectral_flux": 0.5053206406768616,
+        "spectral_flux_peak": 0.7610195384248315,
+        "band_energy_ratios": [
+          0.009649696611527812,
+          0.19472080717085335,
+          0.49094684449726206,
+          0.2116067042784081,
+          0.07398998790020428,
+          0.019085959541744295
+        ],
+        "active_spectral_frames": 283,
+        "delay_detected": false,
+        "delay_time_ms": null,
+        "audio_source": "full_mix"
+      }
+    }
+  ]
+}
