@@ -129,6 +129,43 @@ class BrowserCompatibilityTests(unittest.TestCase):
         self.assertIn('44MarVal4', self.page.locator('#cabSlot option[value="44"]').inner_text())
         self.assertTrue(self.page.evaluate("!AMP_CATALOG.includes('Jcm800') && !AMP_CATALOG.includes('Boss DS-2 Mod')"))
 
+    def test_v75_ui_uses_exact_names_and_disables_unconfirmed_indices(self):
+        amp_names = self.page.locator('#amp option').all_text_contents()
+        for name in ['2CL-UKC30', '6DS-MarsFD100', '80OD-Brit2', 'Boss DS-2 Mod']:
+            self.assertTrue(any(text.startswith(name) for text in amp_names), name)
+        self.assertTrue(self.page.locator('#amp option[value="5"]').is_enabled())
+        self.assertIn('6DS-MarsFD100', self.page.locator('#amp option[value="5"]').inner_text())
+        self.assertTrue(self.page.locator('#amp option').filter(has_text='2CL-UKC30').is_disabled())
+        self.assertTrue(self.page.locator('#drive option[value="40"]').is_enabled())
+        self.assertTrue(self.page.locator('#drive option').filter(has_text='MW-DS1').is_disabled())
+        self.assertIn('44MarVal4', self.page.locator('#cabSlot option[value="44"]').inner_text())
+        self.assertFalse(self.page.locator('#amp option').filter(has_text='2J900_OD').count())
+        self.assertFalse(self.page.locator('#drive option').filter(has_text='3DS1').count())
+
+    def test_assistant_preset_applies_verified_models_and_parameters_atomically(self):
+        result = self.page.evaluate('''() => {
+          const modules={
+            GATE:{enabled:true,model:'Soft Gate',parameters:{Thd:-48}},
+            DS:{enabled:true,model:'MW-808',parameters:{Gain:22,Level:48}},
+            AMP:{enabled:true,model:'6DS-MarsFD100',parameters:{Gain:46,Bass:43,Middle:58,Treble:52}},
+            EQ:{enabled:false,model:'Guitar EQ 6',parameters:{'100Hz':0,'200Hz':1,'400Hz':0,'800Hz':-1,'1.6kHz':0,'3.2kHz':0}},
+            CAB:{enabled:true,model:'44MarVal4',parameters:{Level:80,'Low Cut':90,'High Cut':9000}},
+            DLY:{enabled:true,model:'Analog Stereo',parameters:{Time:460,Fb:28,Mix:20}},
+            REV:{enabled:true,model:'Hall',parameters:{Decay:35,Mix:24,'High Pass':60,'Low Pass':75,'Mod Depth':30}}
+          };
+          const note=AutoPresetApplyChatPreset({modules});
+          const bytes=compilePreset();
+          const before=Array.from(bytes);
+          try { AutoPresetApplyChatPreset({...modules,AMP:{...modules.AMP,model:'2CL-UKC30'}}); }
+          catch(error) { return {note,size:bytes.length,ds:bytes[57],amp:bytes[58],cab:bytes[59],delay:bytes[62],reverb:bytes[63],gateOn:bytes[45],eqOn:bytes[49],rejected:true,unchanged:JSON.stringify(before)===JSON.stringify(Array.from(compilePreset())),error:error.message}; }
+          throw new Error('Unconfirmed AMP index was not rejected');
+        }''')
+        self.assertEqual(result['size'], 448)
+        self.assertEqual((result['ds'], result['amp'], result['cab']), (40, 5, 43))
+        self.assertEqual((result['delay'], result['reverb']), (17, 1))
+        self.assertEqual((result['gateOn'], result['eqOn']), (1, 0))
+        self.assertTrue(result['rejected'] and result['unchanged'])
+
     def test_signed_fx_project_and_share_roundtrip(self):
         result = self.page.evaluate('''(old) => {
             const bytes=new Uint8Array(old),view=new DataView(bytes.buffer);

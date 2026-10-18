@@ -36,6 +36,27 @@
     content.textContent = text;
     bubble.append(author, content); $('chatMessages').appendChild(bubble);
     $('chatMessages').scrollTop = $('chatMessages').scrollHeight;
+    return bubble;
+  }
+  function addApplyPresetAction(bubble, reply) {
+    const preset = window.AutoPresetChatPreset?.parse(reply);
+    if (!preset) return;
+    const actions = document.createElement('div'); actions.className = 'chatPresetAction';
+    const button = document.createElement('button'); button.type = 'button';
+    button.className = 'secondary'; button.textContent = '⚡ Aplicar este Timbre';
+    const status = document.createElement('span'); status.className = 'chatPresetStatus';
+    button.addEventListener('click', () => {
+      if (button.disabled) return;
+      button.disabled = true; status.textContent = 'A validar os índices e parâmetros V75…';
+      try {
+        const result = window.AutoPresetApplyChatPreset(preset);
+        button.textContent = '✓ Timbre aplicado'; status.textContent = result;
+      } catch (error) {
+        button.disabled = false; status.textContent = 'Não foi aplicado: ' + (error.message || 'resposta incompatível com o catálogo V75.');
+      }
+    });
+    actions.append(button, status); bubble.appendChild(actions);
+    $('chatMessages').scrollTop = $('chatMessages').scrollHeight;
   }
   $('chatInput').addEventListener('keydown', event => {
     if (event.key === 'Enter' && !event.shiftKey && !event.isComposing) {
@@ -65,7 +86,8 @@
       if (!response.ok) throw new Error(typeof data?.detail === 'string' ? data.detail : `O assistente respondeu HTTP ${response.status}. Tente novamente.`);
       if (typeof data?.response !== 'string' || !data.response.trim()) throw new Error('O assistente retornou uma resposta inválida. Tente novamente.');
       const reply = data.response.trim();
-      addChatMessage('assistant', reply);
+      const replyBubble = addChatMessage('assistant', reply);
+      addApplyPresetAction(replyBubble, reply);
       chatHistory.push({role: 'user', content: message}, {role: 'assistant', content: reply.slice(0, 8000)});
       if (chatHistory.length > 10) chatHistory.splice(0, chatHistory.length - 10);
       status.textContent = '';

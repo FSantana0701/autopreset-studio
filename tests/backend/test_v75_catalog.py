@@ -10,8 +10,10 @@ import subprocess
 import sys
 import tempfile
 
+import pytest
+
 from services.catalog import ROOT, V75, load_catalog, public_catalog
-from services.dzh_encoder import Encoder, encode
+from services.dzh_encoder import Encoder, encode, model_index
 from services.preset_mapper import offline_presets, suggest
 
 FIXTURES = ROOT / 'src/tests/fixtures/v75'
@@ -45,6 +47,28 @@ def test_exact_confirmed_labels_and_no_guessed_nam_indices():
     assert public['nam']['automatic_selection'] is False
     assert not any(model['name'] in V75['models']['NAM'] for model in public['blocks']['AMP'])
     assert public['v75_names']['DS'][0:2] == ['MW-808', 'MW-GOLD']
+
+
+def test_exact_v75_labels_resolve_to_confirmed_binary_indices():
+    assert model_index('AMP', '6DS-MarsFD100') == 5
+    assert model_index('AMP', '53DS-Pey5150') == 52
+    assert model_index('DS', 'MW-808') == 40
+    assert model_index('CAB', '44MarVal4') == 43
+    assert model_index('DLY', 'Analog Stereo') == 17
+    assert model_index('REV', 'Room stereo') == 9
+    with pytest.raises(ValueError, match='não confirmado'):
+        model_index('AMP', '2CL-UKC30')
+    with pytest.raises(ValueError, match='não confirmado'):
+        model_index('DS', 'MW-DS1')
+    with pytest.raises(ValueError, match='não confirmado'):
+        model_index('AMP', 'Jcm800')
+
+    output = encode({'name':'MAPPING', 'blocks':[{'id':4, 'model_name':'6DS-MarsFD100',
+                      'model_index':5, 'values':[]}]})
+    assert len(output) == 448 and output[58] == 5
+    with pytest.raises(ValueError, match='divergente'):
+        encode({'name':'MAPPING', 'blocks':[{'id':4, 'model_name':'6DS-MarsFD100',
+                      'model_index':12, 'values':[]}]})
 
 
 def test_all_automatic_suggestions_use_confirmed_amp_ds_cab():

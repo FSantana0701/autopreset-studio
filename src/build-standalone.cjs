@@ -13,7 +13,7 @@ let html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
 const stylesheet = '<link rel="stylesheet" href="css/style.css">';
 if (!html.includes(stylesheet)) throw new Error('Folha de estilos ausente: css/style.css');
 html = html.replace(stylesheet, `<style>\n${fs.readFileSync(path.join(root, 'css/style.css'), 'utf8')}\n</style>`);
-for (const asset of ['data/v73.js', 'data/v73-parameters.js', 'data/v75.js', 'core/mk300-preset-handler.js', 'integrations/tone3000-select.js', 'integrations/audio-heuristic-analyzer.js', 'js/dsp_local.js', 'integrations/learning-store.js', 'data/john-petrucci-pack.js', 'config.js', 'js/app.js']) {
+for (const asset of ['data/v73.js', 'data/v73-parameters.js', 'data/v75.js', 'core/mk300-preset-handler.js', 'integrations/tone3000-select.js', 'integrations/audio-heuristic-analyzer.js', 'js/dsp_local.js', 'integrations/learning-store.js', 'data/john-petrucci-pack.js', 'config.js', 'js/chat-preset.js', 'js/app.js']) {
   const tag = `<script src="${asset}"></script>`;
   if (!html.includes(tag)) throw new Error(`Tag ausente: ${tag}`);
   const source = fs.readFileSync(path.join(root, asset), 'utf8');

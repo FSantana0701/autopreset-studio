@@ -56,8 +56,36 @@ REV_TYPES = models("REV")
 def public_catalog() -> dict[str, Any]:
     return {"firmware": "v75", "source": V75["source"],
             "blocks": {name: models(name) for name in ("WAH", "FX", "GATE", "DS", "AMP", "CAB", "EQ", "MOD", "DLY", "REV", "VOL")},
-            "v75_names": V75["models"], "confirmed_models": V75["confirmed_models"],
+            "v75_names": V75["models"], "ui_models": V75.get("ui_models", V75["models"]),
+            "model_indices_by_name": model_indices_by_name(),
+            "confirmed_models": V75["confirmed_models"],
             "nam": V75["nam"],
             "unverified_names_selectable": False,
             "eq_analysis_bands_hz": list(EQ_ANALYSIS_BANDS_HZ),
             "eq_device_bands_hz": list(EQ_DEVICE_BANDS_HZ)}
+
+
+def model_indices_by_name() -> dict[str, dict[str, int]]:
+    """Map only exact V75 labels with a defensible physical binary index."""
+    display = V75.get("ui_models", V75["models"])
+    ids = {block["name"]: block["id"] for block in load_catalog()["blocks"]}
+    confirmed_only = {"AMP", "DS", "CAB"}
+    result: dict[str, dict[str, int]] = {}
+    for name, labels in display.items():
+        if name not in ids or not isinstance(labels, list):
+            continue
+        block_id = ids[name]
+        mapping: dict[str, int] = {}
+        if name in confirmed_only:
+            for item in V75["confirmed_models"]:
+                if item["block"] == block_id and item["name"] in labels:
+                    mapping[item["name"]] = item["index"]
+        else:
+            available = models(name)
+            for label in labels:
+                matches = [item for item in available
+                           if item["name"].casefold() == label.casefold()]
+                if len(matches) == 1:
+                    mapping[label] = matches[0]["index"]
+        result[name] = mapping
+    return result

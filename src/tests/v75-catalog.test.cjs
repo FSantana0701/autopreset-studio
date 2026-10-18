@@ -13,6 +13,16 @@ assert.equal(context.MK300V73.DS_CATALOG.length,40,'legacy data is unchanged');
 assert.equal(context.MK300V73.AMP_CATALOG[0],'1J120_CL');
 const definition = JSON.parse(fs.readFileSync(path.join(root,'data/mk300-v75-confirmed.json'),'utf8'));
 assert.equal(JSON.stringify(context.MK300V75Catalog),JSON.stringify(definition));
+assert.deepEqual(definition.ui_models.AMP.slice(0,18),[
+  'Fender Super','2CL-UKC30','10CL-FORTIN','11CL-MessMkt','12CL-Ca-Tweed','66CL-DieV4C2','79CL-Brit1',
+  '3OD-MarVM410','4OD-MarVicto','13OD-BogSV20','80OD-Brit2','5DS-RandSanat','6DS-MarsFD100','7DS-EagleS',
+  '8DS-DiselHgn','9DS-EV5150Com','53DS-Pey5150','63DS-Sold100+'
+]);
+assert.equal(context.MK300V75.MODEL_INDICES.AMP['6DS-MarsFD100'],5);
+assert.equal(context.MK300V75.MODEL_INDICES.DS['MW-808'],40);
+assert.equal(context.MK300V75.MODEL_INDICES.CAB['44MarVal4'],43);
+assert.equal(context.MK300V75.MODEL_INDICES.AMP['2CL-UKC30'],undefined);
+assert.equal(context.MK300V75.MODEL_INDICES.DS['MW-DS1'],undefined);
 for (const model of definition.confirmed_models) {
   assert.equal(context.MK300V75Parameters.blocks[model.block].models[model.index].name,model.name);
 }

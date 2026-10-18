@@ -244,6 +244,9 @@ button.secondary,.pedalNav button { background:#25252a; }
 .chatMessageError { border-color:var(--bad); }
 .chatMessageAuthor { display:block; margin-bottom:5px; color:var(--accent); font-size:12px; }
 .chatMessageText { margin:0; white-space:pre-wrap; overflow-wrap:anywhere; line-height:1.6; }
+.chatPresetAction { display:flex; flex-direction:column; align-items:flex-start; gap:7px; margin-top:12px; }
+.chatPresetAction button { min-height:40px; }
+.chatPresetStatus { color:var(--muted); font-size:12px; line-height:1.45; white-space:pre-wrap; }
 .chatForm { display:flex; align-items:flex-end; gap:10px; margin-top:14px; }
 .chatInputField { flex:1; min-width:0; }
 .chatForm textarea { display:block; width:100%; min-height:72px; max-height:200px; resize:vertical; }
@@ -412,13 +415,9 @@ button.secondary,.pedalNav button { background:#25252a; }
     </div>
     <div class="sep"></div>
     <div class="controls">
-      <div class="field"><label for="amp">AMP — modelo interno</label><select id="amp">
-        <option value="0">0 · 1J120_CL</option><option value="1">1 · 2J900_OD</option><option value="2">2 · 3J900_DS</option><option value="3">3 · 4J900_HV</option><option value="4">4 · 5M_BLUES</option><option value="8">8 · 9FD1_BR</option><option value="16">16 · 17FD_CH1</option><option value="17">17 · 18FD_CH1_HOT</option><option value="20">20 · 21J800_CL_196</option><option value="21">21 · 22J800_CL_AMP</option><option value="22">22 · 23J800_OD</option><option value="23">23 · 24J800_DS</option><option value="32">32 · 33OR_CL</option><option value="33">33 · 34OR_CRUNCH</option>
-      </select><p id="ampModeStatus" class="status" hidden></p><p class="hint">120 índices: 100 slots de guitarra e 20 de baixo. Rótulos podem mudar entre versões do M‑EFCS/firmware. Por exemplo, “80OD‑Brit2” aparece no vídeo, mas não coincide com o rótulo atribuído ao índice correspondente no mapeamento v73; não associei os nomes sem confirmação. Confira o rótulo no seu editor antes de exportar. Knobs não editados são preservados da base.</p></div>
-      <div class="field"><label for="drive">DS — índice do catálogo</label><select id="drive"><option value="2">2 · 3DS1</option><option value="3">3 · 4DS2</option><option value="10">10 · 11RAT</option><option value="21">21 · 22TS-9</option><option value="23" selected>23 · 24CL_BOOST</option></select><p class="hint">40 modelos de drive do catálogo v73. Knobs não editados são preservados da base. Os modelos MW‑808, MW‑GOLD, MW‑OCD, MW‑SD1, MW‑DS1, MW‑RAT, MW‑XEP, MW‑FACE, MW‑HRZ, MW‑EQP, MW‑MUFF e MW‑B7000 são importações personalizadas do M‑EFCS, não IDs fixos deste menu.</p></div>
-      <div class="field"><label for="delay">DLY — modelo</label><select id="delay">
-        <option value="0" data-sync="3">0 · Clean</option><option value="1" data-sync="5">1 · Modern</option><option value="2" data-sync="3">2 · Echo</option><option value="3" data-sync="3">3 · Analog</option><option value="4" data-sync="6">4 · Duck</option><option value="5" data-sync="6">5 · Dtype</option><option value="6" data-sync="6">6 · Tremolo</option><option value="7" data-sync="6">7 · Filter</option><option value="8" data-sync="6">8 · Dual</option><option value="9" data-sync="6">9 · Lofi</option><option value="10" data-sync="6">10 · Pattern</option><option value="11" data-sync="5">11 · Ice</option><option value="12" data-sync="5">12 · Reverse</option><option value="13" data-sync="3">13 · PingPong Stereo</option><option value="14" data-sync="3">14 · Clean Stereo</option><option value="15" data-sync="3">15 · Modern Stereo</option><option value="16" data-sync="3">16 · Echo Stereo</option><option value="17" data-sync="6" selected>17 · Analog Stereo</option><option value="18" data-sync="6">18 · Duck Stereo</option><option value="19" data-sync="6">19 · Dtype Stereo</option><option value="20" data-sync="6">20 · Tremolo Stereo</option><option value="21" data-sync="6">21 · Filter Stereo</option><option value="22" data-sync="6">22 · Dual Stereo</option><option value="23" data-sync="6">23 · Lofi Stereo</option><option value="24" data-sync="5">24 · Pattern Stereo</option><option value="25" data-sync="5">25 · Ice Stereo</option><option value="26" data-sync="5">26 · Reverse Stereo</option>
-      </select><p class="hint">Sync da base é preservado até editar o modelo, tempo, feedback ou mix; uma edição grava Sync = 0.</p></div>
+      <div class="field"><label for="amp">AMP — modelo interno</label><select id="amp"></select><p id="ampModeStatus" class="status" hidden></p><p class="hint">Os nomes V75 sem índice binário confirmado ficam indisponíveis para seleção. Os modelos NAM exigem slot e confirmação de instalação. Ao importar um preset antigo, índices sem rótulo confirmado continuam preservados.</p></div>
+      <div class="field"><label for="drive">DS — modelo</label><select id="drive"></select><p class="hint">Modelos V75 sem índice confirmado aparecem indisponíveis. Índices de DS confirmados nos arquivos `.dzh` são mantidos.</p></div>
+      <div class="field"><label for="delay">DLY — modelo</label><select id="delay"></select><p class="hint">Sync da base é preservado até editar o modelo, tempo, feedback ou mix; uma edição grava Sync = 0.</p></div>
     </div>
     <details class="advancedPanel" id="moreBlockModels"><summary>Mais blocos e modelos · WAH, FX, Gate, EQ e Modulação</summary>
       <p class="hint">Catálogo técnico v73: 358 opções entre blocos, modelos e slots. Os índices gravados são zero-based. Os knobs de WAH, FX, Gate, EQ e Mod continuam herdados da base para manter intactos os valores que o editor ainda não expõe aqui. Os nomes podem variar por versão; o número do slot é o que vai para o arquivo. <a href="https://github.com/jpfaria/mvave/blob/main/docs/catalog.md" target="_blank" rel="noopener noreferrer">Consultar referência de IDs e parâmetros v73</a>.</p>
@@ -447,7 +446,7 @@ button.secondary,.pedalNav button { background:#25252a; }
       <div class="field"><label for="driveGain">DS · Gain <output id="driveGainValue">50</output></label><input id="driveGain" type="range" min="0" max="100" step="1" value="50"><p class="hint">Valor carregado da base, quando disponível. Será gravado na exportação.</p></div>
     </div>
     <details class="advancedPanel"><summary>Gabinete / IR e Reverb · editar ambiência</summary><div class="grid" style="margin-top:14px"><div class="field"><label for="cabSlot">Slot CAB / IR (1–100)</label><select id="cabSlot" aria-label="Slot de gabinete ou IR"></select></div><div class="field"><label for="cabLevel">CAB · Level</label><input id="cabLevel" type="number" min="0" max="100" value="80"></div><div class="field"><label for="cabLow">CAB · Low Cut · valor bruto</label><input id="cabLow" type="number" min="1" max="32767" value="20"></div><div class="field"><label for="cabHigh">CAB · High Cut · valor bruto</label><input id="cabHigh" type="number" min="1" max="32767" value="180"></div></div><p class="hint">Os cortes são unidades internas, sem conversão confirmada para Hz. A lista expõe os 100 slots (IRs de fábrica ou importados pelo M‑EFCS); selecionar um slot não instala nem substitui o IR.</p>
-<div class="field" style="margin-top:14px"><label for="revModel">Modelo de Reverb</label><select id="revModel"><option value="0">0 · Room</option><option value="1">1 · Hall</option><option value="2">2 · Plate</option><option value="3">3 · Spring</option><option value="4">4 · Shimmer</option><option value="5">5 · Bloom</option><option value="6">6 · Cloud</option><option value="7">7 · Lofi</option><option value="8">8 · Swell</option><option value="9">9 · Room Stereo</option><option value="10">10 · Hall Stereo</option><option value="11">11 · Plate Stereo</option><option value="12">12 · Spring Stereo</option><option value="13">13 · Shimmer Stereo</option><option value="14">14 · Bloom Stereo</option><option value="15">15 · Cloud Stereo</option><option value="16">16 · Lofi Stereo</option><option value="17">17 · Swell Stereo</option></select></div><div class="controls" style="margin-top:14px"><div class="field"><label id="revLabel0" for="revP0">Reverb · parâmetro 1</label><input id="revP0" type="number" min="0" max="100" step="1" value="20"></div><div class="field"><label id="revLabel1" for="revP1">Reverb · parâmetro 2</label><input id="revP1" type="number" min="0" max="100" step="1" value="30"></div><div class="field"><label id="revLabel2" for="revP2">Reverb · parâmetro 3</label><input id="revP2" type="number" min="0" max="100" step="1" value="80"></div><div class="field"><label id="revLabel3" for="revP3">Reverb · parâmetro 4</label><input id="revP3" type="number" min="0" max="100" step="1" value="80"></div><div class="field"><label id="revLabel4" for="revP4">Reverb · parâmetro 5</label><input id="revP4" type="number" min="0" max="100" step="1" value="40"></div></div><p class="hint">Trocar o modelo manualmente usa a definição disponível para ele; posições não utilizadas continuam preservadas. Verifique os valores no M-EFCS.</p></details>
+<div class="field" style="margin-top:14px"><label for="revModel">Modelo de Reverb</label><select id="revModel"></select></div><div class="controls" style="margin-top:14px"><div class="field"><label id="revLabel0" for="revP0">Reverb · parâmetro 1</label><input id="revP0" type="number" min="0" max="100" step="1" value="20"></div><div class="field"><label id="revLabel1" for="revP1">Reverb · parâmetro 2</label><input id="revP1" type="number" min="0" max="100" step="1" value="30"></div><div class="field"><label id="revLabel2" for="revP2">Reverb · parâmetro 3</label><input id="revP2" type="number" min="0" max="100" step="1" value="80"></div><div class="field"><label id="revLabel3" for="revP3">Reverb · parâmetro 4</label><input id="revP3" type="number" min="0" max="100" step="1" value="80"></div><div class="field"><label id="revLabel4" for="revP4">Reverb · parâmetro 5</label><input id="revP4" type="number" min="0" max="100" step="1" value="40"></div></div><p class="hint">Trocar o modelo manualmente usa a definição disponível para ele; posições não utilizadas continuam preservadas. Verifique os valores no M-EFCS.</p></details>
     <div class="grid" style="margin-top:14px">
       <div class="field"><label for="time">Delay · tempo (ms)</label><input id="time" type="number" min="1" max="32767" step="1" value="450"></div>
       <div class="field"><label for="fb">Delay · feedback (0–100)</label><input id="fb" type="number" min="0" max="100" step="1" value="30"></div>
@@ -464,7 +463,7 @@ button.secondary,.pedalNav button { background:#25252a; }
       <div><code>0x36 + bloco</code><br>Índices de modelo</div><div><code>0x42 + 24×bloco</code><br>Knobs · 12 × int16</div><div><code>0x14A–0x1BF</code><br>Preservado do base</div>
     </div></details>
     <p class="hint">Índice binário é zero-based. O número dentro do rótulo do catálogo pode começar em 1; a auditoria abaixo mostra ambos a partir do arquivo compilado.</p>
-    <div class="actions"><button id="applyReportedModels" type="button" class="secondary">Aplicar modelos revisados: 23 + 17</button><button id="checkPreset" type="button">Verificar preset</button><button id="generate">Baixar preset .dzh</button><button id="exportAll" class="secondary" type="button">Baixar todas as abas (.zip)</button><button id="shareLink" class="secondary">Copiar link / código</button></div>
+    <div class="actions"><button id="checkPreset" type="button">Verificar preset</button><button id="generate">Baixar preset .dzh</button><button id="exportAll" class="secondary" type="button">Baixar todas as abas (.zip)</button><button id="shareLink" class="secondary">Copiar link / código</button></div>
     <p class="hint">A ação altera somente o modelo AMP e o modelo Delay da aba atual; outros parâmetros são preservados. Exporte novamente para gravar a revisão.</p>
     <div id="modelCorrectionStatus" class="status" aria-live="polite"></div>
     <div id="exportAllStatus" class="status" aria-live="polite"></div>
@@ -519,7 +518,7 @@ root.MK300V73Parameters=Object.freeze(CATALOG);
 // Generated by build-v75.cjs. Legacy V73 data remains unchanged.
 (function(root){
   'use strict';
-  const definition = {"firmware":"v75","source":"Nomes fornecidos pelo proprietário; índices confirmados nos presets exportados do M-EFECT V75. Slots de capturas e IRs dependem do equipamento.","models":{"WAH":["X-Wah","Funk-Wah","Slide-Wah","Cry-Wah","Wah-Wah","Sense-Wah"],"FX":["Lofi","Sense-Wah","Boost","A Boost","E Boost","B Boost","Boost ED","Compress","Compress Pro","F Compress","Pitch","Octave","Ring","Pitch shifter","Whammy"],"DS":["MW-808","MW-GOLD","MW-OCD","MW-SD1","MW-DS1","MW-RAT","MW-XEP","MW-FACE","MW-HRZ","MW-EQP","MW-MUFF","MW-B7000","Boss_DS-2_Tur","2OD-ONEE","3OD-THREE","4OD-SDONEE","27FZ-TFourr","28FZ-BigMff","36BFZ-MxrrD"],"GATE":["AI Gate","Soft Gate","Hard Gate","Pro Gate"],"AMP":{"CLEAN":["Fender Super","2CL-UKC30","10CL-FORTIN","11CL-MessMkt","12CL-Ca-Tweed","66CL-DieV4C2","79CL-Brit1"],"CRUNCH":["3OD-MarVM410","4OD-MarVicto","13OD-BogSV20","80OD-Brit2"],"HIGH_GAIN":["5DS-RandSanat","6DS-MarsFD100","7DS-EagleS","8DS-DiselHgn","9DS-EV5150Com","53DS-Pey5150","63DS-Sold100+"]},"NAM":["Jcm800","Boss DS-2 Mod"],"CAB":["1EAGLProV30s","44MarVal4","47ENG412","500gP412","53Pey5150","69CeleAt","20BassEDN300","60Alton212"],"EQ":["Guitar EQ 6","Bass EQ 7","Normal EQ 10"],"MOD":["Chorus","Tri Chorus","Flanger","Tri Flanger","Tremolo","Tri Tremolo","Opto Tremolo","Phaser","Vibrato","Tri Vibrato","Opto Vibrato","Univibe","Tri Univibe","Autofilter","Phaser Stereo","Chorus Stereo","Tremolo Stereo","Vibrato Stereo"],"DLY":["Clean","Modern","Echo","Analog","Duck","Dtype","Tremolo","Filter","Dual","Lofi","Pattern","Ice","Reverse","PingPong Stereo","Clean Stereo","Modern Stereo","Echo Stereo","Analog Stereo"],"REV":["Room","Hall","Plate","Spring","Shimmer","Bloom","Cloud","Lofi","Swell","Room stereo","Hall stereo","Plate stereo","Spring stereo","Shimmer stereo","Bloom stereo"]},"confirmed_models":[{"block":3,"index":40,"name":"MW-808","evidence":"teste 1.dzh"},{"block":3,"index":41,"name":"MW-GOLD","evidence":"teste app 2.dzh"},{"block":4,"index":0,"name":"Fender Super","evidence":"teste 1.dzh"},{"block":4,"index":5,"name":"6DS-MarsFD100","evidence":"teste app 2.dzh"},{"block":4,"index":52,"name":"53DS-Pey5150","evidence":"teste app 3.dzh"},{"block":5,"index":43,"name":"44MarVal4","evidence":"teste 1.dzh"},{"block":5,"index":0,"name":"1EAGLProV30s","evidence":"teste prático 1.dzh e captura do editor V75"}],"nam":{"exclusive_with_ds":true,"automatic_selection":false,"observed_indices":[115,117,118],"note":"As exportações confirmam índices e estados; não gravam o nome nem os pesos da captura. Nenhum destes índices é associado automaticamente a Jcm800 ou Boss DS-2 Mod."}};
+  const definition = {"firmware":"v75","source":"Nomes fornecidos pelo proprietário; índices confirmados nos presets exportados do M-EFECT V75. Slots de capturas e IRs dependem do equipamento.","models":{"WAH":["X-Wah","Funk-Wah","Slide-Wah","Cry-Wah","Wah-Wah","Sense-Wah"],"FX":["Lofi","Sense-Wah","Boost","A Boost","E Boost","B Boost","Boost ED","Compress","Compress Pro","F Compress","Pitch","Octave","Ring","Pitch shifter","Whammy"],"DS":["MW-808","MW-GOLD","MW-OCD","MW-SD1","MW-DS1","MW-RAT","MW-XEP","MW-FACE","MW-HRZ","MW-EQP","MW-MUFF","MW-B7000","Boss_DS-2_Tur","2OD-ONEE","3OD-THREE","4OD-SDONEE","27FZ-TFourr","28FZ-BigMff","36BFZ-MxrrD"],"GATE":["AI Gate","Soft Gate","Hard Gate","Pro Gate"],"AMP":{"CLEAN":["Fender Super","2CL-UKC30","10CL-FORTIN","11CL-MessMkt","12CL-Ca-Tweed","66CL-DieV4C2","79CL-Brit1"],"CRUNCH":["3OD-MarVM410","4OD-MarVicto","13OD-BogSV20","80OD-Brit2"],"HIGH_GAIN":["5DS-RandSanat","6DS-MarsFD100","7DS-EagleS","8DS-DiselHgn","9DS-EV5150Com","53DS-Pey5150","63DS-Sold100+"]},"NAM":["Jcm800","Boss DS-2 Mod"],"CAB":["1EAGLProV30s","44MarVal4","47ENG412","500gP412","53Pey5150","69CeleAt","20BassEDN300","60Alton212"],"EQ":["Guitar EQ 6","Bass EQ 7","Normal EQ 10"],"MOD":["Chorus","Tri Chorus","Flanger","Tri Flanger","Tremolo","Tri Tremolo","Opto Tremolo","Phaser","Vibrato","Tri Vibrato","Opto Vibrato","Univibe","Tri Univibe","Autofilter","Phaser Stereo","Chorus Stereo","Tremolo Stereo","Vibrato Stereo"],"DLY":["Clean","Modern","Echo","Analog","Duck","Dtype","Tremolo","Filter","Dual","Lofi","Pattern","Ice","Reverse","PingPong Stereo","Clean Stereo","Modern Stereo","Echo Stereo","Analog Stereo"],"REV":["Room","Hall","Plate","Spring","Shimmer","Bloom","Cloud","Lofi","Swell","Room stereo","Hall stereo","Plate stereo","Spring stereo","Shimmer stereo","Bloom stereo"]},"confirmed_models":[{"block":3,"index":40,"name":"MW-808","evidence":"teste 1.dzh"},{"block":3,"index":41,"name":"MW-GOLD","evidence":"teste app 2.dzh"},{"block":4,"index":0,"name":"Fender Super","evidence":"teste 1.dzh"},{"block":4,"index":5,"name":"6DS-MarsFD100","evidence":"teste app 2.dzh"},{"block":4,"index":52,"name":"53DS-Pey5150","evidence":"teste app 3.dzh"},{"block":5,"index":43,"name":"44MarVal4","evidence":"teste 1.dzh"},{"block":5,"index":0,"name":"1EAGLProV30s","evidence":"teste prático 1.dzh e captura do editor V75"}],"nam":{"exclusive_with_ds":true,"automatic_selection":false,"observed_indices":[115,117,118],"note":"As exportações confirmam índices e estados; não gravam o nome nem os pesos da captura. Nenhum destes índices é associado automaticamente a Jcm800 ou Boss DS-2 Mod."},"ui_models":{"AMP":["Fender Super","2CL-UKC30","10CL-FORTIN","11CL-MessMkt","12CL-Ca-Tweed","66CL-DieV4C2","79CL-Brit1","3OD-MarVM410","4OD-MarVicto","13OD-BogSV20","80OD-Brit2","5DS-RandSanat","6DS-MarsFD100","7DS-EagleS","8DS-DiselHgn","9DS-EV5150Com","53DS-Pey5150","63DS-Sold100+","Jcm800","Boss DS-2 Mod"],"DS":["MW-808","MW-GOLD","MW-OCD","MW-SD1","MW-DS1","MW-RAT","MW-XEP","MW-FACE","MW-HRZ","MW-EQP","MW-MUFF","MW-B7000","Boss_DS-2_Tur","2OD-ONEE","3OD-THREE","4OD-SDONEE","27FZ-TFourr","28FZ-BigMff","36BFZ-MxrrD"],"CAB":["44MarVal4","47ENG412","500gP412","53Pey5150","69CeleAt","20BassEDN300","60Alton212"],"WAH":["X-Wah","Funk-Wah","Slide-Wah","Cry-Wah","Wah-Wah","Sense-Wah"],"FX":["Lofi","Sense-Wah","Boost","A Boost","E Boost","B Boost","Boost ED","Compress","Compress Pro","F Compress","Pitch","Octave","Ring","Pitch shifter","Whammy"],"GATE":["AI Gate","Soft Gate","Hard Gate","Pro Gate"],"EQ":["Guitar EQ 6","Bass EQ 7","Normal EQ 10"],"MOD":["Chorus","Tri Chorus","Flanger","Tri Flanger","Tremolo","Tri Tremolo","Opto Tremolo","Phaser","Vibrato","Tri Vibrato","Opto Vibrato","Univibe","Tri Univibe","Autofilter","Phaser Stereo","Chorus Stereo","Tremolo Stereo","Vibrato Stereo"],"DLY":["Clean","Modern","Echo","Analog","Duck","Dtype","Tremolo","Filter","Dual","Lofi","Pattern","Ice","Reverse","PingPong Stereo","Clean Stereo","Modern Stereo","Echo Stereo","Analog Stereo"],"REV":["Room","Hall","Plate","Spring","Shimmer","Bloom","Cloud","Lofi","Swell","Room stereo","Hall stereo","Plate stereo","Spring stereo","Shimmer stereo","Bloom stereo"]}};
   root.AutoPresetToneConfig = Object.freeze({"version":"usb-spectral-v1","classification":{"crest_reference_db":13,"crest_span_db":11,"harmonic_scale":3,"crossing_scale_hz":12000,"weights":{"compression":0.35,"noise":0.3,"harmonics":0.25,"crossings":0.1},"crunch_threshold":0.36,"high_gain_threshold":0.5,"fuzz_noise_threshold":0.55,"fuzz_compression_threshold":0.65,"fuzz_crossings_threshold":0.25},"calibration_scope":"Três referências USB de Fender Super, Gain 25/50/75, sem DS ou REV. Casos de validação clean; não comprovam identificação universal de amplificadores nem recuperação do knob Gain.","automatic_reverb_from_decay":false,"gain_is_starting_point":true});
   const legacy = root.MK300V73;
   const parameters = JSON.parse(JSON.stringify(root.MK300V73Parameters));
@@ -538,9 +537,35 @@ root.MK300V73Parameters=Object.freeze(CATALOG);
     parameters.blocks[4].models[index] = {...model, legacy_name:model.name, name, verification:'custom_slot'};
     amp[index] = name;
   }
+  const uiModels = definition.ui_models || {
+    ...definition.models,
+    AMP: [...definition.models.AMP.CLEAN, ...definition.models.AMP.CRUNCH,
+      ...definition.models.AMP.HIGH_GAIN, ...definition.models.NAM],
+    CAB: definition.models.CAB.filter(name => name !== '1EAGLProV30s')
+  };
+  const modelIndices = {};
+  const blockIds = {WAH:0, FX:1, GATE:2, DS:3, AMP:4, CAB:5, EQ:6, MOD:7, DLY:8, REV:9};
+  for (const [blockName, names] of Object.entries(uiModels)) {
+    if (!blockIds.hasOwnProperty(blockName) || !Array.isArray(names)) continue;
+    const blockId = blockIds[blockName];
+    const mapped = {};
+    if (['DS', 'AMP', 'CAB'].includes(blockName)) {
+      for (const item of definition.confirmed_models) {
+        if (item.block === blockId && names.includes(item.name)) mapped[item.name] = item.index;
+      }
+    } else {
+      const models = parameters.blocks[blockId].models;
+      for (const name of names) {
+        const model = models.find(item => item.name.toLocaleLowerCase() === name.toLocaleLowerCase());
+        if (model) mapped[name] = model.index;
+      }
+    }
+    modelIndices[blockName] = mapped;
+  }
   root.MK300V75Catalog = Object.freeze(definition);
   root.MK300V75Parameters = Object.freeze({...parameters, firmware:'v75'});
-  root.MK300V75 = Object.freeze({...legacy, firmware:'v75', AMP_CATALOG:amp, DS_CATALOG:ds, CAB_SLOT_NAMES:cab});
+  root.MK300V75 = Object.freeze({...legacy, firmware:'v75', AMP_CATALOG:amp, DS_CATALOG:ds,
+    CAB_SLOT_NAMES:cab, UI_MODELS:Object.freeze(uiModels), MODEL_INDICES:Object.freeze(modelIndices)});
 })(globalThis);
 
 </script>
@@ -1672,6 +1697,71 @@ window.AUTO_PRESET_API = API_BASE_URL;
 
 </script>
 <script>
+/* Strict plain-text parser for the seven-module response used by Assistente IA. */
+(function (root) {
+  'use strict';
+  const expected = [
+    ['NR (GATE)', 'GATE'], ['DS', 'DS'], ['AMP', 'AMP'], ['EQ', 'EQ'],
+    ['CAB', 'CAB'], ['DLY', 'DLY'], ['REV', 'REV']
+  ];
+
+  function parseParameters(value) {
+    const text = String(value || '').trim();
+    if (!text || /^nenhum\.?$/i.test(text)) return {};
+    const result = {};
+    for (const pair of text.split(/[;；]/)) {
+      const match = pair.trim().match(/^([^=]+?)\s*=\s*(-?\d+)$/);
+      if (!match) return null;
+      const name = match[1].trim().replace(/^\*+|\*+$/g, '').replace(/^`|`$/g, '').trim();
+      const number = Number(match[2]);
+      if (!name || !Number.isSafeInteger(number) || Object.hasOwn(result, name.toLowerCase())) return null;
+      result[name] = number;
+    }
+    return result;
+  }
+
+  function parse(text) {
+    if (typeof text !== 'string' || text.length > 24000) return null;
+    const lines = text.replace(/\r\n?/g, '\n').split('\n');
+    const sections = [];
+    let current = null;
+    for (const rawLine of lines) {
+      const line = rawLine.trim().replace(/^\*\*|\*\*$/g, '').trim();
+      const heading = line.match(/^([1-7])[.)]\s*(NR\s*\(\s*GATE\s*\)|DS|AMP|EQ|CAB|DLY|REV)\s*:?$/i);
+      if (heading) {
+        const index = Number(heading[1]) - 1;
+        const label = heading[2].replace(/\s+/g, ' ').toUpperCase();
+        const expectedLabel = expected[index][0].toUpperCase();
+        if (label !== expectedLabel || sections.length !== index) return null;
+        current = {key: expected[index][1], fields: {}};
+        sections.push(current);
+        continue;
+      }
+      if (!current || !line) continue;
+      const field = line.match(/^(Estado|Modelo|Parâmetros)\s*:\s*(.*)$/i);
+      if (!field) continue;
+      const key = field[1].toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+      if (Object.hasOwn(current.fields, key)) return null;
+      current.fields[key] = field[2].trim().replace(/^\*+|\*+$/g, '').replace(/^`|`$/g, '').trim();
+    }
+    if (sections.length !== expected.length) return null;
+    const modules = {};
+    for (const section of sections) {
+      const fields = section.fields;
+      const enabled = String(fields.estado || '').toLowerCase();
+      const model = fields.modelo;
+      const parameters = parseParameters(fields.parametros);
+      if (!['ligado', 'desligado'].includes(enabled) || !model || model.length > 120 || /^\d+\s*[·.):]\s*/.test(model) || !parameters) return null;
+      modules[section.key] = {enabled: enabled === 'ligado', model, parameters};
+    }
+    return {modules};
+  }
+
+  root.AutoPresetChatPreset = Object.freeze({parse});
+})(globalThis);
+
+</script>
+<script>
 /* Extra source controls for V75. The core/editor and 448-byte handler remain in index.html. */
 (function () {
   'use strict';
@@ -1710,6 +1800,27 @@ window.AUTO_PRESET_API = API_BASE_URL;
     content.textContent = text;
     bubble.append(author, content); $('chatMessages').appendChild(bubble);
     $('chatMessages').scrollTop = $('chatMessages').scrollHeight;
+    return bubble;
+  }
+  function addApplyPresetAction(bubble, reply) {
+    const preset = window.AutoPresetChatPreset?.parse(reply);
+    if (!preset) return;
+    const actions = document.createElement('div'); actions.className = 'chatPresetAction';
+    const button = document.createElement('button'); button.type = 'button';
+    button.className = 'secondary'; button.textContent = '⚡ Aplicar este Timbre';
+    const status = document.createElement('span'); status.className = 'chatPresetStatus';
+    button.addEventListener('click', () => {
+      if (button.disabled) return;
+      button.disabled = true; status.textContent = 'A validar os índices e parâmetros V75…';
+      try {
+        const result = window.AutoPresetApplyChatPreset(preset);
+        button.textContent = '✓ Timbre aplicado'; status.textContent = result;
+      } catch (error) {
+        button.disabled = false; status.textContent = 'Não foi aplicado: ' + (error.message || 'resposta incompatível com o catálogo V75.');
+      }
+    });
+    actions.append(button, status); bubble.appendChild(actions);
+    $('chatMessages').scrollTop = $('chatMessages').scrollHeight;
   }
   $('chatInput').addEventListener('keydown', event => {
     if (event.key === 'Enter' && !event.shiftKey && !event.isComposing) {
@@ -1739,7 +1850,8 @@ window.AUTO_PRESET_API = API_BASE_URL;
       if (!response.ok) throw new Error(typeof data?.detail === 'string' ? data.detail : `O assistente respondeu HTTP ${response.status}. Tente novamente.`);
       if (typeof data?.response !== 'string' || !data.response.trim()) throw new Error('O assistente retornou uma resposta inválida. Tente novamente.');
       const reply = data.response.trim();
-      addChatMessage('assistant', reply);
+      const replyBubble = addChatMessage('assistant', reply);
+      addApplyPresetAction(replyBubble, reply);
       chatHistory.push({role: 'user', content: message}, {role: 'assistant', content: reply.slice(0, 8000)});
       if (chatHistory.length > 10) chatHistory.splice(0, chatHistory.length - 10);
       status.textContent = '';
@@ -2148,10 +2260,10 @@ function compilePreset() {
     amp: namActive ? validNamSlot() - 1 : modelValue("amp", AMP_CATALOG, "Modelo AMP guitarra"),
     delay: modelValue("delay", DLY_CATALOG, "Modelo DLY"),
     cab: validInt("cabSlot", 1, 100, "Slot CAB") - 1,
-    reverb: validInt("revModel", 0, REV_CATALOG.length - 1, "Modelo Reverb")
+    reverb: validInt("revModel", 0, PARAMETER_BLOCKS[BLOCK.REV].models.length - 1, "Modelo Reverb")
   };
   for (const [key, { block, names }] of Object.entries(BLOCK_MODEL_SELECTS)) {
-    models[key] = modelValue(key, names, "Modelo " + BLOCK_NAMES[block]);
+    models[key] = modelValue(key, PARAMETER_BLOCKS[block].models, "Modelo " + BLOCK_NAMES[block]);
   }
   const syncKnobIndex = DLY_SYNC[models.delay];
   if (![3, 5, 6].includes(syncKnobIndex)) throw new Error("Modelo de delay sem mapeamento Sync conhecido; escolha outro modelo.");
@@ -2247,26 +2359,10 @@ function compiledModelSummary(bytes, namActive = $('namMode').checked) {
   const delayIndex = bytes[0x36 + BLOCK.DLY];
   const ampText = namActive
     ? `NAM slot ${ampIndex + 1} (índice binário ${ampIndex})`
-    : `AMP ${ampIndex} · ${AMP_CATALOG[ampIndex] || 'modelo sem rótulo'}`;
-  return `${ampText} | DS ${dsIndex} · ${DS_CATALOG[dsIndex] || 'modelo sem rótulo'} | DLY ${delayIndex} · ${DLY_CATALOG[delayIndex] || 'modelo sem rótulo'} | CAB slot ${bytes[59] + 1} · ${CAB_SLOT_NAMES[bytes[59] + 1] || 'sem rótulo'} | REV ${bytes[63]} · ${REV_CATALOG[bytes[63]] || 'modelo sem rótulo'}`;
+    : `AMP ${ampIndex} · ${Object.entries(MODEL_INDICES.AMP).find(([,index])=>index===ampIndex)?.[0] || 'modelo V75 sem rótulo confirmado'}`;
+  const nameAt=(block,index)=>Object.entries(MODEL_INDICES[block]||{}).find(([,mapped])=>mapped===index)?.[0]||'modelo V75 sem rótulo confirmado';
+  return `${ampText} | DS ${dsIndex} · ${nameAt('DS',dsIndex)} | DLY ${delayIndex} · ${nameAt('DLY',delayIndex)} | CAB slot ${bytes[59] + 1} · ${nameAt('CAB',bytes[59])} | REV ${bytes[63]} · ${nameAt('REV',bytes[63])}`;
 }
-
-$('applyReportedModels').addEventListener('click', () => {
-  try {
-    requireSupportedHardware();
-    if ($('namMode').checked) throw new Error('Desative NAM para selecionar um modelo AMP interno.');
-    $('amp').value = '23'; // índice binário zero-based: rótulo 24J800_DS
-    $('delay').value = '17'; // índice binário zero-based: Analog Stereo
-    if ($('amp').value !== '23' || $('delay').value !== '17') throw new Error('Os índices revisados não existem nos catálogos carregados.');
-    currentOrigin = 'Correção manual · modelos confirmados no relatório';
-    saveDraft();
-    refreshUI();
-    scheduleAutosave();
-    setStatus($('modelCorrectionStatus'), 'Seleção atualizada: AMP 23 · 24J800_DS; Delay 17 · Analog Stereo. Revise e exporte para gravar esses índices no .dzh.', 'good');
-  } catch (error) {
-    setStatus($('modelCorrectionStatus'), error.message, 'bad');
-  }
-});
 
 $("generate").addEventListener("click", () => {
   try {
@@ -2280,7 +2376,8 @@ $("generate").addEventListener("click", () => {
   }
 });
 // Valores observados no USER PRESET 134, não defaults universais de firmware.
-const {AMP_DEFAULTS,DS_DEFAULTS,CAB_DEFAULTS,REV_DEFAULTS,DLY_DEFAULTS,MODEL_DEFAULTS,BLOCK_NAMES,AMP_CATALOG,DS_CATALOG,WAH_CATALOG,FX_CATALOG,GATE_CATALOG,EQ_CATALOG,MOD_CATALOG,DLY_CATALOG,DLY_SYNC,REV_CATALOG,CAB_SLOT_NAMES,BLOCK_MODEL_SELECTS}=window.MK300V75||window.MK300V73;
+const {AMP_DEFAULTS,DS_DEFAULTS,CAB_DEFAULTS,REV_DEFAULTS,DLY_DEFAULTS,MODEL_DEFAULTS,BLOCK_NAMES,AMP_CATALOG,DS_CATALOG,WAH_CATALOG,FX_CATALOG,GATE_CATALOG,EQ_CATALOG,MOD_CATALOG,DLY_CATALOG,DLY_SYNC,REV_CATALOG,CAB_SLOT_NAMES,UI_MODELS,MODEL_INDICES}=window.MK300V75||window.MK300V73;
+const BLOCK_MODEL_SELECTS={wahModel:{block:0,names:UI_MODELS.WAH},fxModel:{block:1,names:UI_MODELS.FX},gateModel:{block:2,names:UI_MODELS.GATE},eqModel:{block:6,names:UI_MODELS.EQ},modModel:{block:7,names:UI_MODELS.MOD}};
 const PARAMETER_BLOCKS=(window.MK300V75Parameters||window.MK300V73Parameters).blocks;
 if(PARAMETER_BLOCKS.length!==11||PARAMETER_BLOCKS.some((block,index)=>block.id!==index||block.models.some(model=>model.knobs.length>12)))throw new Error('Catálogo de knobs v73 inválido: os offsets int16 suportam 12 knobs por bloco.');
 let parameterValues={};
@@ -2298,17 +2395,17 @@ function getLifelongBase(){
 }
 // Catálogo amplo MK-300 v73. Índices binários são zero-based; os rótulos do firmware podem começar em 1.
 
-function fillCatalogSelect(id,names,{offset=0,prefix=''}={}){const select=$(id);select.replaceChildren();names.forEach((name,index)=>{const option=document.createElement('option');option.value=String(index+offset);option.textContent=prefix+String(index+offset)+' · '+name;if(id==='delay')option.dataset.sync=String(DLY_SYNC[index]);select.appendChild(option);});}
+function findV75ModelIndex(blockName,name){const indices=MODEL_INDICES?.[blockName]||{};const entry=Object.entries(indices).find(([label])=>label.toLocaleLowerCase()===String(name).toLocaleLowerCase());return entry?entry[1]:null;}
+function fillCatalogSelect(id,blockName,names,{offset=0}={}){const select=$(id);select.replaceChildren();for(const name of names){const index=findV75ModelIndex(blockName,name),option=document.createElement('option');option.value=index===null?'unmapped:'+name:String(index+offset);option.textContent=index===null?name:`${name} · índice ${index+offset}`;if(index===null){option.disabled=true;option.title='Índice binário V75 ainda não confirmado.';}if(id==='delay'&&index!==null)option.dataset.sync=String(DLY_SYNC[index]);select.appendChild(option);}}
 function initializeModelCatalogs(){
- fillCatalogSelect('amp',AMP_CATALOG);fillCatalogSelect('drive',DS_CATALOG);fillCatalogSelect('delay',DLY_CATALOG);
- for(const[id,{names}]of Object.entries(BLOCK_MODEL_SELECTS))fillCatalogSelect(id,names);
- const cab=$('cabSlot');cab.replaceChildren();for(let slot=1;slot<=100;slot++){const option=document.createElement('option');option.value=String(slot);option.textContent=`Slot ${slot} · ${CAB_SLOT_NAMES[slot]||'IR de fábrica / utilizador'}`;cab.appendChild(option);}
- fillCatalogSelect('revModel',REV_CATALOG);
+ fillCatalogSelect('amp','AMP',UI_MODELS.AMP);fillCatalogSelect('drive','DS',UI_MODELS.DS);fillCatalogSelect('delay','DLY',UI_MODELS.DLY);
+ for(const[id,{block,names}]of Object.entries(BLOCK_MODEL_SELECTS))fillCatalogSelect(id,BLOCK_NAMES[block],names);
+ const cab=$('cabSlot'),group=document.createElement('optgroup');group.label='Modelos CAB V75';cab.replaceChildren();const knownCabSlots=new Set();
+ for(const name of UI_MODELS.CAB){const index=findV75ModelIndex('CAB',name),option=document.createElement('option');option.value=index===null?'unmapped:'+name:String(index+1);option.textContent=index===null?name:`${name} · slot ${index+1}`;if(index===null){option.disabled=true;option.title='Slot binário V75 ainda não confirmado para este nome.';}else knownCabSlots.add(index+1);group.appendChild(option);}cab.appendChild(group);
+ const slots=document.createElement('optgroup');slots.label='Slots de IR instalados (1–100)';for(let slot=1;slot<=100;slot++){if(knownCabSlots.has(slot))continue;const option=document.createElement('option');option.value=String(slot);option.textContent=`Slot ${slot} · IR/slot não confirmado`;slots.appendChild(option);}cab.appendChild(slots);
+ fillCatalogSelect('revModel','REV',UI_MODELS.REV);
 }
 initializeModelCatalogs();
-if (AMP_CATALOG[22] !== '23J800_OD' || AMP_CATALOG[23] !== '24J800_DS' || DLY_CATALOG[3] !== 'Analog' || DLY_CATALOG[17] !== 'Analog Stereo') {
-  throw new Error('Mapeamento de índice/modelo v73 inconsistente.');
-}
 
 
 
@@ -2437,7 +2534,7 @@ function refreshUI(){
  renderInspector();
 }
 const extraFields=[['cabLevel',5,0,0,100],['cabLow',5,1,0,32767],['cabHigh',5,2,0,32767],['revP0',9,0,0,100],['revP1',9,1,0,100],['revP2',9,2,0,100],['revP3',9,3,0,100],['revP4',9,4,0,100],['dsLevel',3,1,0,100],['ampLevel',4,1,0,100],['bass',4,2,0,100],['middle',4,3,0,100],['treble',4,4,0,100],['volLevel',10,0,0,100]];
-function loadExtras(bytes){parameterValues={};$('cabSlot').value=String(bytes[59]+1);$('revModel').value=String(bytes[63]);for(const[key,{block}]of Object.entries(BLOCK_MODEL_SELECTS))selectModel(key,bytes[0x36+block],BLOCK_NAMES[block]);$("presetVolume").value=String(new DataView(bytes.buffer,bytes.byteOffset,bytes.byteLength).getUint16(24,true));cabBeforeNam=null;$('namQuery').value='';$('namSuggested').checked=false;$('namKind').value='unknown';$("namMode").checked=false;$("namInstalled").checked=false;currentChainOrder=Array.from(bytes.slice(32,43));additionalStates={};const v=new DataView(bytes.buffer,bytes.byteOffset,bytes.byteLength);for(const block of PARAMETER_BLOCKS){const modelIndex=bytes[0x36+block.id],model=block.models[modelIndex];if(model)model.knobs.forEach((_,knob)=>{parameterValues[parameterKey(block.id,modelIndex,knob)]=v.getInt16(knobOffset(block.id,knob),true)});}for(const [key,block,knob]of extraFields)$(key).value=String(v.getInt16(knobOffset(block,knob),true));for(const [key,id]of [['cabOn',5],['revOn',9],['volOn',10]])$(key).checked=bytes[43+id]!==0;refreshUI()}
+function loadExtras(bytes){parameterValues={};$('cabSlot').value=String(bytes[59]+1);selectModel('revModel',bytes[63],'REV');for(const[key,{block}]of Object.entries(BLOCK_MODEL_SELECTS))selectModel(key,bytes[0x36+block],BLOCK_NAMES[block]);$("presetVolume").value=String(new DataView(bytes.buffer,bytes.byteOffset,bytes.byteLength).getUint16(24,true));cabBeforeNam=null;$('namQuery').value='';$('namSuggested').checked=false;$('namKind').value='unknown';$("namMode").checked=false;$("namInstalled").checked=false;currentChainOrder=Array.from(bytes.slice(32,43));additionalStates={};const v=new DataView(bytes.buffer,bytes.byteOffset,bytes.byteLength);for(const block of PARAMETER_BLOCKS){const modelIndex=bytes[0x36+block.id],model=block.models[modelIndex];if(model)model.knobs.forEach((_,knob)=>{parameterValues[parameterKey(block.id,modelIndex,knob)]=v.getInt16(knobOffset(block.id,knob),true)});}for(const [key,block,knob]of extraFields)$(key).value=String(v.getInt16(knobOffset(block,knob),true));for(const [key,id]of [['cabOn',5],['revOn',9],['volOn',10]])$(key).checked=bytes[43+id]!==0;refreshUI()}
 function crc32(bytes){let crc=0xffffffff;for(const byte of bytes){crc^=byte;for(let i=0;i<8;i++)crc=(crc>>>1)^((crc&1)?0xedb88320:0)}return ((crc^0xffffffff)>>>0).toString(16).padStart(8,'0')}
 function encodeShare(bytes){return new URLSearchParams({v:'1',p:btoa(String.fromCharCode(...bytes)).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,''),c:crc32(bytes)}).toString()}
 function decodeShare(text){
@@ -2471,9 +2568,61 @@ for(let index=0;index<120;index++)if(!Array.from($('amp').options).some(o=>Numbe
 const REVERB_MODELS=PARAMETER_BLOCKS[9].models.map(model=>({name:model.name,labels:model.knobs}));
 function validateReverb(reverb){if(!reverb||typeof reverb!=='object'||Array.isArray(reverb)||Object.keys(reverb).some(k=>!['model','parameters'].includes(k))||!Number.isInteger(reverb.model)||reverb.model<0||reverb.model>=REVERB_MODELS.length||!Array.isArray(reverb.parameters)||reverb.parameters.length!==5)throw new Error('Configuração Reverb inválida.');const model=PARAMETER_BLOCKS[9].models[reverb.model];reverb.parameters.forEach((n,index)=>{const range=parameterRange(9,model.knobs[index],reverb.model);if(!Number.isInteger(n)||n<range.min||n>range.max)throw new Error('Reverb · '+model.knobs[index]+' deve estar entre '+range.min+' e '+range.max+'.')});return reverb;}
 function updateReverbLabels(){const model=PARAMETER_BLOCKS[9].models[Number($('revModel').value)];for(let index=0;index<5;index++)$('revLabel'+index).textContent='REV · '+(model?.knobs[index]||'Parâmetro '+index);}
+window.AutoPresetApplyChatPreset=(preset)=>{
+ requireSupportedHardware();
+ const moduleConfig=[
+  {key:'GATE',block:2,select:'gateModel',state:'additional'},
+  {key:'DS',block:3,select:'drive',state:'dsOn'},
+  {key:'AMP',block:4,select:'amp',state:'ampOn'},
+  {key:'EQ',block:6,select:'eqModel',state:'additional'},
+  {key:'CAB',block:5,select:'cabSlot',state:'cabOn'},
+  {key:'DLY',block:8,select:'delay',state:'dlyOn'},
+  {key:'REV',block:9,select:'revModel',state:'revOn'}
+ ];
+ if(!preset||!preset.modules)throw new Error('A resposta não tem os sete módulos estruturados.');
+ const plan=[];
+ for(const item of moduleConfig){
+  const config=preset.modules[item.key];if(!config||typeof config.enabled!=='boolean'||!config.parameters||typeof config.parameters!=='object')throw new Error('Módulo ausente ou inválido: '+item.key+'.');
+  const index=findV75ModelIndex(item.key,config.model);
+  if(index===null)throw new Error('Índice binário V75 não confirmado para '+item.key+' · '+config.model+'.');
+  const model=PARAMETER_BLOCKS[item.block].models[index];if(!model)throw new Error('O modelo '+config.model+' não tem parâmetros no catálogo do firmware.');
+  const settings=[];
+  for(const[name,value]of Object.entries(config.parameters)){
+   const knobIndex=model.knobs.findIndex(label=>label.toLocaleLowerCase()===name.toLocaleLowerCase());
+   if(knobIndex<0)throw new Error('Parâmetro não confirmado em '+item.key+' · '+config.model+': '+name+'.');
+   const range=parameterRange(item.block,model.knobs[knobIndex],index);
+   if(!Number.isInteger(value)||value<range.min||value>range.max)throw new Error(name+' em '+item.key+' deve estar entre '+range.min+' e '+range.max+'.');
+   settings.push({name:model.knobs[knobIndex],value,knobIndex,alias:PARAMETER_ALIASES[item.block]?.[knobIndex]||null});
+  }
+  plan.push({...item,index,model,config,settings});
+ }
+ const before=snapshotDraft('Antes da aplicação IA');
+ try{
+  $('namMode').checked=false;$('namInstalled').checked=false;$('namSuggested').checked=false;cabBeforeNam=null;
+  const changedBlocks=new Set(plan.map(item=>item.block));
+  parameterValues=Object.fromEntries(Object.entries(parameterValues).filter(([key])=>!changedBlocks.has(Number(key.split(':')[0]))));
+  for(const item of plan){
+   $(item.select).value=String(item.key==='CAB'?item.index+1:item.index);
+   if($(item.select).value!==String(item.key==='CAB'?item.index+1:item.index))throw new Error('O modelo '+item.config.model+' não aparece no seletor V75.');
+   if(item.state==='additional')additionalStates[item.block]=item.config.enabled;
+   else $(item.state).checked=item.config.enabled;
+   for(const setting of item.settings){
+    if(setting.alias)$(setting.alias).value=String(setting.value);
+    else parameterValues[parameterKey(item.block,item.index,setting.knobIndex)]=setting.value;
+   }
+  }
+  currentOrigin='Assistente IA · timbre aplicado';
+  $('ampGainValue').value=$('ampGain').value;$('driveGainValue').value=$('driveGain').value;
+  syncCurrentParameterAliases();refreshUI();
+  const bytes=compilePreset();if(bytes.length!==448)throw new Error('A compilação não retornou os 448 bytes esperados.');
+  saveDraft();commitSingleDraft('IA · '+($('name').value.trim()||'Timbre'));scheduleAutosave();
+  $('mainAppWorkspace').scrollIntoView({behavior:'smooth',block:'start'});
+  return 'A cadeia foi carregada no editor. Confira principalmente o slot CAB/IR instalado e revise os controles antes de exportar.';
+ }catch(error){restoreDraft(before);throw error;}
+};
 loadExtras(getLifelongBase());
 $('volOn').checked=false;$('volLevel').value='50';$('cabOn').checked=true;$('revOn').checked=true;
-$('amp').value='23';$('drive').value='21';$('delay').value='17';$('bpm').value='140';
+$('amp').value='0';$('drive').value='41';$('delay').value='17';$('bpm').value='140';
 $('ampGain').value='80';$('driveGain').value='25';$('time').value='350';$('fb').value='25';$('mix').value='20';
 $('ampGainValue').value='80';$('driveGainValue').value='25';parameterValues={};syncCurrentParameterAliases();refreshUI();
 function importLegacy(search) {

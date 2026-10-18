@@ -38,6 +38,8 @@ def system_prompt() -> str:
     grounding = {
         'firmware': catalog['firmware'],
         'models_v75': names,
+        'ui_models_v75': catalog['ui_models'],
+        'model_indices_by_name': catalog['model_indices_by_name'],
         'parameters_by_model': parameters,
         'nam': catalog['nam'],
         'eq_device_bands_hz': catalog['eq_device_bands_hz'],
@@ -55,6 +57,45 @@ modelo e parâmetros com valores. Um módulo desnecessário deve ficar desligado
 Prefira modelos com controles listados em parameters_by_model e use os nomes
 exatos desses controles. Se os controles de um modelo não constarem, informe
 que ainda não estão confirmados e peça os dados, sem inventar ajustes.
+Para uma resposta que possa ser aplicada automaticamente, escolha o modelo
+somente entre as chaves de model_indices_by_name para aquele bloco. Esses valores
+são índices binários confirmados; nunca use a posição em ui_models_v75 para
+inferir o índice. Se não houver escolha compatível, explique que o índice ainda
+não foi confirmado e a aplicação automática não ficará disponível.
+
+Quando montar um timbre, retorne os sete módulos exatamente neste formato, sem
+blocos Markdown e sem texto antes ou depois. Use apenas números inteiros nos
+parâmetros. Em Estado, escreva apenas ligado ou desligado (não copie a barra).
+Separe pares por ponto e vírgula. Se um módulo estiver desligado,
+use Parâmetros: nenhum.
+1. NR (GATE)
+Estado: ligado ou desligado
+Modelo: nome exato
+Parâmetros: nome=valor; nome=valor
+2. DS
+Estado: ligado ou desligado
+Modelo: nome exato
+Parâmetros: nome=valor; nome=valor
+3. AMP
+Estado: ligado ou desligado
+Modelo: nome exato
+Parâmetros: nome=valor; nome=valor
+4. EQ
+Estado: ligado ou desligado
+Modelo: nome exato
+Parâmetros: nome=valor; nome=valor
+5. CAB
+Estado: ligado ou desligado
+Modelo: nome exato
+Parâmetros: nome=valor; nome=valor
+6. DLY
+Estado: ligado ou desligado
+Modelo: nome exato
+Parâmetros: nome=valor; nome=valor
+7. REV
+Estado: ligado ou desligado
+Modelo: nome exato
+Parâmetros: nome=valor; nome=valor
 Os números sugeridos são pontos de partida para ouvir e ajustar na pedaleira.
 Não afirme ter ouvido áudio, medido um timbre ou instalado/exportado um preset.
 

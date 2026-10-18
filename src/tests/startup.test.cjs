@@ -8,7 +8,7 @@ function inlineScripts(html) {
   return [...html.matchAll(/<script(?![^>]*\bsrc=)(?:\s[^>]*)?>([\s\S]*?)<\/script>/gi)].map(match => match[1]);
 }
 function checkStartup(label, scripts) {
-  assert.equal(scripts.length, 12, `${label}: deve carregar catálogos, referências, núcleo, configuração, integrações e aplicação`);
+  assert.equal(scripts.length, 13, `${label}: deve carregar catálogos, referências, núcleo, configuração, integrações, parser e aplicação`);
   const context = vm.createContext({ Uint8Array, ArrayBuffer, DataView, TextEncoder, TextDecoder, Set, Object, Number, URL, URLSearchParams });
   context.globalThis = context;
   context.window = context;
@@ -31,9 +31,11 @@ function checkStartup(label, scripts) {
   assert.ok(context.AutoPresetLearning, `${label}: armazenamento de exemplos disponível antes da aplicação`);
   assert.equal(context.AutoPresetReferencePacks.johnPetrucci.presets.length, 4, `${label}: pack de referência disponível antes da aplicação`);
   vm.runInContext(scripts[9], context, { filename: `${label}/config.js` });
-  new vm.Script(scripts[10], { filename: `${label}/app.js` });
+  vm.runInContext(scripts[10], context, { filename: `${label}/chat-preset.js` });
+  assert.ok(context.AutoPresetChatPreset, `${label}: parser do chat disponível antes da aplicação`);
+  new vm.Script(scripts[11], { filename: `${label}/app.js` });
   let startupError;
-  try { vm.runInContext(scripts[11], context, { filename: `${label}/index-inline.js` }); } catch (error) { startupError = error; }
+  try { vm.runInContext(scripts[12], context, { filename: `${label}/index-inline.js` }); } catch (error) { startupError = error; }
   assert.ok(startupError, `${label}: aplicação deve avançar até precisar de DOM real`);
   assert.notEqual(startupError.name, 'SyntaxError', `${label}: scripts não podem falhar por declaração global duplicada`);
   assert.doesNotMatch(startupError.message, /already been declared/, `${label}: catálogo não pode colidir com constantes da interface`);
@@ -51,6 +53,7 @@ const modularScripts = [
   fs.readFileSync(path.join(projectRoot, 'integrations/learning-store.js'), 'utf8'),
   fs.readFileSync(path.join(projectRoot, 'data/john-petrucci-pack.js'), 'utf8'),
   fs.readFileSync(path.join(projectRoot, 'config.js'), 'utf8'),
+  fs.readFileSync(path.join(projectRoot, 'js/chat-preset.js'), 'utf8'),
   fs.readFileSync(path.join(projectRoot, 'js/app.js'), 'utf8'),
   ...inlineScripts(modularHtml)
 ];
