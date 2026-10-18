@@ -2,7 +2,7 @@
 (function () {
   'use strict';
   const $ = (id) => document.getElementById(id);
-  const tabs = [['tabOffline', 'offlineSourcePanel'], ['tabFile', 'fileSourcePanel'], ['tabYoutube', 'youtubeSourcePanel']];
+  const tabs = [['tabOffline', 'offlineSourcePanel'], ['tabFile', 'fileSourcePanel'], ['tabYoutube', 'youtubeSourcePanel'], ['tabChat', 'chatSourcePanel']];
   function selectTab(id) {
     for (const [tabId, panelId] of tabs) {
       const selected = tabId === id;
@@ -12,8 +12,6 @@
     }
   }
   for (const [tab] of tabs) $(tab).addEventListener('click', () => selectTab(tab));
-  $('tabOffline').tabIndex = 0;
-  $('tabFile').tabIndex = $('tabYoutube').tabIndex = -1;
   selectTab('tabOffline');
   $('enterStudio').addEventListener('click', () => setTimeout(() => { if (!$('screenStudio').hidden) document.body.classList.add('studio-ready'); }, 0));
   $('leaveStudio').addEventListener('click', () => document.body.classList.remove('studio-ready'));
@@ -25,6 +23,65 @@
     const next = event.key === 'Home' ? 0 : event.key === 'End' ? tabs.length - 1 : (current + (event.key === 'ArrowRight' ? 1 : tabs.length - 1)) % tabs.length;
     $(tabs[next][0]).focus(); selectTab(tabs[next][0]);
   });
+
+  const chatHistory = [];
+  let chatPending = false;
+  function addChatMessage(role, text, failed = false) {
+    const bubble = document.createElement('article');
+    bubble.className = 'chatMessage' + (role === 'user' ? ' chatMessageUser' : '') + (failed ? ' chatMessageError' : '');
+    const author = document.createElement('strong'); author.className = 'chatMessageAuthor';
+    author.textContent = role === 'user' ? 'Você' : 'Assistente IA';
+    const content = document.createElement('p'); content.className = 'chatMessageText';
+    // Both user input and model output are untrusted text, never HTML.
+    content.textContent = text;
+    bubble.append(author, content); $('chatMessages').appendChild(bubble);
+    $('chatMessages').scrollTop = $('chatMessages').scrollHeight;
+  }
+  $('chatInput').addEventListener('keydown', event => {
+    if (event.key === 'Enter' && !event.shiftKey && !event.isComposing) {
+      event.preventDefault(); $('chatForm').requestSubmit();
+    }
+  });
+  $('chatForm').addEventListener('submit', async event => {
+    event.preventDefault();
+    const input = $('chatInput'), message = input.value.trim();
+    if (chatPending || !message) return;
+    const status = $('chatStatus');
+    if (message.length > 4000) { status.textContent = 'Use até 4000 caracteres por mensagem.'; return; }
+    if (navigator.onLine === false) { status.textContent = 'Conecte-se à internet para conversar com o assistente.'; return; }
+    chatPending = true; $('chatSend').disabled = true;
+    addChatMessage('user', message); input.value = '';
+    status.textContent = 'A pensar...'; $('chatMessages').setAttribute('aria-busy', 'true');
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 60000);
+    try {
+      const api = String(window.API_BASE_URL || window.AUTO_PRESET_API || '').replace(/\/$/, '');
+      if (!api) throw new Error('A URL do serviço não está configurada.');
+      const response = await fetch(api + '/api/v1/chat', {
+        method: 'POST', headers: {'Content-Type': 'application/json'}, credentials: 'omit',
+        body: JSON.stringify({message, history: chatHistory}), signal: controller.signal,
+      });
+      const data = await response.json().catch(() => null);
+      if (!response.ok) throw new Error(typeof data?.detail === 'string' ? data.detail : `O assistente respondeu HTTP ${response.status}. Tente novamente.`);
+      if (typeof data?.response !== 'string' || !data.response.trim()) throw new Error('O assistente retornou uma resposta inválida. Tente novamente.');
+      const reply = data.response.trim();
+      addChatMessage('assistant', reply);
+      chatHistory.push({role: 'user', content: message}, {role: 'assistant', content: reply.slice(0, 8000)});
+      if (chatHistory.length > 10) chatHistory.splice(0, chatHistory.length - 10);
+      status.textContent = '';
+    } catch (error) {
+      const detail = error.name === 'AbortError' ? 'O assistente demorou a responder. Tente novamente.'
+        : error instanceof TypeError ? 'Não foi possível conectar ao assistente. Confira a conexão e tente novamente.'
+        : error.message || 'Não foi possível obter uma resposta. Tente novamente.';
+      addChatMessage('assistant', detail, true); status.textContent = detail;
+      if (!input.value) input.value = message;
+    } finally {
+      clearTimeout(timeout); chatPending = false; $('chatSend').disabled = false;
+      $('chatMessages').setAttribute('aria-busy', 'false');
+      if (!$('chatSourcePanel').hidden) input.focus();
+    }
+  });
+
   const dropZone = $('fileSourcePanel');
   dropZone.addEventListener('dragover', event => { event.preventDefault(); dropZone.classList.add('dropReady'); });
   dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dropReady'));

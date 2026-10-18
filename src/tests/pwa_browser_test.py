@@ -1,5 +1,6 @@
 """PWA real em subdiretório, offline e layouts responsivos. Requer Chromium."""
 import functools
+import json
 import os
 import threading
 import unittest
@@ -54,7 +55,7 @@ class PWABrowserTests(unittest.TestCase):
 
     def test_scope_offline_shell_and_icons(self):
         self.assertEqual(self.page.evaluate('(async()=> (await navigator.serviceWorker.ready).scope)()'), self.url)
-        self.assertIn('shell-v20', self.page.evaluate('caches.keys()'))
+        self.assertIn('shell-v21', self.page.evaluate('caches.keys()'))
         self.context.set_offline(True)
         self.page.reload()
         self.assertIn('M-VAVE MK-300 V75', self.page.locator('.brand').inner_text())
@@ -128,3 +129,128 @@ class PWABrowserTests(unittest.TestCase):
             self.assertTrue(self.page.locator('#cropperRecord').is_visible())
             self.assertFalse(self.page.evaluate('document.documentElement.scrollWidth > innerWidth'))
             self.page.locator('#leaveStudio').click()
+
+    def open_chat(self):
+        self.page.locator('#enterStudio').click()
+        self.page.locator('#tabChat').click()
+        self.assertTrue(self.page.locator('#chatSourcePanel').is_visible())
+        for panel in ['offlineSourcePanel', 'fileSourcePanel', 'youtubeSourcePanel']:
+            self.assertTrue(self.page.locator('#' + panel).is_hidden())
+
+    def test_chat_pending_safe_multiline_reply_history_and_unchanged_preset(self):
+        pending, bodies = [], []
+        def upstream(route):
+            bodies.append(route.request.post_data_json)
+            pending.append(route)
+        self.page.route('**/api/v1/chat', upstream)
+        self.open_chat()
+        before = self.page.evaluate('Array.from(compilePreset())')
+        message = '<img src=x onerror="window.chatXss=true"> Quero um clean'
+        reply = 'NR: Soft Gate\nDS: MW-808 desligado\nAMP: Fender Super\n<img src=x onerror="window.chatXss=true">'
+        self.page.locator('#chatInput').fill(message)
+        self.page.locator('#chatSend').click()
+        self.page.wait_for_function("document.querySelector('#chatMessages').getAttribute('aria-busy') === 'true'")
+        self.page.wait_for_timeout(100)
+        self.assertEqual(self.page.locator('#chatStatus').inner_text(), 'A pensar...')
+        self.assertTrue(self.page.locator('#chatSend').is_disabled())
+        self.page.evaluate("document.querySelector('#chatForm').dispatchEvent(new Event('submit', {bubbles:true, cancelable:true}))")
+        self.assertEqual(len(pending), 1)
+        self.assertEqual(bodies[0], {'message': message, 'history': []})
+        pending.pop(0).fulfill(status=200, content_type='application/json', body=json.dumps({'response': reply}))
+        self.page.wait_for_function("!document.querySelector('#chatSend').disabled")
+        self.assertEqual(self.page.locator('.chatMessageText').last.text_content(), reply)
+        self.assertEqual(self.page.locator('#chatMessages img').count(), 0)
+        self.assertFalse(self.page.evaluate('Boolean(window.chatXss)'))
+        self.assertEqual(self.page.locator('.chatMessageText').last.evaluate('(node)=>getComputedStyle(node).whiteSpace'), 'pre-wrap')
+        self.page.locator('#chatInput').fill('Mais grave')
+        self.page.locator('#chatInput').press('Enter')
+        self.page.wait_for_timeout(100)
+        self.assertEqual(bodies[1]['history'], [{'role': 'user', 'content': message}, {'role': 'assistant', 'content': reply}])
+        pending.pop(0).fulfill(status=200, content_type='application/json', body=json.dumps({'response': 'AMP: Fender Super\nBass: 60'}))
+        self.page.wait_for_function("!document.querySelector('#chatSend').disabled")
+        self.assertEqual(self.page.evaluate('Array.from(compilePreset())'), before)
+        self.assertEqual(self.page.evaluate("Object.keys(localStorage).filter(key=>/chat/i.test(key))"), [])
+
+    def test_chat_server_error_retry_and_failed_turn_not_in_history(self):
+        bodies = []
+        def upstream(route):
+            bodies.append(route.request.post_data_json)
+            if len(bodies) == 1:
+                route.fulfill(status=503, content_type='application/json', body=json.dumps({
+                    'detail': 'Chave de API não configurada no servidor', 'code': 'chat_not_configured'}))
+            else:
+                route.fulfill(status=200, content_type='application/json', body=json.dumps({'response': 'AMP: Fender Super'}))
+        self.page.route('**/api/v1/chat', upstream)
+        self.open_chat()
+        self.page.locator('#chatInput').fill('Quero um clean')
+        self.page.locator('#chatSend').click()
+        self.page.wait_for_function("document.querySelector('.chatMessageError') !== null")
+        self.assertEqual(self.page.locator('.chatMessageError .chatMessageText').inner_text(), 'Chave de API não configurada no servidor')
+        self.assertEqual(self.page.locator('#chatInput').input_value(), 'Quero um clean')
+        self.assertTrue(self.page.locator('#chatSend').is_enabled())
+        self.page.locator('#chatSend').click()
+        self.page.wait_for_function("document.querySelector('#chatStatus').textContent === ''")
+        self.assertEqual(bodies[1]['history'], [])
+
+    def test_chat_network_and_invalid_json_failures_leave_composer_usable(self):
+        self.open_chat()
+        for handler in [lambda route: route.abort('failed'),
+                        lambda route: route.fulfill(status=502, content_type='text/html', body='<h1>Bad gateway</h1>'),
+                        lambda route: route.fulfill(status=200, content_type='application/json', body='{"response":""}')]:
+            self.page.route('**/api/v1/chat', handler)
+            self.page.locator('#chatInput').fill('Quero um timbre')
+            self.page.locator('#chatSend').click()
+            self.page.wait_for_function("!document.querySelector('#chatSend').disabled")
+            self.assertEqual(self.page.locator('#chatInput').input_value(), 'Quero um timbre')
+            self.assertNotEqual(self.page.locator('#chatStatus').inner_text(), '')
+            self.page.unroute('**/api/v1/chat', handler)
+        self.assertEqual(self.page.locator('.chatMessageError').count(), 3)
+
+    def test_chat_offline_and_whitespace_do_not_send_or_lose_draft(self):
+        self.open_chat()
+        self.page.locator('#chatInput').fill('   ')
+        self.page.locator('#chatSend').click()
+        self.assertEqual(self.page.locator('.chatMessageUser').count(), 0)
+        self.context.set_offline(True)
+        self.page.locator('#chatInput').fill('Quero um clean')
+        self.page.locator('#chatSend').click()
+        self.assertIn('Conecte-se', self.page.locator('#chatStatus').inner_text())
+        self.assertEqual(self.page.locator('#chatInput').input_value(), 'Quero um clean')
+        self.assertEqual(self.page.locator('.chatMessageUser').count(), 0)
+
+    def test_chat_history_is_bounded_and_survives_tab_switches(self):
+        bodies = []
+        def upstream(route):
+            bodies.append(route.request.post_data_json)
+            route.fulfill(status=200, content_type='application/json', body='{"response":"AMP: Fender Super"}')
+        self.page.route('**/api/v1/chat', upstream)
+        self.open_chat()
+        for turn in range(7):
+            self.page.locator('#chatInput').fill(f'Ajuste {turn}')
+            self.page.locator('#chatSend').click()
+            self.page.wait_for_function("!document.querySelector('#chatSend').disabled")
+        self.assertEqual(len(bodies[-1]['history']), 10)
+        self.assertEqual(bodies[-1]['history'][0]['content'], 'Ajuste 1')
+        self.page.locator('#tabFile').click()
+        self.page.locator('#tabChat').click()
+        self.assertEqual(self.page.locator('.chatMessageUser').count(), 7)
+
+    def test_chat_mobile_layout_and_keyboard_tab_navigation(self):
+        self.open_chat()
+        for width, height in [(360,800), (390,844), (768,1024), (1440,900)]:
+            self.page.set_viewport_size({'width': width, 'height': height})
+            self.page.locator('#chatSend').scroll_into_view_if_needed()
+            self.assertTrue(self.page.locator('#chatSend').is_visible())
+            self.assertFalse(self.page.evaluate('document.documentElement.scrollWidth > innerWidth'))
+        self.page.locator('#tabChat').focus()
+        self.page.keyboard.press('Home')
+        self.assertEqual(self.page.locator('#tabOffline').get_attribute('aria-selected'), 'true')
+        self.page.keyboard.press('End')
+        self.assertEqual(self.page.locator('#tabChat').get_attribute('aria-selected'), 'true')
+        self.page.keyboard.press('ArrowRight')
+        self.assertEqual(self.page.locator('#tabOffline').get_attribute('aria-selected'), 'true')
+        self.page.keyboard.press('ArrowLeft')
+        self.assertEqual(self.page.locator('#tabChat').get_attribute('aria-selected'), 'true')
+        self.page.locator('#chatInput').fill('Linha 1')
+        self.page.locator('#chatInput').press('Shift+Enter')
+        self.assertIn('\n', self.page.locator('#chatInput').input_value())

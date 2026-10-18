@@ -31,6 +31,12 @@ with tempfile.TemporaryDirectory() as directory:
     fixture(work/'clip.wav',seconds)
     result = main.build_analysis(work/'clip.wav',work)
     peak = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss/1024
+    # Linux ru_maxrss can retain the pytest parent's peak across fork/exec.
+    # VmHWM measures this executable, excluding SDK imports in the test runner.
+    status = Path('/proc/self/status')
+    if status.exists():
+        peak = next(float(line.split()[1])/1024 for line in status.read_text().splitlines()
+                    if line.startswith('VmHWM:'))
     print(json.dumps({'synthetic_seconds':seconds,'process_peak_mib':round(peak,2),
         'under_100_mb':peak*1024*1024<=100000000,
         'librosa_imported':'librosa' in sys.modules, 'numba_imported':'numba' in sys.modules,'dzh_bytes':result['size_bytes'],

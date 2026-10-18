@@ -235,6 +235,31 @@ button.secondary,.pedalNav button { background:#25252a; }
   .actionDock button { min-height:48px; }
 }
 </style>
+<style>
+/* Assistant shares the studio palette; the build embeds this file for offline use. */
+.sourceTabs { grid-template-columns:repeat(4,minmax(0,1fr)); }
+.chatMessages { display:flex; flex-direction:column; gap:14px; height:clamp(240px,45dvh,520px); overflow-y:auto; padding:16px; border:1px solid var(--line); border-radius:14px; background:var(--input); }
+.chatMessage { align-self:flex-start; max-width:90%; min-width:0; padding:12px 14px; border:1px solid var(--line); border-radius:14px 14px 14px 4px; background:var(--panel-raised); }
+.chatMessageUser { align-self:flex-end; border-color:#72541a; border-radius:14px 14px 4px 14px; background:#2a2112; }
+.chatMessageError { border-color:var(--bad); }
+.chatMessageAuthor { display:block; margin-bottom:5px; color:var(--accent); font-size:12px; }
+.chatMessageText { margin:0; white-space:pre-wrap; overflow-wrap:anywhere; line-height:1.6; }
+.chatForm { display:flex; align-items:flex-end; gap:10px; margin-top:14px; }
+.chatInputField { flex:1; min-width:0; }
+.chatForm textarea { display:block; width:100%; min-height:72px; max-height:200px; resize:vertical; }
+.chatForm button { flex:0 0 auto; min-height:48px; }
+.chatStatus { min-height:24px; }
+@media(max-width:700px) {
+  .sourceTabs { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .chatMessages { padding:10px; }
+  .chatMessage { max-width:95%; }
+}
+@media(max-width:420px) {
+  .chatForm { flex-direction:column; align-items:stretch; }
+  .chatForm button { width:100%; }
+}
+
+</style>
 </head>
 <body>
 <main class="wrap">
@@ -262,6 +287,7 @@ button.secondary,.pedalNav button { background:#25252a; }
     <button class="sourceTab" type="button" role="tab" id="tabOffline" aria-controls="offlineSourcePanel" aria-selected="true">⚡ Presets Prontos</button>
     <button class="sourceTab" type="button" role="tab" id="tabFile" aria-controls="fileSourcePanel" aria-selected="false">📁 Analisar Arquivo / Áudio</button>
     <button class="sourceTab" type="button" role="tab" id="tabYoutube" aria-controls="youtubeSourcePanel" aria-selected="false">🎥 Analisar YouTube</button>
+    <button class="sourceTab" type="button" role="tab" id="tabChat" aria-controls="chatSourcePanel" aria-selected="false">💬 Assistente IA</button>
   </div>
   <section id="virtualPedalboard" class="card virtualPedalboard" aria-labelledby="pedalboardTitle" hidden>
     <div class="pedalboardHeading"><div><span class="eyebrow">MK‑300 · REVISÃO</span><h2 id="pedalboardTitle">Pedaleira virtual</h2></div><span id="pedalboardOrigin" class="meta">Preset pronto</span></div>
@@ -317,6 +343,19 @@ button.secondary,.pedalNav button { background:#25252a; }
     <p id="youtubeDiagnosis" class="meta"></p>
     <div class="actions"><button id="youtubeApply" type="button" disabled>Carregar parâmetros para revisão</button><button id="youtubeDownload" type="button" disabled>Baixar Preset .dzh</button></div>
     <button id="youtubeLocalFallback" type="button">Carregar áudio baixado no Cortador Local</button>
+  </section>
+
+  <section id="chatSourcePanel" class="card sourcePanel" role="tabpanel" aria-labelledby="tabChat" hidden>
+    <h2>Assistente IA · timbres MK-300 V75</h2>
+    <p class="hint" id="chatHelp">Converse sobre seu timbre e receba sugestões para os sete módulos. Requer internet: as mensagens e o histórico recente desta conversa são enviados à OpenAI pelo servidor. A conversa fica nesta sessão.</p>
+    <div id="chatMessages" class="chatMessages" role="log" aria-label="Conversa com o Assistente IA" aria-live="polite" aria-relevant="additions" tabindex="0">
+      <article class="chatMessage"><strong class="chatMessageAuthor">Assistente IA</strong><p class="chatMessageText">Qual timbre você quer montar? Conte a referência, a guitarra e como vai ligar a MK-300.</p></article>
+    </div>
+    <form id="chatForm" class="chatForm">
+      <div class="chatInputField"><label for="chatInput">Sua mensagem</label><textarea id="chatInput" rows="2" maxlength="4000" required placeholder="Ex.: Quero um lead com sustain e delay pontilhado" aria-describedby="chatHelp chatStatus"></textarea></div>
+      <button id="chatSend" type="submit">Enviar</button>
+    </form>
+    <p id="chatStatus" class="hint chatStatus" role="status" aria-live="polite"></p>
   </section>
 
   <p class="hint" id="v75CatalogStatus">Catálogo V75 confirmado nos presets enviados. Capturas NAM e IRs dependem dos slots instalados; nomes legados preservados para compatibilidade.</p>
@@ -1637,7 +1676,7 @@ window.AUTO_PRESET_API = API_BASE_URL;
 (function () {
   'use strict';
   const $ = (id) => document.getElementById(id);
-  const tabs = [['tabOffline', 'offlineSourcePanel'], ['tabFile', 'fileSourcePanel'], ['tabYoutube', 'youtubeSourcePanel']];
+  const tabs = [['tabOffline', 'offlineSourcePanel'], ['tabFile', 'fileSourcePanel'], ['tabYoutube', 'youtubeSourcePanel'], ['tabChat', 'chatSourcePanel']];
   function selectTab(id) {
     for (const [tabId, panelId] of tabs) {
       const selected = tabId === id;
@@ -1647,8 +1686,6 @@ window.AUTO_PRESET_API = API_BASE_URL;
     }
   }
   for (const [tab] of tabs) $(tab).addEventListener('click', () => selectTab(tab));
-  $('tabOffline').tabIndex = 0;
-  $('tabFile').tabIndex = $('tabYoutube').tabIndex = -1;
   selectTab('tabOffline');
   $('enterStudio').addEventListener('click', () => setTimeout(() => { if (!$('screenStudio').hidden) document.body.classList.add('studio-ready'); }, 0));
   $('leaveStudio').addEventListener('click', () => document.body.classList.remove('studio-ready'));
@@ -1660,6 +1697,65 @@ window.AUTO_PRESET_API = API_BASE_URL;
     const next = event.key === 'Home' ? 0 : event.key === 'End' ? tabs.length - 1 : (current + (event.key === 'ArrowRight' ? 1 : tabs.length - 1)) % tabs.length;
     $(tabs[next][0]).focus(); selectTab(tabs[next][0]);
   });
+
+  const chatHistory = [];
+  let chatPending = false;
+  function addChatMessage(role, text, failed = false) {
+    const bubble = document.createElement('article');
+    bubble.className = 'chatMessage' + (role === 'user' ? ' chatMessageUser' : '') + (failed ? ' chatMessageError' : '');
+    const author = document.createElement('strong'); author.className = 'chatMessageAuthor';
+    author.textContent = role === 'user' ? 'Você' : 'Assistente IA';
+    const content = document.createElement('p'); content.className = 'chatMessageText';
+    // Both user input and model output are untrusted text, never HTML.
+    content.textContent = text;
+    bubble.append(author, content); $('chatMessages').appendChild(bubble);
+    $('chatMessages').scrollTop = $('chatMessages').scrollHeight;
+  }
+  $('chatInput').addEventListener('keydown', event => {
+    if (event.key === 'Enter' && !event.shiftKey && !event.isComposing) {
+      event.preventDefault(); $('chatForm').requestSubmit();
+    }
+  });
+  $('chatForm').addEventListener('submit', async event => {
+    event.preventDefault();
+    const input = $('chatInput'), message = input.value.trim();
+    if (chatPending || !message) return;
+    const status = $('chatStatus');
+    if (message.length > 4000) { status.textContent = 'Use até 4000 caracteres por mensagem.'; return; }
+    if (navigator.onLine === false) { status.textContent = 'Conecte-se à internet para conversar com o assistente.'; return; }
+    chatPending = true; $('chatSend').disabled = true;
+    addChatMessage('user', message); input.value = '';
+    status.textContent = 'A pensar...'; $('chatMessages').setAttribute('aria-busy', 'true');
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 60000);
+    try {
+      const api = String(window.API_BASE_URL || window.AUTO_PRESET_API || '').replace(/\/$/, '');
+      if (!api) throw new Error('A URL do serviço não está configurada.');
+      const response = await fetch(api + '/api/v1/chat', {
+        method: 'POST', headers: {'Content-Type': 'application/json'}, credentials: 'omit',
+        body: JSON.stringify({message, history: chatHistory}), signal: controller.signal,
+      });
+      const data = await response.json().catch(() => null);
+      if (!response.ok) throw new Error(typeof data?.detail === 'string' ? data.detail : `O assistente respondeu HTTP ${response.status}. Tente novamente.`);
+      if (typeof data?.response !== 'string' || !data.response.trim()) throw new Error('O assistente retornou uma resposta inválida. Tente novamente.');
+      const reply = data.response.trim();
+      addChatMessage('assistant', reply);
+      chatHistory.push({role: 'user', content: message}, {role: 'assistant', content: reply.slice(0, 8000)});
+      if (chatHistory.length > 10) chatHistory.splice(0, chatHistory.length - 10);
+      status.textContent = '';
+    } catch (error) {
+      const detail = error.name === 'AbortError' ? 'O assistente demorou a responder. Tente novamente.'
+        : error instanceof TypeError ? 'Não foi possível conectar ao assistente. Confira a conexão e tente novamente.'
+        : error.message || 'Não foi possível obter uma resposta. Tente novamente.';
+      addChatMessage('assistant', detail, true); status.textContent = detail;
+      if (!input.value) input.value = message;
+    } finally {
+      clearTimeout(timeout); chatPending = false; $('chatSend').disabled = false;
+      $('chatMessages').setAttribute('aria-busy', 'false');
+      if (!$('chatSourcePanel').hidden) input.focus();
+    }
+  });
+
   const dropZone = $('fileSourcePanel');
   dropZone.addEventListener('dragover', event => { event.preventDefault(); dropZone.classList.add('dropReady'); });
   dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dropReady'));

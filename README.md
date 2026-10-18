@@ -87,6 +87,28 @@ O catálogo expõe os modelos e índices já embarcados no editor (120 AMP, 40 D
 
 Configuração local: `python -m pip install -r requirements.txt`, instale FFmpeg e execute `uvicorn main:app --host 0.0.0.0 --port 7860 --workers 1`. O endereço de produção da PWA está em `src/config.js`.
 
+## Assistente IA de timbres
+
+A aba **💬 Assistente IA** conversa com `gpt-4o-mini` por `POST /api/v1/chat`.
+No Railway, configure a variável **OPENAI_API_KEY** no serviço do backend e aplique
+o deploy. A chave é lida apenas no servidor; a PWA não pede nem armazena chaves.
+Sem a variável, a API inicia normalmente e o chat retorna HTTP 503 com
+`Chave de API não configurada no servidor`.
+
+Contrato mínimo: `{"message":"Quero um lead com sustain"}` →
+`{"response":"..."}`. Opcionalmente, `history` aceita até 10 mensagens com
+`role` (`user` ou `assistant`) e `content`. A nova mensagem aceita até 4000
+caracteres e cada item de histórico até 8000. O cliente mantém as cinco últimas
+trocas bem-sucedidas apenas em memória, sem incluir falhas ou instruções de sistema.
+O prompt injeta o catálogo V75 de `services/catalog.py`, os controles conhecidos e
+a exclusividade NAM/DS, e solicita ajustes para NR, DS, AMP, EQ, CAB, DLY e REV.
+Os nomes legados do catálogo binário não são oferecidos ao assistente.
+
+O chat exige internet e envia o texto e o histórico recente à OpenAI pelo backend;
+não envia áudio nem altera automaticamente o preset aberto. Falhas de chave,
+conexão, limite de uso e timeout recebem mensagens em português. Os testes usam
+um transporte HTTP simulado, sem chave real nem consumo da API.
+
 O material de referência lista seis posições, mas **JP LIGHT RHYTHM** e **JP SOLO** não foram fornecidos. O anúncio do pack menciona capturas AM3; os arquivos dessas capturas também não fazem parte da biblioteca do app. O AutoPreset Studio não instala NAMs nem configura os controles CTL A/B.
 
 ## Instalação no Android
@@ -101,6 +123,7 @@ A PWA não é um APK e não está publicada na Play Store.
 ## Privacidade e limites
 
 - A análise heurística local não envia nem armazena o arquivo de áudio.
+- O Assistente IA envia as mensagens e o histórico recente ao backend e à OpenAI; o histórico desta sessão não é salvo no projeto nem no cache da PWA.
 - As medições e projetos podem permanecer no armazenamento local do navegador para permitir rascunhos e exemplos; use os controles de exportação/importação do app para fazer cópias.
 - Downloads e autorização do TONE3000 são feitos diretamente com o serviço. Revise os termos e a licença apresentados pelo criador da captura.
 - Resultados heurísticos são aproximados. Sempre revise o som, teste na MK‑300 e ajuste para sua guitarra, amplificação e saída.
@@ -109,6 +132,8 @@ A PWA não é um APK e não está publicada na Play Store.
 
 - **index.html**: aplicação autônoma publicada no GitHub Pages.
 - **src/index.html**: fonte usada para gerar as páginas autônomas.
+- **src/css/style.css**, **src/js/app.js**: estilos e interação do Assistente IA, incorporados nas páginas autônomas pelo build.
+- **services/ai_chat.py**: catálogo e integração OpenAI exclusivamente no servidor.
 - **src/data/**: catálogo do firmware v73 e dados do pack.
 - **src/core/mk300-preset-handler.js**: validação e compilação binária do preset.
 - **src/integrations/audio-heuristic-analyzer.js**: captura em tempo real e medições locais com Web Audio.
@@ -127,6 +152,8 @@ node src/build-standalone.cjs
 Execute da raiz do repositório:
 
 ~~~sh
+npm test
+python -m pytest tests/backend tests/test_v75_sources.py -q
 node src/tests/core.test.cjs
 node src/tests/differential.test.cjs
 node src/tests/startup.test.cjs

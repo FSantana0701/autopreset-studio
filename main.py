@@ -28,6 +28,22 @@ app.add_middleware(CORSMiddleware,
 processing = threading.Lock()
 
 
+class ChatMessage(BaseModel):
+    model_config = ConfigDict(extra='forbid', str_strip_whitespace=True)
+    role: Literal['user', 'assistant']
+    content: str = Field(min_length=1, max_length=8000)
+
+
+class ChatRequest(BaseModel):
+    model_config = ConfigDict(extra='forbid', str_strip_whitespace=True)
+    message: str = Field(min_length=1, max_length=4000)
+    history: list[ChatMessage] = Field(default_factory=list, max_length=10)
+
+
+class ChatResponse(BaseModel):
+    response: str
+
+
 class LinkRequest(BaseModel):
     model_config = ConfigDict(extra='forbid', allow_inf_nan=False)
     url: str = Field(max_length=2048)
@@ -104,6 +120,14 @@ def build_analysis(clip: Path, work: Path):
 def catalog():
     from services.catalog import public_catalog
     return public_catalog()
+
+
+@app.post('/api/v1/chat', response_model=ChatResponse)
+async def chat(body: ChatRequest):
+    # Keep the audio-only process within its existing memory budget.
+    from services.ai_chat import generate_reply
+    reply = await generate_reply(body.message, [item.model_dump() for item in body.history])
+    return {'response': reply}
 
 
 @app.get('/api/v1/offline-catalog')

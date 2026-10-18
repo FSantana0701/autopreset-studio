@@ -1,5 +1,5 @@
 'use strict';
-const CACHE_NAME = 'shell-v20'; // Calibração USB: decisão espectral compartilhada, M4A e sustain sem falso REV.
+const CACHE_NAME = 'shell-v21'; // Assistente IA: interface atualizada; mensagens passam direto ao backend.
 const APP_SHELL = ['./', './index.html', './index%20(1).html', './manifest.webmanifest', './icons/autopreset-192.png', './icons/autopreset-512.png'];
 const SCOPE = new URL(self.registration.scope);
 const SHELL_URLS = new Set(APP_SHELL.map(path => new URL(path, SCOPE).href));
