@@ -283,6 +283,21 @@ async def generate_reply(message: str, history: list[dict[str, str]] | None = No
         raise ServiceError('Não foi possível conectar ao assistente. Tente novamente.',
                            status=503, code='chat_unavailable') from exc
     except OpenAIError as exc:
+        # Keep credentials and provider payloads private, but surface a safe
+        # status/code pair so production configuration failures are diagnosable.
+        status = getattr(exc, 'status_code', None)
+        body = getattr(exc, 'body', None)
+        provider_error = body.get('error', body) if isinstance(body, dict) else {}
+        provider_code = ((provider_error.get('code') or provider_error.get('type'))
+                         if isinstance(provider_error, dict) else None)
+        safe_code = (provider_code if isinstance(provider_code, str)
+                     and re.fullmatch(r'[A-Za-z0-9_-]{1,64}', provider_code) else None)
+        if status in (400, 402, 403, 404, 422):
+            diagnostic = f' (HTTP {status}' + (f', código {safe_code}' if safe_code else '') + ')'
+            raise ServiceError(
+                'O provedor de IA recusou a chamada' + diagnostic + '. Verifique a configuração da integração.',
+                status=502, code='chat_provider_rejected',
+            ) from exc
         raise ServiceError('O assistente está indisponível no momento. Tente novamente.',
                            status=502, code='chat_failed') from exc
 

@@ -219,6 +219,21 @@ def test_upstream_failures_do_not_leak_provider_details(client, monkeypatch, ups
     assert len(requests) == 1, 'Interactive requests must not be retried behind the timeout'
 
 
+def test_provider_rejection_exposes_only_safe_diagnostic(client, monkeypatch):
+    def upstream(request):
+        return httpx.Response(400, json={'error': {
+            'message': 'private provider detail ' + SERVER_KEY,
+            'type': 'invalid_request_error', 'code': 'model_decommissioned'}})
+
+    transport(monkeypatch, upstream)
+    response = client.post('/api/v1/chat', json={'message': 'Clean'})
+    assert response.status_code == 502
+    assert response.json()['code'] == 'chat_provider_rejected'
+    assert 'HTTP 400' in response.json()['detail']
+    assert 'model_decommissioned' in response.json()['detail']
+    assert 'private provider detail' not in response.text and SERVER_KEY not in response.text
+
+
 @pytest.mark.parametrize('error, expected_status, code', [
     (httpx.ReadTimeout, 504, 'chat_timeout'),
     (httpx.ConnectError, 503, 'chat_unavailable'),
