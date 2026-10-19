@@ -74,8 +74,8 @@ def test_chat_uses_server_credentials_current_catalog_and_optional_history(clien
     grounding = json.loads(prompt.split('CATÁLOGO V75 DO BACKEND:\n', 1)[1])
     assert grounding['models_v75'] == V75['models']
     assert set(grounding['parameters_by_model']) == set(V75['models'])
-    assert set(grounding['blocks']) == set(V75['models']) - {'NAM'}
     assert grounding['confirmed_models'] == V75['confirmed_models']
+    assert len(prompt) < 16000
     assert grounding['application_models_by_name'] == {
         block: list(names) for block, names in grounding['model_indices_by_name'].items()
     }
@@ -86,6 +86,22 @@ def test_chat_uses_server_credentials_current_catalog_and_optional_history(clien
         '100Hz', '200Hz', '400Hz', '800Hz', '1.6kHz', '3.2kHz']
     assert '1J120_CL' not in prompt and '2TS8' not in prompt
     assert SERVER_KEY not in response.text and SERVER_KEY not in prompt
+
+
+def test_history_is_bounded_to_keep_groq_requests_under_free_tier_limit(client, monkeypatch):
+    requests = []
+    transport(monkeypatch, lambda request: (requests.append(request) or httpx.Response(200, json=completion())))
+    history = [
+        {'role': 'user' if index % 2 == 0 else 'assistant', 'content': 'x' * 8000}
+        for index in range(10)
+    ]
+    response = client.post('/api/v1/chat', json={'message': 'Quero um timbre', 'history': history})
+    assert response.status_code == 200
+    body = json.loads(requests[0].content)
+    bounded = body['messages'][1:-1]
+    assert len(bounded) == 4
+    assert all(len(item['content']) == 1200 for item in bounded)
+    assert body['max_completion_tokens'] == 1100
 
 
 def test_web_research_is_enabled_for_reference_requests(client, monkeypatch):
