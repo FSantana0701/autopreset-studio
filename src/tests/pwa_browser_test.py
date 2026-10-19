@@ -179,7 +179,7 @@ class PWABrowserTests(unittest.TestCase):
             wav.writeframes(b''.join(struct.pack('<h', round(9000 * math.sin(2 * math.pi * 330 * i / 16000))) for i in range(16000)))
         uploads = []
         def upstream(route):
-            uploads.append(route.request.post_data or '')
+            uploads.append((route.request.post_data_buffer or b'').decode('latin-1'))
             route.fulfill(status=200, content_type='application/json', body=json.dumps({'response':'Áudio recebido; sugestão inicial pronta.'}))
         self.page.route('**/api/v1/chat/audio', upstream)
         self.open_chat()
