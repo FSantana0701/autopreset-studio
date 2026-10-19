@@ -169,9 +169,51 @@ def applyable_chain(cab='44MarVal4'):
     )
 
 
+def test_second_ai_reviews_and_can_correct_a_valid_preset(client, monkeypatch):
+    requests = []
+    candidate = applyable_chain()
+    corrected = candidate.replace('3. AMP\nEstado: desligado',
+                                  '3. AMP\nEstado: ligado')
+    replies = [completion(candidate),
+               completion(json.dumps({'decision': 'correct', 'response': corrected}))]
+
+    def upstream(request):
+        requests.append(json.loads(request.content))
+        return httpx.Response(200, json=replies.pop(0))
+
+    transport(monkeypatch, upstream)
+    response = client.post('/api/v1/chat', json={'message': 'Monte um preset clean'})
+    assert response.status_code == 200
+    assert len(requests) == 2
+    assert requests[0]['model'] == ai_chat.CHAT_MODEL
+    assert requests[1]['model'] == ai_chat.CHAT_REVIEW_MODEL
+    assert candidate in requests[1]['messages'][-1]['content']
+    assert '3. AMP\nEstado: ligado' in response.json()['response']
+    assert 'Revisto por uma segunda IA' in response.json()['response']
+
+
+def test_second_ai_failure_keeps_the_validated_primary_reply(client, monkeypatch):
+    requests = []
+    candidate = applyable_chain()
+
+    def upstream(request):
+        requests.append(json.loads(request.content))
+        if len(requests) == 1:
+            return httpx.Response(200, json=completion(candidate))
+        return httpx.Response(500, json={'error': {'message': 'review unavailable'}})
+
+    transport(monkeypatch, upstream)
+    response = client.post('/api/v1/chat', json={'message': 'Monte um preset clean'})
+    assert response.status_code == 200
+    assert len(requests) == 2
+    assert '1. NR (GATE)' in response.json()['response']
+    assert 'Revisto por uma segunda IA' not in response.json()['response']
+
+
 def test_unconfirmed_model_is_repaired_before_reply(client, monkeypatch):
     requests = []
-    replies = [applyable_chain('1EAGLProV30s'), applyable_chain()]
+    replies = [applyable_chain('1EAGLProV30s'), applyable_chain(),
+               json.dumps({'decision': 'approve', 'response': ''})]
 
     def upstream(request):
         requests.append(json.loads(request.content))
@@ -181,7 +223,8 @@ def test_unconfirmed_model_is_repaired_before_reply(client, monkeypatch):
     response = client.post('/api/v1/chat', json={'message': 'Monte um preset clean'})
     assert response.status_code == 200
     assert 'Modelo: 44MarVal4' in response.json()['response']
-    assert len(requests) == 2
+    assert len(requests) == 3
+    assert requests[2]['model'] == ai_chat.CHAT_REVIEW_MODEL
     system = requests[0]['messages'][0]['content']
     grounding = json.loads(system.split('CATÁLOGO V75 DO BACKEND:\n', 1)[1])
     assert grounding['application_models_by_name']['CAB'] == ['44MarVal4']
