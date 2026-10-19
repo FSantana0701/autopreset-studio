@@ -101,7 +101,7 @@ def test_history_is_bounded_to_keep_groq_requests_under_free_tier_limit(client, 
     bounded = body['messages'][1:-1]
     assert len(bounded) == 4
     assert all(len(item['content']) == 1200 for item in bounded)
-    assert body['max_completion_tokens'] == 1100
+    assert body['max_completion_tokens'] == 1800
 
 
 def test_web_research_is_enabled_for_reference_requests(client, monkeypatch):

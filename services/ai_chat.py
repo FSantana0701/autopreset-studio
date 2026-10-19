@@ -303,7 +303,7 @@ async def generate_reply(message: str, history: list[dict[str, str]] | None = No
         ) as client:
             request = dict(
                 model=CHAT_MODEL, messages=messages, temperature=0.3,
-                max_completion_tokens=1100,
+                max_completion_tokens=1800,
             )
             search_context = message + '\n' + '\n'.join(item['content'] for item in (history or []))
             if should_search_web(search_context):
