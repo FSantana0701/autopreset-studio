@@ -76,6 +76,9 @@ def test_chat_uses_server_credentials_current_catalog_and_optional_history(clien
     assert set(grounding['parameters_by_model']) == set(V75['models'])
     assert set(grounding['blocks']) == set(V75['models']) - {'NAM'}
     assert grounding['confirmed_models'] == V75['confirmed_models']
+    assert grounding['application_models_by_name'] == {
+        block: list(names) for block, names in grounding['model_indices_by_name'].items()
+    }
     assert grounding['nam']['exclusive_with_ds'] is True
     assert grounding['parameters_by_model']['GATE']['AI Gate'] == ['Gate', 'Bias']
     assert grounding['parameters_by_model']['GATE']['Soft Gate'] == ['Thd']
@@ -137,6 +140,51 @@ def test_prompt_follows_catalog_changes(monkeypatch):
     updated['v75_names']['DS'].append('Modelo V75 novo')
     monkeypatch.setattr(ai_chat, 'public_catalog', lambda: updated)
     assert 'Modelo V75 novo' in ai_chat.system_prompt()
+
+
+def applyable_chain(cab='44MarVal4'):
+    models = {'GATE': 'AI Gate', 'DS': 'MW-808', 'AMP': 'Fender Super',
+              'EQ': 'Guitar EQ 6', 'CAB': cab, 'DLY': 'Clean', 'REV': 'Room'}
+    labels = {'GATE': 'NR (GATE)', **{key: key for key in ('DS', 'AMP', 'EQ', 'CAB', 'DLY', 'REV')}}
+    return '\n'.join(
+        line for number, (block, model) in enumerate(models.items(), 1)
+        for line in (f'{number}. {labels[block]}', 'Estado: desligado',
+                     f'Modelo: {model}', 'Parâmetros: nenhum')
+    )
+
+
+def test_unconfirmed_model_is_repaired_before_reply(client, monkeypatch):
+    requests = []
+    replies = [applyable_chain('1EAGLProV30s'), applyable_chain()]
+
+    def upstream(request):
+        requests.append(json.loads(request.content))
+        return httpx.Response(200, json=completion(replies.pop(0)))
+
+    transport(monkeypatch, upstream)
+    response = client.post('/api/v1/chat', json={'message': 'Monte um preset clean'})
+    assert response.status_code == 200
+    assert 'Modelo: 44MarVal4' in response.json()['response']
+    assert len(requests) == 2
+    system = requests[0]['messages'][0]['content']
+    grounding = json.loads(system.split('CATÁLOGO V75 DO BACKEND:\n', 1)[1])
+    assert grounding['application_models_by_name']['CAB'] == ['44MarVal4']
+    assert 'Problemas:' in requests[1]['messages'][-1]['content']
+
+
+def test_unconfirmed_model_after_repair_returns_friendly_error(client, monkeypatch):
+    requests = []
+
+    def upstream(request):
+        requests.append(request)
+        return httpx.Response(200, json=completion(applyable_chain('1EAGLProV30s')))
+
+    transport(monkeypatch, upstream)
+    response = client.post('/api/v1/chat', json={'message': 'Monte um preset clean'})
+    assert response.status_code == 502
+    assert response.json()['code'] == 'chat_invalid_preset'
+    assert '1EAGLProV30s' not in response.text
+    assert len(requests) == 2
 
 
 @pytest.mark.parametrize('body', [

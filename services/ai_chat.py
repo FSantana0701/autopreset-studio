@@ -48,6 +48,10 @@ def system_prompt() -> str:
         'confirmed_models': catalog['confirmed_models'],
         'blocks': v75_blocks,
         'model_indices_by_name': catalog['model_indices_by_name'],
+        'application_models_by_name': {
+            block: list(models_by_name)
+            for block, models_by_name in catalog['model_indices_by_name'].items()
+        },
         'parameters_by_model': parameters,
         'nam': catalog['nam'],
         'eq_device_bands_hz': catalog['eq_device_bands_hz'],
@@ -81,8 +85,12 @@ valores. Um módulo desnecessário deve ficar desligado. Use somente os controle
 e faixas documentados em parameters_by_model. Se os controles não estiverem
 confirmados, diga isso sem inventar. Para aplicação automática, escolha modelos
 somente entre model_indices_by_name; esses índices são índices binários
-confirmados, e não posições da lista da interface. Quando não houver índice
-confirmado, avise que a aplicação automática não ficará disponível.
+confirmados, e não posições da lista da interface. Para qualquer cadeia
+destinada à aplicação automática, escolha cada modelo EXCLUSIVAMENTE entre as
+chaves de application_models_by_name para o respetivo módulo. O catálogo
+completo contém nomes sem índice binário confirmado; nunca os use numa cadeia
+aplicável. Não escolha o primeiro nome do catálogo por conveniência. Quando não
+houver modelo aplicável adequado, explique isso sem inventar nomes.
 
 Ao criar/alterar preset, escreva os módulos em texto simples neste formato,
 sem blocos Markdown. Não acrescente introdução antes dos módulos. Pode colocar
@@ -146,6 +154,65 @@ CATÁLOGO V75 DO BACKEND:
 """ + json.dumps(grounding, ensure_ascii=False, separators=(',', ':'))
 
 
+APPLY_MODULES = (('NR (GATE)', 'GATE'), ('DS', 'DS'), ('AMP', 'AMP'),
+                 ('EQ', 'EQ'), ('CAB', 'CAB'), ('DLY', 'DLY'), ('REV', 'REV'))
+
+
+def _apply_chain_issues(reply: str, catalog: dict) -> list[str] | None:
+    """Return issues for a complete auto-apply chain; None for ordinary chat."""
+    headings = re.compile(
+        r'^\s*([1-7])[.)]\s*(NR\s*\(\s*GATE\s*\)|DS|AMP|EQ|CAB|DLY|REV)\s*:?\s*$',
+        re.IGNORECASE,
+    )
+    sections: dict[str, dict[str, str]] = {}
+    current = None
+    for line in reply.splitlines():
+        heading = headings.match(line.strip().strip('*').strip())
+        if heading:
+            position = int(heading.group(1)) - 1
+            label, block = APPLY_MODULES[position]
+            actual = re.sub(r'\s+', ' ', heading.group(2)).upper()
+            if actual != re.sub(r'\s+', ' ', label).upper() or block in sections:
+                return None
+            current = block
+            sections[current] = {}
+            continue
+        if current:
+            field = re.match(r'^\s*(Modelo|Parâmetros)\s*:\s*(.*?)\s*$', line, re.IGNORECASE)
+            if field:
+                key = 'model' if field.group(1).casefold() == 'modelo' else 'parameters'
+                sections[current][key] = field.group(2).strip().strip('*` ')
+    if list(sections) != [block for _, block in APPLY_MODULES]:
+        return None
+
+    issues = []
+    indices = catalog['model_indices_by_name']
+    by_name = {block: {model['name'].casefold(): set(model['knobs'])
+                       for model in catalog['blocks'].get(block, [])}
+               for _, block in APPLY_MODULES}
+    for label, block in APPLY_MODULES:
+        section = sections[block]
+        model = section.get('model', '')
+        exact = next((name for name in indices.get(block, {})
+                      if name.casefold() == model.casefold()), None)
+        if exact is None:
+            issues.append(f'{label}: modelo {model or "(ausente)"!r} não tem índice aplicável confirmado')
+            continue
+        knobs = by_name.get(block, {}).get(exact.casefold(), set())
+        raw_parameters = section.get('parameters', '')
+        if not raw_parameters or raw_parameters.casefold() == 'nenhum':
+            continue
+        for pair in re.split(r'[;；]', raw_parameters):
+            match = re.match(r'^\s*([^=]+?)\s*=\s*-?\d+\s*$', pair)
+            if not match:
+                issues.append(f'{label}: parâmetro mal formatado: {pair.strip()!r}')
+                continue
+            knob = match.group(1).strip().strip('*` ')
+            if not any(name.casefold() == knob.casefold() for name in knobs):
+                issues.append(f'{label} · {exact}: parâmetro não confirmado {knob!r}')
+    return issues
+
+
 def require_api_key() -> str:
     api_key = (os.getenv('GROQ_API_KEY') or '').strip()
     if not api_key:
@@ -187,6 +254,22 @@ async def generate_reply(message: str, history: list[dict[str, str]] | None = No
                 request.update(temperature=1, reasoning_effort='low', tool_choice='auto',
                                tools=[{'type': 'browser_search'}])
             completion = await client.chat.completions.create(**request)
+            first_reply = ((completion.choices[0].message.content or '').strip()
+                           if completion.choices else '')
+            issues = _apply_chain_issues(first_reply, public_catalog()) if first_reply else None
+            if issues:
+                repair_messages = [*messages, {'role': 'assistant', 'content': first_reply}, {
+                    'role': 'user',
+                    'content': (
+                        'A cadeia anterior não é aplicável ao editor V75. Corrija-a e devolva '
+                        'novamente os sete módulos no formato solicitado. Use somente modelos '
+                        'presentes em application_models_by_name para cada módulo e somente '
+                        'parâmetros documentados. Problemas: ' + '; '.join(issues)
+                    ),
+                }]
+                completion = await client.chat.completions.create(
+                    **{**request, 'messages': repair_messages}
+                )
     except AuthenticationError as exc:
         raise ServiceError('A chave de API configurada no servidor é inválida.',
                            status=503, code='chat_authentication_failed') from exc
@@ -209,4 +292,11 @@ async def generate_reply(message: str, history: list[dict[str, str]] | None = No
     if completion.choices[0].finish_reason == 'length':
         raise ServiceError('A resposta excedeu o limite. Faça um pedido mais específico.',
                            status=502, code='chat_response_too_long')
-    return completion.choices[0].message.content.strip()
+    reply = completion.choices[0].message.content.strip()
+    issues = _apply_chain_issues(reply, public_catalog())
+    if issues:
+        raise ServiceError(
+            'A IA não conseguiu criar uma cadeia compatível com o catálogo V75. Tente novamente.',
+            status=502, code='chat_invalid_preset',
+        )
+    return reply
