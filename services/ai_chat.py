@@ -371,7 +371,14 @@ async def generate_reply(message: str, history: list[dict[str, str]] | None = No
             status=502, code='chat_invalid_preset',
         )
     if issues == []:
-        reply, reviewed = await _review_chain(client, user_message, reply, public_catalog())
+        try:
+            async with AsyncOpenAI(
+                api_key=api_key, base_url=CHAT_BASE_URL, timeout=13.0, max_retries=0
+            ) as reviewer_client:
+                reply, reviewed = await _review_chain(
+                    reviewer_client, user_message, reply, public_catalog())
+        except Exception:
+            reviewed = False
         if reviewed:
             reply += '\n\n✓ Revisto por uma segunda IA e validado contra o catálogo V75.'
     return reply
