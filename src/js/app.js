@@ -38,25 +38,53 @@
     $('chatMessages').scrollTop = $('chatMessages').scrollHeight;
     return bubble;
   }
-  function addApplyPresetAction(bubble, reply) {
+  function addApplyPresetAction(bubble, reply, audioName = '') {
     const preset = window.AutoPresetChatPreset?.parse(reply);
+    if (audioName) {
+      const completion = document.createElement('p'); completion.className = 'chatAnalysisComplete';
+      completion.setAttribute('role', 'status');
+      completion.textContent = preset
+        ? '✓ Análise do áudio concluída. A sugestão está pronta; aplique o timbre abaixo para liberar o download do preset .dzh.'
+        : '✓ Análise do áudio concluída. Ainda falta uma cadeia completa de 7 módulos para gerar um preset .dzh.';
+      bubble.appendChild(completion);
+    }
     if (!preset) return;
     const actions = document.createElement('div'); actions.className = 'chatPresetAction';
     const button = document.createElement('button'); button.type = 'button';
     button.className = 'secondary'; button.textContent = '⚡ Aplicar este Timbre';
     const status = document.createElement('span'); status.className = 'chatPresetStatus';
+    const download = document.createElement('button'); download.type = 'button'; download.className = 'chatPresetDownload';
+    download.textContent = '⬇️ Baixar Preset .dzh'; download.hidden = true;
+    const nameLabel = document.createElement('label'); nameLabel.textContent = 'Nome do preset (até 19 bytes UTF-8)';
+    const name = document.createElement('input'); name.type = 'text'; name.maxLength = 19;
+    name.autocomplete = 'off'; name.value = defaultPresetName(audioName); name.setAttribute('aria-label', nameLabel.textContent);
+    nameLabel.appendChild(name); nameLabel.hidden = true;
     button.addEventListener('click', () => {
       if (button.disabled) return;
       button.disabled = true; status.textContent = 'A validar os índices e parâmetros V75…';
       try {
         const result = window.AutoPresetApplyChatPreset(preset);
-        button.textContent = '✓ Timbre aplicado'; status.textContent = result;
+        button.textContent = '✓ Timbre aplicado'; status.textContent = result + ' Nomeie o preset e toque em Baixar Preset .dzh.';
+        nameLabel.hidden = false; download.hidden = false;
       } catch (error) {
         button.disabled = false; status.textContent = 'Não foi aplicado: ' + (error.message || 'resposta incompatível com o catálogo V75.');
       }
     });
-    actions.append(button, status); bubble.appendChild(actions);
+    download.addEventListener('click', () => {
+      const value = name.value.trim();
+      if (!value) { status.textContent = 'Informe um nome para o preset.'; name.focus(); return; }
+      if (new TextEncoder().encode(value).length > 19) { status.textContent = 'O nome deve ter no máximo 19 bytes UTF-8.'; name.focus(); return; }
+      document.getElementById('name').value = value;
+      document.getElementById('generate').click();
+      document.getElementById('result').scrollIntoView({behavior: 'smooth', block: 'center'});
+    });
+    actions.append(button, nameLabel, download, status); bubble.appendChild(actions);
     $('chatMessages').scrollTop = $('chatMessages').scrollHeight;
+  }
+  function defaultPresetName(source) {
+    const stem = String(source || '').replace(/\.[^.]+$/, '').normalize('NFKD').replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-zA-Z0-9 _-]/g, '').trim().replace(/\s+/g, '_').slice(0, 19);
+    return stem || 'Timbre_IA_MK300';
   }
   $('chatInput').addEventListener('keydown', event => {
     if (event.key === 'Enter' && !event.shiftKey && !event.isComposing) {
@@ -107,11 +135,11 @@
       if (typeof data?.response !== 'string' || !data.response.trim()) throw new Error('O assistente retornou uma resposta inválida. Tente novamente.');
       const reply = data.response.trim();
       const replyBubble = addChatMessage('assistant', reply);
-      addApplyPresetAction(replyBubble, reply);
+      addApplyPresetAction(replyBubble, reply, file?.name || '');
       chatHistory.push({role: 'user', content: outgoingMessage}, {role: 'assistant', content: reply.slice(0, 8000)});
       if (chatHistory.length > 10) chatHistory.splice(0, chatHistory.length - 10);
       if (file) { $('chatAudio').value = ''; $('chatAudioName').textContent = 'Nenhum áudio selecionado'; }
-      status.textContent = '';
+      status.textContent = file ? '✓ Análise do áudio concluída. Veja a resposta: aplique a cadeia para liberar e nomear o download .dzh.' : '';
     } catch (error) {
       const detail = error.name === 'AbortError' ? 'O assistente demorou a responder. Tente novamente.'
         : error instanceof TypeError ? 'Não foi possível conectar ao assistente. Confira a conexão e tente novamente.'
@@ -180,14 +208,16 @@
       fileResult = {data, bytes}; renderReview(data);
       showPedalboard(bytes, data.source?.title || 'Arquivo · sugestão pronta');
       $('serverFileApply').disabled = $('serverFileDownload').disabled = false;
-      status.textContent = 'Análise concluída. Revise os blocos e ouça/ajuste o preset antes de usar.'; status.className = 'status good';
+      const suggestedName = defaultPresetName(file.name);
+      $('serverFilePresetName').value = suggestedName;
+      status.textContent = '✓ Análise concluída. O preset .dzh de 448 bytes já está disponível para download. Você pode alterar o nome abaixo.'; status.className = 'status good';
     } catch (error) { status.textContent = error.message || 'Falha ao analisar o áudio.'; status.className = 'status warn'; }
     finally { button.disabled = false; }
   });
   $('serverFileDownload').addEventListener('click', () => {
     if (!fileResult) return;
     const url = URL.createObjectURL(new Blob([fileResult.bytes], {type: 'application/octet-stream'}));
-    const link = document.createElement('a'); link.href = url; link.download = 'AutoPreset_Arquivo.dzh'; link.click();
+    const link = document.createElement('a'); link.href = url; link.download = defaultPresetName($('serverFilePresetName').value) + '.dzh'; link.click();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   });
   $('serverFileApply').addEventListener('click', () => {

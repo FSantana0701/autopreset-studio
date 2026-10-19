@@ -15,8 +15,8 @@ assert.match(html, /navigator\.serviceWorker\.register\(['"]\.\/sw\.js['"]\)/);
 assert.match(serviceWorker, /addEventListener\(['"]install['"]/);
 assert.match(serviceWorker, /addEventListener\(['"]fetch['"]/);
 assert.match(serviceWorker, /key\.startsWith\(['"]autopreset-studio-shell-['"]\)/, 'atualizações invalidam o HTML antigo');
-assert.match(serviceWorker, /CACHE_NAME\s*=\s*['"]shell-v23['"]/, 'a atualização inclui pesquisa web e análise de áudio no chat');
-for (const id of ['tabYoutube', 'tabFile', 'tabOffline', 'tabChat', 'chatSourcePanel', 'chatForm', 'chatMessages', 'chatInput', 'chatAudio', 'chatAudioName', 'chatSend', 'youtubeSourcePanel', 'fileSourcePanel', 'offlineSourcePanel', 'serverFileInput', 'serverFileAnalyze', 'offlineApply', 'virtualPedalboard', 'pedalboardGrid', 'stickyDownload', 'stickyReview', 'systemToast']) {
+assert.match(serviceWorker, /CACHE_NAME\s*=\s*['"]shell-v24['"]/, 'a atualização inclui feedback de conclusão e nome do preset');
+for (const id of ['tabYoutube', 'tabFile', 'tabOffline', 'tabChat', 'chatSourcePanel', 'chatForm', 'chatMessages', 'chatInput', 'chatAudio', 'chatAudioName', 'chatSend', 'youtubeSourcePanel', 'fileSourcePanel', 'offlineSourcePanel', 'serverFileInput', 'serverFileAnalyze', 'serverFilePresetName', 'offlineApply', 'virtualPedalboard', 'pedalboardGrid', 'stickyDownload', 'stickyReview', 'systemToast']) {
   assert.match(html, new RegExp(`id=["']${id}["']`), `interface deve expor ${id}`);
 }
 for (const module of ['NR','DS','AMP','EQ','CAB','DLY','REV']) assert.match(appJs, new RegExp(`label:'${module}'`), `pedaleira mostra ${module}`);
@@ -48,7 +48,7 @@ const cache = {
  vm.runInNewContext(serviceWorker, {
  URL, Request, Set,
  self:{registration:{scope:'https://example.test/autopreset-studio/'},addEventListener:(event,handler)=>handlers[event]=handler,skipWaiting:async()=>{},clients:{claim:async()=>{claimed=true;}}},
- caches:{open:async()=>cache,keys:async()=>['shell-v23','shell-v22','shell-v21','shell-v20','shell-v19','shell-v18','shell-v17','shell-v16','shell-v15','shell-v14','shell-v13','shell-v12','shell-v11','shell-v10','shell-v9','shell-v8','shell-v7','shell-v6','autopreset-studio-shell-v6','autopreset-local-model-v1','other-app-cache'],delete:async key=>deleted.push(key)},
+ caches:{open:async()=>cache,keys:async()=>['shell-v24','shell-v23','shell-v22','shell-v21','shell-v20','shell-v19','shell-v18','shell-v17','shell-v16','shell-v15','shell-v14','shell-v13','shell-v12','shell-v11','shell-v10','shell-v9','shell-v8','shell-v7','shell-v6','autopreset-studio-shell-v6','autopreset-local-model-v1','other-app-cache'],delete:async key=>deleted.push(key)},
  fetch:async()=>{networkCalls++;if(offline)throw new Error('offline');return new Response(networkBody);}
 });
 async function lifecycle(name) { let pending;handlers[name]({waitUntil:promise=>pending=promise});await pending; }
@@ -63,7 +63,7 @@ async function fetchEvent(path, {navigate=false, authorization=false, method='GE
  assert.ok(installed.every(request=>request.url.startsWith('https://example.test/autopreset-studio/')&&request.cache==='reload'));
  assert.ok(installed.some(request=>request.url.endsWith('/icons/autopreset-192.png')));
  await lifecycle('activate');
- assert.deepEqual(deleted.sort(),['autopreset-local-model-v1','autopreset-studio-shell-v6','shell-v6','shell-v7','shell-v8','shell-v9','shell-v10','shell-v11','shell-v12','shell-v13','shell-v14','shell-v15','shell-v16','shell-v17','shell-v18','shell-v19','shell-v20','shell-v21','shell-v22'].sort());
+ assert.deepEqual(deleted.sort(),['autopreset-local-model-v1','autopreset-studio-shell-v6','shell-v6','shell-v7','shell-v8','shell-v9','shell-v10','shell-v11','shell-v12','shell-v13','shell-v14','shell-v15','shell-v16','shell-v17','shell-v18','shell-v19','shell-v20','shell-v21','shell-v22','shell-v23'].sort());
  assert.ok(claimed,'new worker claims clients');
  let response=await fetchEvent('./index.html',{navigate:true});
  assert.equal(await response.text(),'updated V75');
@@ -81,5 +81,5 @@ async function fetchEvent(path, {navigate=false, authorization=false, method='GE
  assert.equal(await fetchEvent('./index.html',{method:'POST'}),undefined);
  assert.equal(await fetchEvent('./api/v1/chat',{method:'POST'}),undefined,'chat messages must never be cached');
  assert.equal(networkCalls,before);
- console.log('PWA: shell-v23, instalação, atualização, offline, escopo, autenticação e preservação de outros caches verificados.');
+ console.log('PWA: shell-v24, instalação, atualização, offline, escopo, autenticação e preservação de outros caches verificados.');
 })().catch(error=>{console.error(error);process.exitCode=1;});

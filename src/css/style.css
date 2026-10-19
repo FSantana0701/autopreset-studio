@@ -9,6 +9,9 @@
 .chatPresetAction { display:flex; flex-direction:column; align-items:flex-start; gap:7px; margin-top:12px; }
 .chatPresetAction button { min-height:40px; }
 .chatPresetStatus { color:var(--muted); font-size:12px; line-height:1.45; white-space:pre-wrap; }
+.chatAnalysisComplete { margin:12px 0 0; padding:10px 12px; border:1px solid #397a53; border-radius:10px; background:#13271c; color:#b9f2ca; font-weight:650; line-height:1.5; }
+.chatPresetAction label { display:flex; flex-direction:column; gap:5px; width:min(100%,320px); color:var(--muted); font-size:12px; }
+.chatPresetAction input { width:100%; min-height:40px; }
 .chatForm { display:flex; align-items:flex-end; gap:10px; margin-top:14px; }
 .chatInputField { flex:1; min-width:0; }
 .chatAttachmentField { display:flex; flex:0 1 230px; flex-direction:column; gap:6px; min-width:0; }

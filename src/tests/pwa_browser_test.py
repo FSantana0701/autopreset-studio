@@ -55,7 +55,7 @@ class PWABrowserTests(unittest.TestCase):
 
     def test_scope_offline_shell_and_icons(self):
         self.assertEqual(self.page.evaluate('(async()=> (await navigator.serviceWorker.ready).scope)()'), self.url)
-        self.assertIn('shell-v23', self.page.evaluate('caches.keys()'))
+        self.assertIn('shell-v24', self.page.evaluate('caches.keys()'))
         self.context.set_offline(True)
         self.page.reload()
         self.assertIn('M-VAVE MK-300 V75', self.page.locator('.brand').inner_text())
@@ -195,6 +195,24 @@ class PWABrowserTests(unittest.TestCase):
         self.assertIn('Áudio: ensaio.wav', self.page.locator('.chatMessageUser').last.inner_text())
         self.assertEqual(self.page.locator('#chatAudio').input_value(), '')
         self.assertIn('servidor analisa', self.page.locator('#chatHelp').inner_text())
+        self.assertIn('Análise do áudio concluída', self.page.locator('#chatStatus').inner_text())
+
+    def test_chat_preset_can_be_applied_named_and_downloaded(self):
+        reply = '''1. NR (GATE)\nEstado: ligado\nModelo: Soft Gate\nParâmetros: Thd=-48; Rel=35\n2. DS\nEstado: ligado\nModelo: MW-808\nParâmetros: Gain=22; Level=48\n3. AMP\nEstado: ligado\nModelo: 6DS-MarsFD100\nParâmetros: Gain=46; Bass=43; Middle=58; Treble=52\n4. EQ\nEstado: desligado\nModelo: Guitar EQ 6\nParâmetros: nenhum\n5. CAB\nEstado: ligado\nModelo: 44MarVal4\nParâmetros: Level=80; Low Cut=90; High Cut=9000\n6. DLY\nEstado: ligado\nModelo: Analog Stereo\nParâmetros: Time=460; Fb=28; Mix=20\n7. REV\nEstado: ligado\nModelo: Hall\nParâmetros: Decay=35; Mix=24; High Pass=60; Low Pass=75; Mod Depth=30'''
+        self.page.route('**/api/v1/chat/audio', lambda route: route.fulfill(status=200, content_type='application/json', body=json.dumps({'response': reply})))
+        self.open_chat()
+        self.page.locator('#chatAudio').set_input_files({'name':'ensaio.wav','mimeType':'audio/wav','buffer':b'RIFF'})
+        self.page.locator('#chatSend').click()
+        self.page.wait_for_function("!document.querySelector('#chatSend').disabled")
+        self.assertIn('Análise do áudio concluída', self.page.locator('.chatAnalysisComplete').inner_text())
+        self.page.locator('.chatPresetAction button').first.click()
+        self.assertTrue(self.page.locator('.chatPresetDownload').is_visible())
+        self.page.locator('.chatPresetAction input').fill('Meu Timbre IA')
+        with self.page.expect_download() as download_info:
+            self.page.locator('.chatPresetDownload').click()
+        download = download_info.value
+        self.assertEqual(download.suggested_filename, 'Meu_Timbre_IA.dzh')
+        self.assertEqual(self.page.locator('#name').input_value(), 'Meu Timbre IA')
 
     def test_chat_server_error_retry_and_failed_turn_not_in_history(self):
         bodies = []

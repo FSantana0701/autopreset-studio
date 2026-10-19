@@ -247,6 +247,9 @@ button.secondary,.pedalNav button { background:#25252a; }
 .chatPresetAction { display:flex; flex-direction:column; align-items:flex-start; gap:7px; margin-top:12px; }
 .chatPresetAction button { min-height:40px; }
 .chatPresetStatus { color:var(--muted); font-size:12px; line-height:1.45; white-space:pre-wrap; }
+.chatAnalysisComplete { margin:12px 0 0; padding:10px 12px; border:1px solid #397a53; border-radius:10px; background:#13271c; color:#b9f2ca; font-weight:650; line-height:1.5; }
+.chatPresetAction label { display:flex; flex-direction:column; gap:5px; width:min(100%,320px); color:var(--muted); font-size:12px; }
+.chatPresetAction input { width:100%; min-height:40px; }
 .chatForm { display:flex; align-items:flex-end; gap:10px; margin-top:14px; }
 .chatInputField { flex:1; min-width:0; }
 .chatAttachmentField { display:flex; flex:0 1 230px; flex-direction:column; gap:6px; min-width:0; }
@@ -331,7 +334,7 @@ button.secondary,.pedalNav button { background:#25252a; }
     <div class="actions"><button id="cancelAI" type="button" disabled>Cancelar operação</button></div><div id="audioStatus" class="status" aria-live="polite"></div>
     <section id="separationOutput" class="card" hidden><h3>Mixagem original · trecho analisado</h3><audio id="guitarStemPreview" controls preload="metadata" style="width:100%"></audio><p id="audioMetrics" class="meta"></p><p><a id="downloadGuitarStem" class="downloadFallback" download="mix-clip.wav">Baixar trecho original (.wav)</a></p><p class="hint">As métricas incluem bateria, voz, baixo e guitarra. Elas não identificam o timbre da guitarra nem reconhecem artista. A sugestão é um ponto de partida de baixa confiança; ouça e ajuste manualmente.</p><div class="actions"><button id="applyAudioSuggestion" type="button" disabled>Montar preset inicial com este áudio</button></div><p id="audioSuggestionStatus" class="status" aria-live="polite">Depois que a análise terminar, você pode aplicar uma sugestão offline e revisar os controles antes de exportar.</p></section>
     <section id="learningPanel" class="card" hidden><h3>Aprendizagem com seus testes</h3><p id="learningSummary" class="hint">As correções ficam neste aparelho. Elas servem de exemplos para sugerir presets semelhantes em análises futuras.</p><div class="actions"><button id="applyLearningExample" type="button" class="secondary" disabled>Usar correção parecida</button></div><label class="check"><input id="learningTested" type="checkbox"> Já comparei este preset na MK‑300</label><div class="grid" style="margin-top:12px"><div class="field"><label for="learningRating">Quanto se aproximou da referência?</label><select id="learningRating"><option value="1">1 · Muito diferente</option><option value="2">2 · Ainda distante</option><option value="3" selected>3 · Parcialmente parecido</option><option value="4">4 · Bem parecido</option><option value="5">5 · Muito próximo</option></select></div><div class="field"><label for="learningNote">O que você corrigiu?</label><input id="learningNote" type="text" maxlength="500" placeholder="Ex.: menos ganho, mais médios"></div></div><div class="actions"><button id="saveLearningExample" type="button">Salvar este teste como exemplo</button><button id="exportLearningExamples" type="button" class="secondary">Exportar meus exemplos</button></div><div id="learningStatus" class="status" aria-live="polite"></div></section>
-    <details class="advancedPanel" style="margin-top:14px"><summary>Também analisar e gerar no servidor</summary><p class="hint">Opcional. Reutilize o MP3/WAV/M4A acima ou escolha MP3/WAV/M4A aqui. Envia até 15 MiB e processa um trecho de até 45 segundos. O serviço calcula a sugestão e devolve um .dzh de 448 bytes.</p><label for="serverFileInput">Arquivo para o serviço (opcional se já escolheu MP3/WAV/M4A acima)</label><input id="serverFileInput" type="file" accept=".mp3,.wav,.m4a,audio/mpeg,audio/wav,audio/mp4"><div class="grid"><label>Início (segundos)<input id="serverFileStart" type="number" min="0" step="0.1" value="0"></label><label>Fim (segundos)<input id="serverFileEnd" type="number" min="0.3" max="45" step="0.1" value="30"></label></div><div class="actions"><button id="serverFileAnalyze" type="button">Analisar arquivo no servidor</button></div><p id="serverFileStatus" class="status" role="status" aria-live="polite"></p><div id="serverFileReview" class="card" hidden></div><div class="actions"><button id="serverFileApply" type="button" disabled>Carregar parâmetros para revisão</button><button id="serverFileDownload" type="button" disabled>Baixar Preset .dzh</button></div></details>
+    <details class="advancedPanel" style="margin-top:14px"><summary>Também analisar e gerar no servidor</summary><p class="hint">Opcional. Reutilize o MP3/WAV/M4A acima ou escolha MP3/WAV/M4A aqui. Envia até 15 MiB e processa um trecho de até 45 segundos. O serviço calcula a sugestão e devolve um preset .dzh de 448 bytes; não cria um arquivo de áudio.</p><label for="serverFileInput">Arquivo para o serviço (opcional se já escolheu MP3/WAV/M4A acima)</label><input id="serverFileInput" type="file" accept=".mp3,.wav,.m4a,audio/mpeg,audio/wav,audio/mp4"><div class="grid"><label>Início (segundos)<input id="serverFileStart" type="number" min="0" step="0.1" value="0"></label><label>Fim (segundos)<input id="serverFileEnd" type="number" min="0.3" max="45" step="0.1" value="30"></label></div><div class="actions"><button id="serverFileAnalyze" type="button">Analisar arquivo no servidor</button></div><p id="serverFileStatus" class="status" role="status" aria-live="polite"></p><div id="serverFileReview" class="card" hidden></div><label for="serverFilePresetName">Nome do arquivo .dzh para baixar</label><input id="serverFilePresetName" type="text" value="AutoPreset_Arquivo" maxlength="80" autocomplete="off"><div class="actions"><button id="serverFileApply" type="button" disabled>Carregar parâmetros para revisão</button><button id="serverFileDownload" type="button" disabled>Baixar Preset .dzh</button></div></details>
   </section>
   <section id="youtubeSourcePanel" class="card sourcePanel" role="tabpanel" aria-labelledby="tabYoutube" hidden>
     <h2 id="youtubeTitle">YouTube · análise de trecho</h2>
@@ -1806,25 +1809,53 @@ window.AUTO_PRESET_API = API_BASE_URL;
     $('chatMessages').scrollTop = $('chatMessages').scrollHeight;
     return bubble;
   }
-  function addApplyPresetAction(bubble, reply) {
+  function addApplyPresetAction(bubble, reply, audioName = '') {
     const preset = window.AutoPresetChatPreset?.parse(reply);
+    if (audioName) {
+      const completion = document.createElement('p'); completion.className = 'chatAnalysisComplete';
+      completion.setAttribute('role', 'status');
+      completion.textContent = preset
+        ? '✓ Análise do áudio concluída. A sugestão está pronta; aplique o timbre abaixo para liberar o download do preset .dzh.'
+        : '✓ Análise do áudio concluída. Ainda falta uma cadeia completa de 7 módulos para gerar um preset .dzh.';
+      bubble.appendChild(completion);
+    }
     if (!preset) return;
     const actions = document.createElement('div'); actions.className = 'chatPresetAction';
     const button = document.createElement('button'); button.type = 'button';
     button.className = 'secondary'; button.textContent = '⚡ Aplicar este Timbre';
     const status = document.createElement('span'); status.className = 'chatPresetStatus';
+    const download = document.createElement('button'); download.type = 'button'; download.className = 'chatPresetDownload';
+    download.textContent = '⬇️ Baixar Preset .dzh'; download.hidden = true;
+    const nameLabel = document.createElement('label'); nameLabel.textContent = 'Nome do preset (até 19 bytes UTF-8)';
+    const name = document.createElement('input'); name.type = 'text'; name.maxLength = 19;
+    name.autocomplete = 'off'; name.value = defaultPresetName(audioName); name.setAttribute('aria-label', nameLabel.textContent);
+    nameLabel.appendChild(name); nameLabel.hidden = true;
     button.addEventListener('click', () => {
       if (button.disabled) return;
       button.disabled = true; status.textContent = 'A validar os índices e parâmetros V75…';
       try {
         const result = window.AutoPresetApplyChatPreset(preset);
-        button.textContent = '✓ Timbre aplicado'; status.textContent = result;
+        button.textContent = '✓ Timbre aplicado'; status.textContent = result + ' Nomeie o preset e toque em Baixar Preset .dzh.';
+        nameLabel.hidden = false; download.hidden = false;
       } catch (error) {
         button.disabled = false; status.textContent = 'Não foi aplicado: ' + (error.message || 'resposta incompatível com o catálogo V75.');
       }
     });
-    actions.append(button, status); bubble.appendChild(actions);
+    download.addEventListener('click', () => {
+      const value = name.value.trim();
+      if (!value) { status.textContent = 'Informe um nome para o preset.'; name.focus(); return; }
+      if (new TextEncoder().encode(value).length > 19) { status.textContent = 'O nome deve ter no máximo 19 bytes UTF-8.'; name.focus(); return; }
+      document.getElementById('name').value = value;
+      document.getElementById('generate').click();
+      document.getElementById('result').scrollIntoView({behavior: 'smooth', block: 'center'});
+    });
+    actions.append(button, nameLabel, download, status); bubble.appendChild(actions);
     $('chatMessages').scrollTop = $('chatMessages').scrollHeight;
+  }
+  function defaultPresetName(source) {
+    const stem = String(source || '').replace(/\.[^.]+$/, '').normalize('NFKD').replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-zA-Z0-9 _-]/g, '').trim().replace(/\s+/g, '_').slice(0, 19);
+    return stem || 'Timbre_IA_MK300';
   }
   $('chatInput').addEventListener('keydown', event => {
     if (event.key === 'Enter' && !event.shiftKey && !event.isComposing) {
@@ -1875,11 +1906,11 @@ window.AUTO_PRESET_API = API_BASE_URL;
       if (typeof data?.response !== 'string' || !data.response.trim()) throw new Error('O assistente retornou uma resposta inválida. Tente novamente.');
       const reply = data.response.trim();
       const replyBubble = addChatMessage('assistant', reply);
-      addApplyPresetAction(replyBubble, reply);
+      addApplyPresetAction(replyBubble, reply, file?.name || '');
       chatHistory.push({role: 'user', content: outgoingMessage}, {role: 'assistant', content: reply.slice(0, 8000)});
       if (chatHistory.length > 10) chatHistory.splice(0, chatHistory.length - 10);
       if (file) { $('chatAudio').value = ''; $('chatAudioName').textContent = 'Nenhum áudio selecionado'; }
-      status.textContent = '';
+      status.textContent = file ? '✓ Análise do áudio concluída. Veja a resposta: aplique a cadeia para liberar e nomear o download .dzh.' : '';
     } catch (error) {
       const detail = error.name === 'AbortError' ? 'O assistente demorou a responder. Tente novamente.'
         : error instanceof TypeError ? 'Não foi possível conectar ao assistente. Confira a conexão e tente novamente.'
@@ -1948,14 +1979,16 @@ window.AUTO_PRESET_API = API_BASE_URL;
       fileResult = {data, bytes}; renderReview(data);
       showPedalboard(bytes, data.source?.title || 'Arquivo · sugestão pronta');
       $('serverFileApply').disabled = $('serverFileDownload').disabled = false;
-      status.textContent = 'Análise concluída. Revise os blocos e ouça/ajuste o preset antes de usar.'; status.className = 'status good';
+      const suggestedName = defaultPresetName(file.name);
+      $('serverFilePresetName').value = suggestedName;
+      status.textContent = '✓ Análise concluída. O preset .dzh de 448 bytes já está disponível para download. Você pode alterar o nome abaixo.'; status.className = 'status good';
     } catch (error) { status.textContent = error.message || 'Falha ao analisar o áudio.'; status.className = 'status warn'; }
     finally { button.disabled = false; }
   });
   $('serverFileDownload').addEventListener('click', () => {
     if (!fileResult) return;
     const url = URL.createObjectURL(new Blob([fileResult.bytes], {type: 'application/octet-stream'}));
-    const link = document.createElement('a'); link.href = url; link.download = 'AutoPreset_Arquivo.dzh'; link.click();
+    const link = document.createElement('a'); link.href = url; link.download = defaultPresetName($('serverFilePresetName').value) + '.dzh'; link.click();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   });
   $('serverFileApply').addEventListener('click', () => {
