@@ -63,24 +63,44 @@
       event.preventDefault(); $('chatForm').requestSubmit();
     }
   });
+  $('chatAudio').addEventListener('change', () => {
+    const file = $('chatAudio').files?.[0];
+    $('chatAudioName').textContent = file ? `${file.name} · ${(file.size / 1048576).toFixed(1)} MiB` : 'Nenhum áudio selecionado';
+    if (file && file.size > 15 * 1024 * 1024) $('chatStatus').textContent = 'O áudio excede o limite de 15 MiB.';
+    else $('chatStatus').textContent = '';
+  });
   $('chatForm').addEventListener('submit', async event => {
     event.preventDefault();
-    const input = $('chatInput'), message = input.value.trim();
-    if (chatPending || !message) return;
+    const input = $('chatInput'), message = input.value.trim(), file = $('chatAudio').files?.[0] || null;
+    if (chatPending || (!message && !file)) return;
     const status = $('chatStatus');
     if (message.length > 4000) { status.textContent = 'Use até 4000 caracteres por mensagem.'; return; }
+    if (file && file.size > 15 * 1024 * 1024) { status.textContent = 'O áudio excede o limite de 15 MiB.'; return; }
+    if (file && !/\.(mp3|wav|m4a)$/i.test(file.name)) { status.textContent = 'Anexe um áudio MP3, WAV ou M4A.'; return; }
     if (navigator.onLine === false) { status.textContent = 'Conecte-se à internet para conversar com o assistente.'; return; }
+    const outgoingMessage = message || 'Analise este áudio e sugira um timbre inicial para a MK-300.';
     chatPending = true; $('chatSend').disabled = true;
-    addChatMessage('user', message); input.value = '';
-    status.textContent = 'A pensar...'; $('chatMessages').setAttribute('aria-busy', 'true');
+    addChatMessage('user', file ? `${outgoingMessage}\nÁudio: ${file.name}` : outgoingMessage); input.value = '';
+    status.textContent = file ? 'A analisar o áudio e a pensar...' : 'A pensar...'; $('chatMessages').setAttribute('aria-busy', 'true');
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 60000);
     try {
       const api = String(window.API_BASE_URL || window.AUTO_PRESET_API || '').replace(/\/$/, '');
       if (!api) throw new Error('A URL do serviço não está configurada.');
-      const response = await fetch(api + '/api/v1/chat', {
-        method: 'POST', headers: {'Content-Type': 'application/json'}, credentials: 'omit',
-        body: JSON.stringify({message, history: chatHistory}), signal: controller.signal,
+      let endpoint = api + '/api/v1/chat', body, headers;
+      if (file) {
+        endpoint += '/audio';
+        body = new FormData();
+        body.append('file', file);
+        body.append('message', message);
+        body.append('history_json', JSON.stringify(chatHistory));
+        body.append('start_seconds', '0'); body.append('end_seconds', '45');
+      } else {
+        headers = {'Content-Type': 'application/json'};
+        body = JSON.stringify({message: outgoingMessage, history: chatHistory});
+      }
+      const response = await fetch(endpoint, {
+        method: 'POST', headers, credentials: 'omit', body, signal: controller.signal,
       });
       const data = await response.json().catch(() => null);
       if (!response.ok) throw new Error(typeof data?.detail === 'string' ? data.detail : `O assistente respondeu HTTP ${response.status}. Tente novamente.`);
@@ -88,8 +108,9 @@
       const reply = data.response.trim();
       const replyBubble = addChatMessage('assistant', reply);
       addApplyPresetAction(replyBubble, reply);
-      chatHistory.push({role: 'user', content: message}, {role: 'assistant', content: reply.slice(0, 8000)});
+      chatHistory.push({role: 'user', content: outgoingMessage}, {role: 'assistant', content: reply.slice(0, 8000)});
       if (chatHistory.length > 10) chatHistory.splice(0, chatHistory.length - 10);
+      if (file) { $('chatAudio').value = ''; $('chatAudioName').textContent = 'Nenhum áudio selecionado'; }
       status.textContent = '';
     } catch (error) {
       const detail = error.name === 'AbortError' ? 'O assistente demorou a responder. Tente novamente.'

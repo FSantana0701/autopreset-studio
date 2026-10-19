@@ -11,6 +11,9 @@
 .chatPresetStatus { color:var(--muted); font-size:12px; line-height:1.45; white-space:pre-wrap; }
 .chatForm { display:flex; align-items:flex-end; gap:10px; margin-top:14px; }
 .chatInputField { flex:1; min-width:0; }
+.chatAttachmentField { display:flex; flex:0 1 230px; flex-direction:column; gap:6px; min-width:0; }
+.chatAttachmentField input { display:block; width:100%; max-width:100%; font-size:12px; }
+.chatAttachmentField .hint { min-height:18px; margin:0; overflow-wrap:anywhere; }
 .chatForm textarea { display:block; width:100%; min-height:72px; max-height:200px; resize:vertical; }
 .chatForm button { flex:0 0 auto; min-height:48px; }
 .chatStatus { min-height:24px; }

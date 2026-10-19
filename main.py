@@ -1,5 +1,6 @@
 """Railway API: bounded YouTube clip → HPSS → DSP → heuristic MK-300 preset."""
 import base64
+import json
 import math
 import os
 from pathlib import Path
@@ -15,6 +16,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, FileResponse, Response
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 from starlette.background import BackgroundTask
+from starlette.concurrency import run_in_threadpool
 from typing import Literal
 from services.errors import ServiceError
 from services.youtube import canonical_url, validate_interval, extract_clip
@@ -127,6 +129,74 @@ async def chat(body: ChatRequest):
     # Keep the audio-only process within its existing memory budget.
     from services.ai_chat import generate_reply
     reply = await generate_reply(body.message, [item.model_dump() for item in body.history])
+    return {'response': reply}
+
+
+def analyze_audio_for_chat(payload: bytes, suffix: str, start: float, end: float) -> dict:
+    """Reuse bounded server DSP and pass measurements, not raw audio, to the chat model."""
+    from services.audio_files import decode_upload
+    with tempfile.TemporaryDirectory(prefix='autopreset-chat-audio-') as directory:
+        work = Path(directory)
+        source_path, clip_path = work / ('audio' + suffix), work / 'clip.wav'
+        source_path.write_bytes(payload)
+        source = decode_upload(source_path, clip_path, start, end)
+        result = build_analysis(clip_path, work)
+        features, preset = result['features'], result['preset']
+        return {
+            'duration_seconds': source['duration_seconds'],
+            'sample_rate': features.get('sample_rate'),
+            'classification': preset.get('classification'),
+            'measurements': {key: features.get(key) for key in (
+                'spectral_centroid_hz', 'spectral_rolloff_85_hz', 'spectral_flatness',
+                'zero_crossing_rate', 'rms_db', 'crest_factor_db', 'delay_detected',
+                'delay_time_ms', 'eq_virtual_bands_hz', 'eq_virtual_gain_db',
+                'eq_device_bands_hz', 'eq_device_values', 'band_energy_ratios')
+                if key in features},
+            'automatic_draft': preset,
+            'separation': result['separation'],
+        }
+
+
+@app.post('/api/v1/chat/audio', response_model=ChatResponse)
+async def chat_audio(
+    file: UploadFile = File(...),
+    message: str = Form(''),
+    history_json: str = Form('[]', max_length=40000),
+    start_seconds: str = Form('0'),
+    end_seconds: str = Form('45'),
+):
+    from services.ai_chat import generate_reply, require_api_key
+    from services.audio_files import ALLOWED_EXTENSIONS, MAX_UPLOAD_BYTES
+
+    require_api_key()  # Fail before decoding expensive audio if the service is unconfigured.
+    suffix = Path(file.filename or '').suffix.lower()
+    if suffix not in ALLOWED_EXTENSIONS:
+        await file.close()
+        raise ServiceError('Anexe um áudio MP3, WAV ou M4A.', status=400, code='chat_audio_type')
+    payload = await file.read(MAX_UPLOAD_BYTES + 1)
+    await file.close()
+    if len(payload) > MAX_UPLOAD_BYTES:
+        raise ServiceError('O áudio excede o limite de 15 MiB.', status=413, code='chat_audio_too_large')
+    try:
+        history = json.loads(history_json)
+        request = ChatRequest(
+            message=message.strip() or 'Analise este áudio e sugira um timbre inicial para a MK-300.',
+            history=history,
+        )
+        start, end = parse_seconds(start_seconds), parse_seconds(end_seconds)
+        validate_interval(start, end)
+    except (json.JSONDecodeError, TypeError, ValueError) as exc:
+        raise ServiceError('Mensagem, histórico ou intervalo de áudio inválido.', status=422,
+                           code='chat_audio_invalid_input') from exc
+
+    acquire()
+    try:
+        audio_context = await run_in_threadpool(analyze_audio_for_chat, payload, suffix, start, end)
+    finally:
+        processing.release()
+    reply = await generate_reply(request.message,
+                                 [item.model_dump() for item in request.history],
+                                 audio_context=audio_context)
     return {'response': reply}
 
 

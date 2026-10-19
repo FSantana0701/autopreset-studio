@@ -55,7 +55,7 @@ class PWABrowserTests(unittest.TestCase):
 
     def test_scope_offline_shell_and_icons(self):
         self.assertEqual(self.page.evaluate('(async()=> (await navigator.serviceWorker.ready).scope)()'), self.url)
-        self.assertIn('shell-v22', self.page.evaluate('caches.keys()'))
+        self.assertIn('shell-v23', self.page.evaluate('caches.keys()'))
         self.context.set_offline(True)
         self.page.reload()
         self.assertIn('M-VAVE MK-300 V75', self.page.locator('.brand').inner_text())
@@ -170,6 +170,31 @@ class PWABrowserTests(unittest.TestCase):
         self.page.wait_for_function("!document.querySelector('#chatSend').disabled")
         self.assertEqual(self.page.evaluate('Array.from(compilePreset())'), before)
         self.assertEqual(self.page.evaluate("Object.keys(localStorage).filter(key=>/chat/i.test(key))"), [])
+
+    def test_chat_audio_upload_uses_server_analysis_endpoint(self):
+        import io, wave, math, struct
+        data = io.BytesIO()
+        with wave.open(data, 'wb') as wav:
+            wav.setnchannels(1); wav.setsampwidth(2); wav.setframerate(16000)
+            wav.writeframes(b''.join(struct.pack('<h', round(9000 * math.sin(2 * math.pi * 330 * i / 16000))) for i in range(16000)))
+        uploads = []
+        def upstream(route):
+            uploads.append(route.request.post_data or '')
+            route.fulfill(status=200, content_type='application/json', body=json.dumps({'response':'Áudio recebido; sugestão inicial pronta.'}))
+        self.page.route('**/api/v1/chat/audio', upstream)
+        self.open_chat()
+        self.page.locator('#chatAudio').set_input_files({'name':'ensaio.wav','mimeType':'audio/wav','buffer':data.getvalue()})
+        self.page.locator('#chatInput').fill('Quero reduzir o brilho excessivo')
+        self.page.locator('#chatSend').click()
+        self.page.wait_for_function("!document.querySelector('#chatSend').disabled")
+        self.assertEqual(len(uploads), 1)
+        self.assertIn('name="file"', uploads[0])
+        self.assertIn('ensaio.wav', uploads[0])
+        self.assertIn('name="history_json"', uploads[0])
+        self.assertIn('Quero reduzir o brilho excessivo', uploads[0])
+        self.assertIn('Áudio: ensaio.wav', self.page.locator('.chatMessageUser').last.inner_text())
+        self.assertEqual(self.page.locator('#chatAudio').input_value(), '')
+        self.assertIn('servidor analisa', self.page.locator('#chatHelp').inner_text())
 
     def test_chat_server_error_retry_and_failed_turn_not_in_history(self):
         bodies = []

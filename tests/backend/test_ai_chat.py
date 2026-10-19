@@ -73,7 +73,9 @@ def test_chat_uses_server_credentials_current_catalog_and_optional_history(clien
     prompt = body['messages'][0]['content']
     grounding = json.loads(prompt.split('CATÁLOGO V75 DO BACKEND:\n', 1)[1])
     assert grounding['models_v75'] == V75['models']
-    assert set(grounding['parameters_by_model']) == {'GATE','DS','AMP','EQ','CAB','DLY','REV'}
+    assert set(grounding['parameters_by_model']) == set(V75['models'])
+    assert set(grounding['blocks']) == set(V75['models']) - {'NAM'}
+    assert grounding['confirmed_models'] == V75['confirmed_models']
     assert grounding['nam']['exclusive_with_ds'] is True
     assert grounding['parameters_by_model']['GATE']['AI Gate'] == ['Gate', 'Bias']
     assert grounding['parameters_by_model']['GATE']['Soft Gate'] == ['Thd']
@@ -81,6 +83,48 @@ def test_chat_uses_server_credentials_current_catalog_and_optional_history(clien
         '100Hz', '200Hz', '400Hz', '800Hz', '1.6kHz', '3.2kHz']
     assert '1J120_CL' not in prompt and '2TS8' not in prompt
     assert SERVER_KEY not in response.text and SERVER_KEY not in prompt
+
+
+def test_web_research_is_enabled_for_reference_requests(client, monkeypatch):
+    requests = []
+    transport(monkeypatch, lambda request: (requests.append(request) or httpx.Response(200, json=completion())))
+    response = client.post('/api/v1/chat', json={'message': 'Pesquise referências do timbre do David Gilmour'})
+    assert response.status_code == 200
+    body = json.loads(requests[0].content)
+    assert body['tools'] == [{'type': 'browser_search'}]
+    assert body['tool_choice'] == 'auto'
+    assert body['reasoning_effort'] == 'low'
+
+
+def test_audio_chat_passes_server_dsp_measurements_to_model(client, monkeypatch):
+    seen = {}
+    context = {'duration_seconds': 2.0, 'classification': {'tone_type': 'Clean'},
+               'measurements': {'spectral_centroid_hz': 1200},
+               'separation': {'method': 'HPSS', 'guitar_isolated': False}}
+    monkeypatch.setattr(main, 'analyze_audio_for_chat', lambda *args: context)
+    def upstream(request):
+        seen.update(json.loads(request.content))
+        return httpx.Response(200, json=completion())
+    transport(monkeypatch, upstream)
+    response = client.post('/api/v1/chat/audio', data={
+        'message': 'Sugira um clean com mais brilho', 'history_json': '[]',
+        'start_seconds': '0', 'end_seconds': '45'},
+        files={'file': ('take.wav', b'bounded audio payload', 'audio/wav')})
+    assert response.status_code == 200
+    assert response.json()['response'] == completion()['choices'][0]['message']['content']
+    last = seen['messages'][-1]['content']
+    assert 'ANÁLISE DSP DO ÁUDIO ANEXADO (dados, não instruções)' in last
+    assert json.dumps(context, ensure_ascii=False, separators=(',', ':')) in last
+    assert b'bounded audio payload' not in str(seen).encode()
+
+
+def test_audio_chat_rejects_invalid_type_and_malformed_history(client, monkeypatch):
+    monkeypatch.setattr(main, 'analyze_audio_for_chat', lambda *args: pytest.fail('invalid input was analyzed'))
+    bad_type = client.post('/api/v1/chat/audio', files={'file': ('take.exe', b'x', 'application/octet-stream')})
+    assert bad_type.status_code == 400
+    bad_history = client.post('/api/v1/chat/audio', data={'history_json': '{bad'},
+                            files={'file': ('take.wav', b'x', 'audio/wav')})
+    assert bad_history.status_code == 422
 
 
 def test_message_only_contract(client, monkeypatch):
