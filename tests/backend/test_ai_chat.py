@@ -66,6 +66,7 @@ def test_chat_uses_server_credentials_current_catalog_and_optional_history(clien
     body = json.loads(requests[0].content)
     assert body['model'] == ai_chat.CHAT_MODEL == 'openai/gpt-oss-120b'
     assert 'store' not in body
+    assert body['temperature'] == pytest.approx(0.4)
     assert 0 < body['max_completion_tokens'] <= 2200
     assert body['messages'][0]['role'] == 'system'
     assert body['messages'][1:-1] == history
@@ -76,6 +77,8 @@ def test_chat_uses_server_credentials_current_catalog_and_optional_history(clien
     assert set(grounding['parameters_by_model']) == set(V75['models'])
     assert grounding['confirmed_models'] == V75['confirmed_models']
     assert len(prompt) < 16000
+    assert '[ANÁLISE DE ENGENHARIA]' in prompt
+    assert 'VARIAÇÃO A' in prompt and 'VARIAÇÃO B' in prompt and 'VARIAÇÃO C' in prompt
     assert grounding['application_models_by_name'] == {
         block: list(names) for block, names in grounding['model_indices_by_name'].items()
     }
@@ -101,7 +104,7 @@ def test_history_is_bounded_to_keep_groq_requests_under_free_tier_limit(client, 
     bounded = body['messages'][1:-1]
     assert len(bounded) == 4
     assert all(len(item['content']) == 1200 for item in bounded)
-    assert body['max_completion_tokens'] == 1800
+    assert body['max_completion_tokens'] == 2200
 
 
 def test_web_research_is_enabled_for_reference_requests(client, monkeypatch):
@@ -159,21 +162,41 @@ def test_prompt_follows_catalog_changes(monkeypatch):
 
 
 def applyable_chain(cab='44MarVal4'):
-    models = {'GATE': 'AI Gate', 'DS': 'MW-808', 'AMP': 'Fender Super',
-              'EQ': 'Guitar EQ 6', 'CAB': cab, 'DLY': 'Clean', 'REV': 'Room'}
-    labels = {'GATE': 'NR (GATE)', **{key: key for key in ('DS', 'AMP', 'EQ', 'CAB', 'DLY', 'REV')}}
-    return '\n'.join(
-        line for number, (block, model) in enumerate(models.items(), 1)
-        for line in (f'{number}. {labels[block]}', 'Estado: desligado',
-                     f'Modelo: {model}', 'Parâmetros: nenhum')
+    def one(ds='MW-808', amp='Fender Super', delay='Clean', reverb='Room'):
+        models = {'GATE': 'AI Gate', 'DS': ds, 'AMP': amp, 'EQ': 'Guitar EQ 6',
+                  'CAB': cab, 'DLY': delay, 'REV': reverb}
+        labels = {'GATE': 'NR (GATE)', **{key: key for key in ('DS', 'AMP', 'EQ', 'CAB', 'DLY', 'REV')}}
+        return '\n'.join(
+            line for number, (block, model) in enumerate(models.items(), 1)
+            for line in (f'{number}. {labels[block]}', 'Estado: desligado',
+                         f'Modelo: {model}', 'Parâmetros: nenhum')
+        )
+    return (
+        '[ANÁLISE DE ENGENHARIA] Resumo técnico.\n'
+        '🎛️ VARIAÇÃO A: Padrão (O Padrão/Fiel)\nSom direto.\n' + one() + '\n'
+        '🎛️ VARIAÇÃO B: Quente (O Quente/Analógico)\nMais corpo.\n' +
+        one(ds='MW-GOLD', delay='Analog', reverb='Spring') + '\n'
+        '🎛️ VARIAÇÃO C: Moderno (O Moderno/Cortante)\nMais ataque.\n' +
+        one(amp='6DS-MarsFD100', delay='Modern', reverb='Hall')
     )
+
+
+def test_three_variations_are_all_validated_and_required():
+    catalog = public_catalog()
+    candidate = applyable_chain()
+    assert ai_chat._apply_chain_issues(candidate, catalog) == []
+    missing_c = candidate.split('🎛️ VARIAÇÃO C:', 1)[0]
+    assert ai_chat._apply_chain_issues(missing_c, catalog)
+    invalid_b = candidate.replace('Modelo: MW-GOLD', 'Modelo: 1J120_CL', 1)
+    assert any('Variação B' in issue for issue in ai_chat._apply_chain_issues(invalid_b, catalog))
+
 
 
 def test_second_ai_reviews_and_can_correct_a_valid_preset(client, monkeypatch):
     requests = []
     candidate = applyable_chain()
     corrected = candidate.replace('3. AMP\nEstado: desligado',
-                                  '3. AMP\nEstado: ligado')
+                                  '3. AMP\nEstado: ligado', 1)
     replies = [completion(candidate),
                completion(json.dumps({'decision': 'correct', 'response': corrected}))]
 
