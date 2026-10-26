@@ -110,7 +110,9 @@ independente, nesta ordem:
 5. CAB
 6. DLY
 7. REV
-Sob cada módulo, use linhas: Estado: ligado/desligado; Modelo: nome exato;
+Sob cada módulo, escreva cada campo em sua própria linha:
+Estado: ligado ou desligado
+Modelo: nome exato
 Parâmetros: nome=valor; nome=valor. Use inteiros; módulo desligado usa
 Parâmetros: nenhum. A é clássica/direta, B mais encorpada com delay/reverb de
 caráter analógico, C mais presente e rápida. Adapte à solicitação; são pontos
