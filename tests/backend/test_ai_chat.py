@@ -75,13 +75,11 @@ def test_chat_uses_server_credentials_current_catalog_and_optional_history(clien
     grounding = json.loads(prompt.split('CATÁLOGO V75 DO BACKEND:\n', 1)[1])
     assert grounding['models_v75'] == V75['models']
     assert set(grounding['parameters_by_model']) == set(V75['models'])
-    assert grounding['confirmed_models'] == V75['confirmed_models']
     assert len(prompt) < 16000
     assert '[ANÁLISE DE ENGENHARIA]' in prompt
     assert 'VARIAÇÃO A' in prompt and 'VARIAÇÃO B' in prompt and 'VARIAÇÃO C' in prompt
-    assert grounding['application_models_by_name'] == {
-        block: list(names) for block, names in grounding['model_indices_by_name'].items()
-    }
+    assert 'confirmed_models' not in grounding and 'model_indices_by_name' not in grounding
+    assert grounding['application_models_by_name']['CAB'] == ['44MarVal4']
     assert grounding['nam']['exclusive_with_ds'] is True
     assert grounding['parameters_by_model']['GATE']['AI Gate'] == ['Gate', 'Bias']
     assert grounding['parameters_by_model']['GATE']['Soft Gate'] == ['Thd']
@@ -102,8 +100,8 @@ def test_history_is_bounded_to_keep_groq_requests_under_free_tier_limit(client, 
     assert response.status_code == 200
     body = json.loads(requests[0].content)
     bounded = body['messages'][1:-1]
-    assert len(bounded) == 4
-    assert all(len(item['content']) == 1200 for item in bounded)
+    assert len(bounded) == 2
+    assert all(len(item['content']) == 800 for item in bounded)
     assert body['max_completion_tokens'] == 2200
 
 
@@ -193,6 +191,7 @@ def test_three_variations_are_all_validated_and_required():
 
 
 def test_second_ai_reviews_and_can_correct_a_valid_preset(client, monkeypatch):
+    monkeypatch.setenv('GROQ_REVIEW_PRESETS', 'true')
     requests = []
     candidate = applyable_chain()
     corrected = candidate.replace('3. AMP\nEstado: desligado',
@@ -216,6 +215,7 @@ def test_second_ai_reviews_and_can_correct_a_valid_preset(client, monkeypatch):
 
 
 def test_second_ai_failure_keeps_the_validated_primary_reply(client, monkeypatch):
+    monkeypatch.setenv('GROQ_REVIEW_PRESETS', 'true')
     requests = []
     candidate = applyable_chain()
 
@@ -234,6 +234,7 @@ def test_second_ai_failure_keeps_the_validated_primary_reply(client, monkeypatch
 
 
 def test_unconfirmed_model_is_repaired_before_reply(client, monkeypatch):
+    monkeypatch.setenv('GROQ_REVIEW_PRESETS', 'true')
     requests = []
     replies = [applyable_chain('1EAGLProV30s'), applyable_chain(),
                json.dumps({'decision': 'approve', 'response': ''})]
@@ -291,12 +292,15 @@ def test_upstream_failures_do_not_leak_provider_details(client, monkeypatch, ups
     requests = []
     def upstream(request):
         requests.append(request)
-        return httpx.Response(upstream_status, json={'error': {
+        headers = {'retry-after': '17'} if upstream_status == 429 else None
+        return httpx.Response(upstream_status, headers=headers, json={'error': {
             'message': 'private provider detail ' + SERVER_KEY, 'type': 'api_error'}})
     transport(monkeypatch, upstream)
     response = client.post('/api/v1/chat', json={'message': 'Quero um lead'})
     assert response.status_code == expected_status
     assert response.json()['code'] == code
+    if code == 'chat_rate_limited':
+        assert '17 segundos' in response.json()['detail']
     assert 'private provider detail' not in response.text and SERVER_KEY not in response.text
     assert len(requests) == 1, 'Interactive requests must not be retried behind the timeout'
 
