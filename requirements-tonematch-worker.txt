@@ -1,0 +1,10 @@
+# Python 3.11, installed separately from the lightweight Railway API.
+# ToneMatch itself is installed --no-deps by setup_tonematch.py, so its
+# CUDA/BOSS/Anthropic requirements are not imposed on this DSP-only adapter.
+numpy>=1.26,<2.3
+scipy>=1.11,<2
+librosa>=0.10.2,<0.12
+soundfile>=0.12,<1
+pyloudnorm>=0.1.1,<1
+scikit-learn>=1.4,<2
+demucs @ git+https://github.com/adefossez/demucs.git@829d21890023800713e5dd231c67e43ecc06069b

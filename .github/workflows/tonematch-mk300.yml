@@ -1,0 +1,90 @@
+name: ToneMatch MK300 adapter
+
+on:
+  pull_request:
+    paths:
+      - 'services/tonematch_*.py'
+      - 'services/spotify_preview.py'
+      - 'tools/*tonematch*'
+      - 'tests/backend/test_tonematch_*.py'
+      - 'tests/backend/test_spotify_preview.py'
+      - 'requirements-tonematch-worker.txt'
+      - '.github/workflows/tonematch-mk300.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  adapter:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - run: python -m pip install -r requirements.txt pytest httpx
+      - name: Mapper, media limits, API and binary regression tests
+        run: python -m pytest tests/backend/test_tonematch_mk300.py tests/backend/test_v75_catalog.py tests/backend/test_spotify_preview.py -q
+  dsp-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      OMP_NUM_THREADS: '1'
+      OPENBLAS_NUM_THREADS: '1'
+      NUMBA_NUM_THREADS: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+      - name: Install DSP-only dependencies and pinned upstream analyzer
+        run: |
+          python -m pip install -r requirements.txt 'numpy<2.3' scikit-learn pyloudnorm
+          python -m pip install --no-deps git+https://github.com/borabiricik/tonematch.git@cf258995d83682154a81ee8df5dafde3bdd975fe
+          echo "TONEMATCH_PYTHON=$(command -v python)" >> "$GITHUB_ENV"
+      - name: Analyze synthetic audio and export actual 448-byte drafts
+        run: python tools/tonematch_smoke.py --output /tmp/mk300-smoke
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tonematch-mk300-synthetic-verification
+          path: |
+            /tmp/mk300-smoke/*.dzh
+            /tmp/mk300-smoke/report.json
+
+  runtime-probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      OMP_NUM_THREADS: '1'
+      OPENBLAS_NUM_THREADS: '1'
+      NUMBA_NUM_THREADS: '1'
+      MKL_NUM_THREADS: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+      - name: Install system audio decoder
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+      - name: Install backend and runtime provisioner
+        run: python -m pip install -r requirements.txt uv
+      - name: Provision the actual CPU separator runtime
+        run: |
+          python tools/setup_tonematch.py
+          echo "TONEMATCH_PYTHON=$GITHUB_WORKSPACE/.tonematch-runtime/bin/python" >> "$GITHUB_ENV"
+      - name: Execute Demucs and record live YouTube availability
+        run: python tools/tonematch_runtime_probe.py /tmp/mk300-runtime-probe
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tonematch-mk300-runtime-probe
+          path: |
+            /tmp/mk300-runtime-probe/probe.json
+            /tmp/mk300-runtime-probe/worker.json
+            /tmp/mk300-runtime-probe/youtube/*.dzh
+            /tmp/mk300-runtime-probe/youtube/report.json

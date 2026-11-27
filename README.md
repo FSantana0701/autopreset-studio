@@ -199,3 +199,20 @@ O backend deve autorizar a origem `https://fsantana0701.github.io`, o método `P
 ### Análise local e aprendizado
 
 A análise local é um DSP heurístico no próprio navegador: mede a mixagem completa e não envia o áudio para Claude, OpenAI ou Gemini. As correções avaliadas pelo usuário ficam no IndexedDB local (não guardam o áudio); análises futuras podem oferecer o exemplo de correção com métricas mais parecidas. Isso é recuperação de exemplos personalizados, não treinamento de um modelo neural. A aplicação só deve descrever o resultado como uma hipótese de timbre de baixa confiança; não afirma que isolou ou reconheceu a guitarra.
+
+
+## ToneMatch para MK-300 (runtime opcional)
+
+O adaptador usa a análise DSP do projeto [ToneMatch](https://github.com/borabiricik/tonematch)
+e um tradutor próprio para os modelos, controles e exportador binário da MK-300.
+O caminho de áudio trabalha com trechos de 8–45 segundos a 44,1 kHz estéreo; a
+separação opcional usa Demucs com saída dedicada de guitarra. Cada grupo com
+evidência suficiente produz um rascunho .dzh de 448 bytes.
+
+Configure o runtime separado e consulte os comandos e endpoints em
+[docs/TONEMATCH_MK300.md](docs/TONEMATCH_MK300.md).
+O catálogo binário continua limitado aos índices V75 confirmados nas exportações
+do proprietário; não há declaração de validação física em V076. Download
+YouTube recusado retorna erro e não produz análise nem preset. O frontend e
+o endpoint HPSS existentes mantêm seu comportamento; esta integração é
+opcional pela CLI ou pelas novas rotas /api/v1/tonematch.
