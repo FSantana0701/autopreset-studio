@@ -21,9 +21,9 @@ def main():
     subprocess.run([uv, "venv", "--python", "3.11", str(runtime)], check=True)
     python = runtime / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
     subprocess.run([uv, "pip", "install", "--python", str(python), "--index-url",
-                    "https://download.pytorch.org/whl/cpu", "torch==2.5.1+cpu"], check=True)
+                    "https://download.pytorch.org/whl/cpu", "torch==2.5.1+cpu", "torchaudio==2.5.1+cpu"], check=True)
     constraint = runtime / "cpu-constraint.txt"
-    constraint.write_text("torch==2.5.1+cpu\n", encoding="utf-8")
+    constraint.write_text("torch==2.5.1+cpu\ntorchaudio==2.5.1+cpu\n", encoding="utf-8")
     subprocess.run([uv, "pip", "install", "--python", str(python), "--constraint", str(constraint),
                     "-r", str(ROOT / "requirements-tonematch-worker.txt")], check=True)
     subprocess.run([uv, "pip", "install", "--python", str(python), "--no-deps",
