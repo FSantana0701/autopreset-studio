@@ -1,4 +1,4 @@
-"""CLI: reference audio or YouTube -> ToneMatch -> MK-300 .dzh drafts."""
+"""CLI: audio, YouTube or a public Spotify preview -> MK-300 .dzh drafts."""
 from __future__ import annotations
 import argparse
 import base64
@@ -6,12 +6,14 @@ import json
 from pathlib import Path
 import sys
 import tempfile
+from urllib.parse import urlsplit
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 from services.tonematch_mk300 import translate_analysis
 from services.tonematch_runtime import analyze_reference, decode_reference, extract_youtube_reference, runtime_python
 from services.errors import ServiceError
+from services.spotify_preview import fetch_spotify_preview
 
 def write_bundle(result, destination):
     destination.mkdir(parents=True, exist_ok=True)
@@ -28,16 +30,17 @@ def write_bundle(result, destination):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("source", help="Arquivo MP3/WAV/M4A ou link público YouTube")
+    parser.add_argument("source", help="Arquivo MP3/WAV/M4A, vídeo YouTube ou faixa Spotify com prévia")
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--start", type=float, default=0)
-    parser.add_argument("--end", type=float, default=30)
+    parser.add_argument("--end", type=float, default=None)
     parser.add_argument("--from-analysis", action="store_true", help="Traduz um JSON ToneMatch já calculado")
     parser.add_argument("--isolated", action="store_true", help="Declara arquivo de guitarra isolada; não executa separação")
     parser.add_argument("--boost", action="store_true")
     parser.add_argument("--compress-clean", action="store_true")
     parser.add_argument("--modulation", choices=("none", "Chorus", "Phaser"), default="none")
     args = parser.parse_args()
+    end = 30 if args.end is None else args.end
     settings = {"boost": args.boost, "compress_clean": args.compress_clean, "modulation": args.modulation}
     if args.from_analysis:
         path = Path(args.source)
@@ -52,7 +55,16 @@ def main():
             if args.source.startswith(("https://", "http://")):
                 if args.isolated:
                     raise ValueError("--isolated só pode ser declarado para arquivo local.")
-                audio, provenance = extract_youtube_reference(args.source, args.start, args.end, work)
+                if urlsplit(args.source).hostname == "open.spotify.com":
+                    preview, provenance = fetch_spotify_preview(args.source, work)
+                    end = min(30, provenance["preview_duration_seconds"]) if args.end is None else end
+                    if end > provenance["preview_duration_seconds"] + .02:
+                        raise ValueError("O trecho ultrapassa a prévia; não são tempos da faixa completa.")
+                    audio = work / "spotify-reference.wav"
+                    clip = decode_reference(preview, audio, args.start, end)
+                    provenance.update({k: v for k, v in clip.items() if k != "title"})
+                else:
+                    audio, provenance = extract_youtube_reference(args.source, args.start, end, work)
                 result = analyze_reference(audio, work, **settings)
             else:
                 source = Path(args.source).resolve(strict=True)
@@ -61,7 +73,7 @@ def main():
                 if source.stat().st_size > 15 * 1024 * 1024:
                     raise ValueError("Áudio excede 15 MiB.")
                 audio = work / "reference.wav"
-                provenance = decode_reference(source, audio, args.start, args.end)
+                provenance = decode_reference(source, audio, args.start, end)
                 result = analyze_reference(audio, work, isolated=args.isolated, **settings)
             result["source"] = provenance
     write_bundle(result, args.output)

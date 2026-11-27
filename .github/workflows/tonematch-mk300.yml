@@ -4,8 +4,10 @@ on:
   pull_request:
     paths:
       - 'services/tonematch_*.py'
+      - 'services/spotify_preview.py'
       - 'tools/*tonematch*'
       - 'tests/backend/test_tonematch_*.py'
+      - 'tests/backend/test_spotify_preview.py'
       - 'requirements-tonematch-worker.txt'
       - '.github/workflows/tonematch-mk300.yml'
 
@@ -24,7 +26,7 @@ jobs:
           cache: pip
       - run: python -m pip install -r requirements.txt pytest httpx
       - name: Mapper, media limits, API and binary regression tests
-        run: python -m pytest tests/backend/test_tonematch_mk300.py tests/backend/test_v75_catalog.py -q
+        run: python -m pytest tests/backend/test_tonematch_mk300.py tests/backend/test_v75_catalog.py tests/backend/test_spotify_preview.py -q
   dsp-smoke:
     runs-on: ubuntu-latest
     timeout-minutes: 15

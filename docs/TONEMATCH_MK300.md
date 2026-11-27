@@ -8,6 +8,7 @@ como dependência: não está copiado nem relicenciado neste repositório.
 ## O que esta implementação faz
 
 - Aceita arquivo MP3/WAV/M4A ou vídeo público do YouTube.
+- Pela CLI, também aceita faixas Spotify com prévia pública disponível.
 - Recorta 8–45 segundos, em 44,1 kHz estéreo, antes da análise.
 - Executa o worker em Python 3.11 separado do backend leve.
 - Usa Demucs htdemucs_6s em CPU para obter uma estimativa de guitarra.
@@ -85,7 +86,32 @@ Também é possível traduzir um relatório ToneMatch que já exista, sem o work
 
     python tools/tonematch_mk300.py analysis.json --from-analysis --output resultados
 
-## API opcional
+## Referência direta do Spotify pela CLI
+
+    python tools/tonematch_mk300.py "https://open.spotify.com/track/7ftj7rBwPyNa6P5g6sCGKT" --output resultados
+
+O link identifica a faixa e a CLI obtém a prévia pública do próprio Spotify.
+Não usa spotDL nem substitui a gravação por um vídeo. A disponibilidade depende
+da faixa, região e resposta pública atual. Sem prévia, retorna um erro explícito.
+São até aproximadamente 30 segundos definidos pelo Spotify; não é possível
+escolher qualquer solo na música inteira. Início e fim são relativos à prévia,
+cuja posição na faixa completa não é presumida. Não baixa faixas criptografadas,
+não lê credenciais, não altera reprodução e não requer API key. Metadados e
+áudio têm limites de tamanho e não se seguem redirecionamentos de rede.
+
+Esta entrada está disponível pela CLI, sem nova rota de API ou ativação na PWA.
+
+Verificação real em 27/11/2026: o link de Rude Cruz (Analaga/Mateus Asato)
+acima forneceu 29,7127 s de áudio a 44,1 kHz, em estéreo. A execução completa
+obteve a prévia, recortou, separou a estimativa de guitarra com htdemucs_6s,
+analisou o áudio e gerou um .dzh de 448 bytes. O SHA-256 do MP3 recebido foi
+c0f4f541c02abcfcadc5112e042b0fd69402cb3b5b3a78ea821d8f6590f333f9.
+O resultado confirma processamento de áudio real dessa prévia; não valida
+fidelidade sonora do preset, disponibilidade de todas as faixas ou importação
+física na V076. As novas tentativas YouTube (yt-dlp com JS, pytubefix,
+provedor de PO token e versão experimental SABR) não forneceram áudio.
+
+## API opcional (YouTube e arquivos)
 
 - GET /api/v1/tonematch/status
 - POST /api/v1/tonematch/analyze-link
