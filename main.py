@@ -266,3 +266,8 @@ def extract_youtube(body: LinkRequest):
         raise
     finally:
         processing.release()
+
+
+# Optional isolated runtime. Registration does not import PyTorch or download models.
+from services.tonematch_routes import create_router as create_tonematch_router
+app.include_router(create_tonematch_router(acquire, processing.release, parse_seconds))
