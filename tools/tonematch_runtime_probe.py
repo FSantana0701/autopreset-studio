@@ -9,7 +9,8 @@ import soundfile as sf
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-from services.tonematch_runtime import WORKER, extract_youtube_reference
+from services.tonematch_runtime import WORKER, extract_youtube_reference, analyze_reference
+from tools.tonematch_mk300 import write_bundle
 from services.errors import ServiceError
 
 def main():
@@ -31,11 +32,20 @@ def main():
     try:
         audio, _ = extract_youtube_reference("https://www.youtube.com/watch?v=Uz31UqPTr0E",
                                           30, 42, output)
-        probe["youtube"] = {"audio_downloaded": audio.is_file(),
-                            "preset_from_this_video_verified": False}
     except ServiceError as exc:
         probe["youtube"] = {"audio_downloaded": False, "error": type(exc).__name__,
                             "code": getattr(exc, "code", None)}
+    else:
+        probe["youtube"] = {"audio_downloaded": audio.is_file(),
+                            "preset_generation_passed": False,
+                            "tone_fidelity_verified": False}
+        try:
+            result = analyze_reference(audio, output)
+            write_bundle(result, output / "youtube")
+            probe["youtube"]["preset_generation_passed"] = True
+            probe["youtube"]["presets"] = len(result["presets"])
+        except ServiceError as exc:
+            probe["youtube"]["analysis_error"] = getattr(exc, "code", type(exc).__name__)
     (output / "probe.json").write_text(json.dumps(probe, indent=2), encoding="utf-8")
     print(json.dumps(probe, indent=2))
 

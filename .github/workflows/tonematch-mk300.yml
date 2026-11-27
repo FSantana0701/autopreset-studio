@@ -84,3 +84,5 @@ jobs:
           path: |
             /tmp/mk300-runtime-probe/probe.json
             /tmp/mk300-runtime-probe/worker.json
+            /tmp/mk300-runtime-probe/youtube/*.dzh
+            /tmp/mk300-runtime-probe/youtube/report.json
