@@ -28,7 +28,8 @@ ser silenciosamente convertido para outro tempo.
 AMP, DS e CAB são restritos aos índices que as exportações V75 do proprietário
 ancoram. As opções automáticas de AMP são Fender Super, 6DS-MarsFD100 e
 53DS-Pey5150. Isto limita a biblioteca candidata; não é uma busca por todos
-os amplificadores possíveis. Um nome listado em uma planilha não confirma
+os amplificadores possíveis. O CAB automático inicial é 44MarVal4, presente
+na interface atual e nas exportações confirmadas. Um nome listado em uma planilha não confirma
 sozinho o índice físico do arquivo binário.
 
 A compatibilidade com V076 e com os modelos atualmente instalados na unidade

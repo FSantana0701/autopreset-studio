@@ -134,7 +134,7 @@ def suggest_group(group: str, profile: dict, *, boost: bool = False,
             "Gain": 12, "Level": 55, "Bass": 45, "Middle": 55,
             "Treble": 48, "Reso": 0, "Pres": 50, "Bright": 50}, catalog))
     blocks.append(_block(4, "AMP", AMP_BY_CLASS[tone_class], amp_settings, catalog))
-    cab = "1EAGLProV30s" if tone_class == "high_gain" else "44MarVal4"
+    cab = "44MarVal4"  # Available in both the current UI and owner-confirmed exports.
     # These are existing raw controls, not an uncalibrated conversion from Hz.
     blocks.append(_block(5, "CAB", cab, {"Level": 55, "Low Cut": 20, "High Cut": 117}, catalog))
     eq = [clipped(.15 * _sample_spectrum(profile, hz), -2, 2) for hz in EQ_DEVICE_BANDS_HZ]

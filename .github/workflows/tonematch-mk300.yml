@@ -40,7 +40,7 @@ jobs:
           cache: pip
       - name: Install DSP-only dependencies and pinned upstream analyzer
         run: |
-          python -m pip install -r requirements.txt scikit-learn pyloudnorm
+          python -m pip install -r requirements.txt 'numpy<2.3' scikit-learn pyloudnorm
           python -m pip install --no-deps git+https://github.com/borabiricik/tonematch.git@cf258995d83682154a81ee8df5dafde3bdd975fe
           echo "TONEMATCH_PYTHON=$(command -v python)" >> "$GITHUB_ENV"
       - name: Analyze synthetic audio and export actual 448-byte drafts
@@ -51,3 +51,32 @@ jobs:
           path: |
             /tmp/mk300-smoke/*.dzh
             /tmp/mk300-smoke/report.json
+
+  runtime-probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      OMP_NUM_THREADS: '1'
+      OPENBLAS_NUM_THREADS: '1'
+      NUMBA_NUM_THREADS: '1'
+      MKL_NUM_THREADS: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+      - name: Install backend and runtime provisioner
+        run: python -m pip install -r requirements.txt uv
+      - name: Provision the actual CPU separator runtime
+        run: |
+          python tools/setup_tonematch.py
+          echo "TONEMATCH_PYTHON=$GITHUB_WORKSPACE/.tonematch-runtime/bin/python" >> "$GITHUB_ENV"
+      - name: Execute Demucs and record live YouTube availability
+        run: python tools/tonematch_runtime_probe.py /tmp/mk300-runtime-probe
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tonematch-mk300-runtime-probe
+          path: |
+            /tmp/mk300-runtime-probe/probe.json
+            /tmp/mk300-runtime-probe/worker.json

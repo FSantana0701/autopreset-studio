@@ -56,6 +56,7 @@ def test_catalog_checked_native_choices_and_binary_preservation(tone_class, inde
         if block["id"] in {3, 4, 5}:
             assert any(a["block"] == block["id"] and a["index"] == block["model_index"]
                        and a["name"] == block["model_name"] for a in V75["confirmed_models"])
+    assert blocks(record["preset"])[5]["model_name"] in V75["ui_models"]["CAB"]
     assert result["hardware_verified"] is False
 
 
